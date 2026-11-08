@@ -3759,6 +3759,8 @@ public class MainActivity extends Activity {
                 actions.add(() -> startSafe(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + a.pkg))));
             }
         }
+        labels.add("Réglages du launcher");
+        actions.add(() -> startActivity(new Intent(this, SettingsActivity.class)));
         if (!folderMode) {
             labels.add(I18n.s(this, "Reset Layout", "Düzeni Sıfırla"));
             actions.add(() -> {

@@ -1550,6 +1550,8 @@ final class SceneHome {
             focusDock(0);
         });
 
+        labels.add("Réglages du launcher");
+        actions.add(() -> host.startActivity(new Intent(host, SettingsActivity.class)));
         int uninstIdx = labels.indexOf(I18n.s(host, "Uninstall", "Kaldır"));
         host.showMenu(tile, a.label, labels, actions, uninstIdx);
     }
