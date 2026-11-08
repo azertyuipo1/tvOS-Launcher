@@ -41,6 +41,7 @@ final class RentalReset {
     private static final String K_LAST_RESULT = "last_result";
     private static final String K_LAST_CHECK = "last_check_ms";
     private static final String K_TEST_NEXT_WAKE = "test_next_wake";
+    private static final String K_FETCH_STATUS = "fetch_status";
 
     static final String[] PACKAGES = {
             "com.netflix.ninja",                  // Netflix
@@ -144,6 +145,17 @@ final class RentalReset {
         }, "rental-reset").start();
     }
 
+    static String getFetchStatus(Context c) { return prefs(c).getString(K_FETCH_STATUS, "pas encore lu"); }
+
+    /** Relit le calendrier en arrière-plan (sans rien déconnecter), puis onDone sur le fil principal. */
+    static void refreshCalendar(Context ctx, Runnable onDone) {
+        final Context c = ctx.getApplicationContext();
+        new Thread(() -> {
+            latestDueDeparture(c);
+            if (onDone != null) new android.os.Handler(android.os.Looper.getMainLooper()).post(onDone);
+        }, "rental-calendar").start();
+    }
+
     /** Les n prochains départs (jj/mm/aaaa) d'après la dernière copie du calendrier. */
     static List<String> upcomingDepartures(Context c, int n) {
         List<String> ends = new ArrayList<>();
@@ -174,9 +186,14 @@ final class RentalReset {
     /** Date (yyyy-MM-dd) du départ le plus récent dont l'heure de check-out est passée, ou null. */
     static String latestDueDeparture(Context c) {
         String json = fetch(getUrl(c));
+        String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
         if (json != null) {
-            prefs(c).edit().putString(K_CACHE, json).apply();
+            int n = 0;
+            try { JSONArray d = new JSONObject(json).optJSONArray("data"); n = d == null ? 0 : d.length(); } catch (Exception ignored) { }
+            prefs(c).edit().putString(K_CACHE, json)
+                    .putString(K_FETCH_STATUS, "✓ lu le " + when + " (" + n + " réservations)").apply();
         } else {
+            prefs(c).edit().putString(K_FETCH_STATUS, "✗ " + lastFetchError + " — " + when).apply();
             json = prefs(c).getString(K_CACHE, null);
         }
         if (json == null) return null;
@@ -209,13 +226,16 @@ final class RentalReset {
         }
     }
 
+    private static volatile String lastFetchError = "";
+
     private static String fetch(String url) {
         HttpURLConnection conn = null;
         try {
             conn = (HttpURLConnection) new URL(url).openConnection();
             conn.setConnectTimeout(10_000);
             conn.setReadTimeout(15_000);
-            if (conn.getResponseCode() != 200) return null;
+            int code = conn.getResponseCode();
+            if (code != 200) { lastFetchError = "erreur HTTP " + code; return null; }
             StringBuilder sb = new StringBuilder();
             try (BufferedReader br = new BufferedReader(
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -225,7 +245,11 @@ final class RentalReset {
             String s = sb.toString();
             new JSONObject(s); // valide avant de remplacer le cache
             return s;
+        } catch (org.json.JSONException j) {
+            lastFetchError = "réponse non JSON";
+            return null;
         } catch (Throwable t) {
+            lastFetchError = "injoignable (" + t.getClass().getSimpleName() + ")";
             return null;
         } finally {
             if (conn != null) conn.disconnect();

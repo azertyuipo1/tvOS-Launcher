@@ -1719,17 +1719,23 @@ public class SettingsActivity extends Activity {
     }
 
     private boolean checkingLatestRelease = false;
+    private boolean rentalCalendarRefreshed = false;
 
     void pageUpdates() {
         section("MODE LOCATION");
+        if (!rentalCalendarRefreshed) {
+            rentalCalendarRefreshed = true;
+            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+        }
         row("Calendrier des réservations (JSON)",
                 () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
                 this::promptRentalUrl);
+        infoRowDynamic("État du calendrier", () -> RentalReset.getFetchStatus(this), null);
         infoRowDynamic("Prochains départs",
                 () -> {
                     List<String> d = RentalReset.upcomingDepartures(this, 3);
                     if (!RentalReset.isEnabled(this)) return "—";
-                    return d.isEmpty() ? "Aucun (ou calendrier pas encore lu)" : android.text.TextUtils.join("  ·  ", d);
+                    return d.isEmpty() ? "Aucun départ à venir" : android.text.TextUtils.join("  ·  ", d);
                 }, null);
         row("Heure de check-out",
                 () -> RentalReset.getCheckoutHour(this) + "h",
