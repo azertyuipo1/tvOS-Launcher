@@ -695,6 +695,7 @@ public class MainActivity extends Activity {
                 Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         chp.bottomMargin = dp(14);
         shelf.addView(chevron, chp);
+        chevron.setVisibility(View.GONE);
         content.addView(shelf, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, shelfH));
 
         // tvOS 26 status row (per Apple's Control Center reference): plain time, then a glass
@@ -942,7 +943,7 @@ public class MainActivity extends Activity {
         }
         // Like tvOS, the home grid has no big title; only the folder gets a header.
         titleBox.setVisibility(folderMode ? View.VISIBLE : View.GONE);
-        chevron.setVisibility(folderMode ? View.GONE : View.VISIBLE);
+        chevron.setVisibility(View.GONE);
         shelfTitle.setText(I18n.s(this, "Other Apps", "Diğer Uygulamalar"));
         shelfHint.setText(I18n.s(this, "Back to return   \u00b7   Hold OK for options", "Dönmek için Geri   \u00b7   Seçenekler için OK'e basılı tutun"));
 
@@ -3333,11 +3334,9 @@ public class MainActivity extends Activity {
         Set<String> other = prefs.getStringSet(PREF_OTHER, Collections.emptySet());
         Map<String, AppEntry> pool = new LinkedHashMap<>();
         for (AppEntry e : all.values()) {
-            if (villaRank(e.label, e.pkg) < 0
-                    || hidden.contains(e.key) || (e.pkg != null && hidden.contains(e.pkg))) {
+            // Seules les applis de la villa sont affichées, toujours (quels que soient les masquages passés).
+            if (villaRank(e.label, e.pkg) < 0) {
                 hiddenApps.add(e);
-            } else if (other.contains(e.key) || (e.pkg != null && other.contains(e.pkg))) {
-                otherApps.add(e);
             } else {
                 pool.put(e.key, e);
             }
@@ -3571,23 +3570,32 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Applis de la villa, dans l'ordre d'affichage : {nom, paquet Play Store, mots-clés du nom ou du paquet}. */
+    /**
+     * Applis de la villa, dans l'ordre d'affichage :
+     * {nom, paquet Play Store, paquets reconnus, noms affichés reconnus (mots entiers)}.
+     */
     static final String[][] VILLA_APPS = {
-            {"ITVSTREAM (Next)", "com.itvstream", "com.itvstream|itvstream"},
-            {"Netflix", "com.netflix.ninja", "netflix"},
-            {"Prime Video", "com.amazon.amazonvideo.livingroom", "prime video|amazonvideo"},
-            {"HBO Max", "com.wbd.stream", "hbo|com.wbd.stream"},
-            {"Disney+", "com.disney.disneyplus", "disney"},
+            {"ITVSTREAM (Next)", "com.itvstream", "com.itvstream", "itvstream|next|nextfortv"},
+            {"Netflix", "com.netflix.ninja", "com.netflix.ninja", "netflix"},
+            {"Prime Video", "com.amazon.amazonvideo.livingroom", "com.amazon.amazonvideo.livingroom", "prime video"},
+            {"HBO Max", "com.wbd.stream", "com.wbd.stream|com.hbo.hbonow|com.hbo.go", "hbo max|hbo|max"},
+            {"Disney+", "com.disney.disneyplus", "com.disney.disneyplus", "disney+|disney plus|disney"},
     };
 
-    /** Rang de l'appli dans VILLA_APPS, ou -1 si elle n'en fait pas partie. */
+    /** Rang de l'appli dans VILLA_APPS (paquet exact, ou nom affiché en mots entiers), sinon -1. */
     static int villaRank(String label, String pkg) {
-        String l = label == null ? "" : label.toLowerCase(java.util.Locale.ROOT);
-        String p = pkg == null ? "" : pkg.toLowerCase(java.util.Locale.ROOT);
-        if (p.startsWith("com.techgenius.")) return -1;
+        String p = pkg == null ? "" : pkg;
+        String l = " " + (label == null ? "" : label.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9+]+", " ").trim()) + " ";
         for (int i = 0; i < VILLA_APPS.length; i++) {
             for (String k : VILLA_APPS[i][2].split("\\|")) {
-                if (l.contains(k) || p.contains(k)) return i;
+                if (p.equals(k) || p.startsWith(k + ".")) return i;
+            }
+        }
+        if (p.startsWith("com.techgenius.")) return -1;
+        for (int i = 0; i < VILLA_APPS.length; i++) {
+            for (String k : VILLA_APPS[i][3].split("\\|")) {
+                if (l.contains(" " + k + " ")) return i;
             }
         }
         return -1;
@@ -3627,6 +3635,16 @@ public class MainActivity extends Activity {
                     m.showAdminDialog();
                 }
             });
+        });
+    }
+
+    /** Mode admin refermé : on masque à nouveau la barre du haut et les fenêtres d'admin. */
+    static void onAdminLocked() {
+        MainActivity m = activeInstance;
+        if (m == null) return;
+        m.runOnUiThread(() -> {
+            if (m.villaPromptDialog != null && m.villaPromptDialog.isShowing()) m.villaPromptDialog.dismiss();
+            m.applyStatusMode();
         });
     }
 

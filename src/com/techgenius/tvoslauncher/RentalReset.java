@@ -40,6 +40,7 @@ final class RentalReset {
     private static final String K_LAST_RUN = "last_run_ms";
     private static final String K_LAST_RESULT = "last_result";
     private static final String K_LAST_CHECK = "last_check_ms";
+    private static final String K_TEST_NEXT_WAKE = "test_next_wake";
 
     static final String[] PACKAGES = {
             "com.netflix.ninja",                  // Netflix
@@ -76,6 +77,13 @@ final class RentalReset {
 
     static String getLastResult(Context c) { return prefs(c).getString(K_LAST_RESULT, ""); }
 
+    /** Simulation : le prochain allumage de la TV se comporte comme le lendemain d'un départ. */
+    static void simulateDepartureOnNextWake(Context c) {
+        prefs(c).edit().putBoolean(K_TEST_NEXT_WAKE, true).putLong(K_LAST_CHECK, 0L).apply();
+    }
+
+    static boolean isDepartureSimulated(Context c) { return prefs(c).getBoolean(K_TEST_NEXT_WAKE, false); }
+
     /** Appelée au réveil / au démarrage. Sans effet si le mode location n'est pas configuré. */
     static void check(Context c) { run(c, false, false, null); }
 
@@ -85,9 +93,13 @@ final class RentalReset {
     /** Déconnexion immédiate (bouton de test dans les réglages). */
     static void forceNow(Context c, Runnable onDone) { run(c, true, true, onDone); }
 
-    private static void run(Context ctx, boolean force, boolean now0, Runnable onDone) {
+    private static void run(Context ctx, boolean force0, boolean now00, Runnable onDone) {
         final Context c = ctx.getApplicationContext();
-        if (!isEnabled(c) || running) {
+        boolean simulated = !force0 && prefs(c).getBoolean(K_TEST_NEXT_WAKE, false);
+        if (simulated) prefs(c).edit().putBoolean(K_TEST_NEXT_WAKE, false).apply();
+        final boolean force = force0 || simulated;
+        final boolean now0 = now00 || simulated;
+        if ((!isEnabled(c) && !force) || running) {
             if (onDone != null) onDone.run();
             return;
         }

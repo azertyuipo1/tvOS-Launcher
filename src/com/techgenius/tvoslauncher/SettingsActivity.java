@@ -1736,6 +1736,13 @@ public class SettingsActivity extends Activity {
                 () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
         infoRowDynamic("Dernière déconnexion",
                 () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+        row("Simuler un départ au prochain allumage",
+                () -> RentalReset.isDepartureSimulated(this) ? "Prévu ✓" : "›",
+                () -> {
+                    RentalReset.simulateDepartureOnNextWake(this);
+                    refreshAll();
+                    showStatusMsg("Mets la TV en veille puis rallume-la : les comptes seront déconnectés.");
+                });
         row("Déconnecter les comptes maintenant", () -> "›", () -> {
             showStatusMsg("Déconnexion en cours…");
             RentalReset.forceNow(this, () -> {
@@ -1775,13 +1782,13 @@ public class SettingsActivity extends Activity {
                         showStatusMsg("Play Store introuvable.");
                     }
                 });
-        row("Verrouillage invités (appui long 10 s sur OK depuis l'accueil)",
+        row("Verrouillage invités (appui long 7 s sur OK depuis l'accueil)",
                 () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
                 () -> {
                     boolean on = !GuestLock.isEnabled(this);
                     GuestLock.setEnabled(this, on);
                     refreshAll();
-                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 10 secondes sur OK depuis l'accueil."
+                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 7 secondes sur OK depuis l'accueil."
                             : "Verrouillage désactivé.");
                 });
         infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "

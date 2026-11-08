@@ -15,14 +15,14 @@ import android.widget.Toast;
  * Home, Power, Muet, Volume +/-, Lecture/Pause). Toutes les autres touches sont ignorées, les réglages de la TV
  * renvoient à l'accueil, et les réglages du launcher et l'appui long sur les applis sont bloqués.
  *
- * Déverrouillage admin : appui long (10 s) sur OK depuis l'accueil du launcher. Tout est
+ * Déverrouillage admin : appui long (7 s) sur OK depuis l'accueil ; le même appui le referme. Tout est
  * ouvert pendant 10 minutes, ou jusqu'à la mise en veille.
  */
 final class GuestLock {
     private static final String PREFS = "guest_lock";
     private static final String K_ENABLED = "enabled";
     private static final long UNLOCK_MS = 10 * 60_000L;
-    private static final long HOLD_MS = 10_000L;
+    private static final long HOLD_MS = 7_000L;
 
     private static volatile long unlockedUntil = 0L;
     private static long lastBounceMs = 0L;
@@ -93,21 +93,21 @@ final class GuestLock {
     static boolean onAnyKey(Context c, KeyEvent e) {
         if (!isLocked(c)) return false;
         int code = e.getKeyCode();
-        if (onHome()) trackOkHold(c, e);
+        trackOkHold(c, e);
         return !isAllowedKey(code);
     }
 
     private static long okDownAt = 0L;
 
     /**
-     * Mode admin : OK maintenu 10 secondes sur l'accueil. Mesuré avec notre propre horloge, au fil
+     * Mode admin : OK maintenu 7 secondes sur l'accueil. Mesuré avec notre propre horloge, au fil
      * des répétitions comme au relâchement (certaines télécommandes n'envoient pas de répétitions).
      * Appelée par le service d'accessibilité et par l'accueil lui-même.
      */
     static void trackOkHold(Context c, KeyEvent e) {
         int code = e.getKeyCode();
         if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return;
-        if (!isLocked(c)) return;
+        if (!isEnabled(c) || !onHome()) return;
         long now = SystemClock.uptimeMillis();
         if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
             okDownAt = now;
@@ -115,10 +115,16 @@ final class GuestLock {
         }
         if (okDownAt > 0 && now - okDownAt >= HOLD_MS) {
             okDownAt = 0L;
-            unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
-            Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
-                    Toast.LENGTH_LONG).show();
-            MainActivity.onAdminUnlocked();
+            if (isLocked(c)) {
+                unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
+                Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
+                        Toast.LENGTH_LONG).show();
+                MainActivity.onAdminUnlocked();
+            } else {
+                lock();
+                Toast.makeText(c, "Mode admin désactivé", Toast.LENGTH_SHORT).show();
+                MainActivity.onAdminLocked();
+            }
         }
         if (e.getAction() == KeyEvent.ACTION_UP) okDownAt = 0L;
     }
