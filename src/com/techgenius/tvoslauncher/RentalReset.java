@@ -199,13 +199,31 @@ final class RentalReset {
         }
     }
 
+    /** Paquets jamais déconnectés, quoi qu'il arrive (ITVSTREAM / Next). */
+    private static final String[] NEVER_CLEAR = { "com.itvstream" };
+
+    /** Port ADB fermé : on tente de réactiver le débogage (droit accordé à l'installation), puis on réessaie. */
+    private static String adbClear(Context c, String pkg) throws Exception {
+        try {
+            return LocalAdb.execShellOutput(c, "pm clear " + pkg);
+        } catch (Exception e) {
+            if (!"PORT_CLOSED".equals(e.getMessage()) || !LocalAdb.hasWriteSecureSettings(c)) throw e;
+            android.provider.Settings.Global.putInt(c.getContentResolver(),
+                    android.provider.Settings.Global.ADB_ENABLED, 1);
+            Thread.sleep(2500L);
+            return LocalAdb.execShellOutput(c, "pm clear " + pkg);
+        }
+    }
+
     private static String clearApps(Context c) {
         PackageManager pm = c.getPackageManager();
         List<String> done = new ArrayList<>();
+        outer:
         for (String pkg : PACKAGES) {
+            for (String keep : NEVER_CLEAR) if (keep.equals(pkg)) continue outer;
             try { pm.getPackageInfo(pkg, 0); } catch (Exception notInstalled) { continue; }
             try {
-                String out = LocalAdb.execShellOutput(c, "pm clear " + pkg);
+                String out = adbClear(c, pkg);
                 if (out != null && out.contains("Success")) done.add(pkg);
             } catch (Exception e) {
                 return "ERREUR ADB (" + e.getMessage() + ")";

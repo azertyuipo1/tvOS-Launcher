@@ -117,8 +117,6 @@ final class GuestLock {
             okDownAt = 0L;
             if (isLocked(c)) {
                 unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
-                Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
-                        Toast.LENGTH_LONG).show();
                 MainActivity.onAdminUnlocked();
             } else {
                 lock();

@@ -280,6 +280,10 @@ public class MainActivity extends Activity {
         if (!prefs.getBoolean("villa_wall", false)) {
             prefs.edit().putString("wallpaper", "photo:villa.jpg").putBoolean("villa_wall", true).apply();
         }
+        if (!prefs.getBoolean("villa_shelf_off", false)) {
+            Suggestions.setShelf(this, Suggestions.SHELF_NONE);
+            prefs.edit().putBoolean("villa_shelf_off", true).apply();
+        }
         if (!Scenes.isScenesLook(this)) {
             String wall = prefs.getString("wallpaper", "photo:tessellated-pavement.jpg");
             wallPrefetch = new java.util.concurrent.FutureTask<>(() -> makeWallpaper(wall));
@@ -426,6 +430,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         applyStatusMode();
+        refreshProfileTitle();
         handler.postDelayed(this::promptMissingVillaApp, 800);
         if (!I18n.getLang(this).equals(activeLang) || !Scenes.getLook(this).equals(activeLook)) {
             recreate();
@@ -738,6 +743,8 @@ public class MainActivity extends Activity {
         adminPills.add(makeAdminPill("gear", "Réglages TV", btn,
                 () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
         adminPills.add(makeAdminPill("apps", "Play Store", btn, this::openPlayStore));
+        adminPills.add(makeAdminPill("sliders", "Réglages Launcher", btn,
+                () -> startActivity(new Intent(this, SettingsActivity.class))));
 
         // Refresh: reloads every part of the carousel (recommendations, news, Continue Watching) and weather.
         refreshButton = new ImageView(this);
@@ -843,6 +850,21 @@ public class MainActivity extends Activity {
         clp.topMargin = dp(24) - grow;
         clp.rightMargin = dockOuter - grow;
         root.addView(clockBox, clp);
+
+        // Nom du profil en haut à gauche, grand et sobre, à la manière de tvOS.
+        profileTitle = new TextView(this);
+        profileTitle.setTypeface(Ui.font(this, "semibold"));
+        Ui.textSize(profileTitle, 34);
+        profileTitle.setTextColor(Color.WHITE);
+        profileTitle.setLetterSpacing(-0.01f);
+        profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x80000000);
+        profileTitle.setSingleLine(true);
+        FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
+        ptlp.leftMargin = dp(56);
+        ptlp.topMargin = dp(40);
+        root.addView(profileTitle, ptlp);
+        refreshProfileTitle();
         watchNetwork();
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
@@ -3643,6 +3665,14 @@ public class MainActivity extends Activity {
     }
 
     final List<View> adminPills = new ArrayList<>();
+    TextView profileTitle;
+
+    void refreshProfileTitle() {
+        if (profileTitle == null) return;
+        String n = Profiles.current(this).name;
+        profileTitle.setText(n == null ? "" : n);
+        profileTitle.setVisibility(n == null || n.isEmpty() || Scenes.isScenesLook(this) ? View.GONE : View.VISIBLE);
+    }
 
     /** Pastille en verre (icône + texte) de la barre du haut, blanche quand elle est sélectionnée. */
     View makeAdminPill(String glyph, String text, int btn, Runnable action) {
@@ -3709,18 +3739,44 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** Boîte du mode admin : accès direct aux réglages du launcher et de la TV. */
+    /** Message du mode admin : centré, en verre sombre, disparaît seul au bout de 5 secondes. */
     void showAdminDialog() {
         if (isFinishing()) return;
         applyStatusMode();
-        villaPromptDialog = new android.app.AlertDialog.Builder(this)
-                .setTitle("Mode admin (10 minutes)")
-                .setMessage("Toutes les touches et tous les réglages sont déverrouillés.")
-                .setPositiveButton("Réglages du launcher", (d, w) ->
-                        startActivity(new Intent(this, SettingsActivity.class)))
-                .setNeutralButton("Réglages de la TV", (d, w) -> startSafe(new Intent(Settings.ACTION_SETTINGS)))
-                .setNegativeButton("Fermer", (d, w) -> handler.post(this::promptMissingVillaApp))
-                .show();
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(dp(40), dp(28), dp(40), dp(28));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dp(26));
+        bg.setColor(0xCC16161A);
+        card.setBackground(bg);
+        TextView t1 = new TextView(this);
+        t1.setText("Mode admin activé pendant 10 mn.");
+        t1.setTypeface(Ui.font(this, "semibold"));
+        Ui.textSize(t1, 22);
+        t1.setTextColor(Color.WHITE);
+        t1.setGravity(Gravity.CENTER);
+        TextView t2 = new TextView(this);
+        t2.setText("Maintenir le bouton OK pendant 7 secondes pour désactiver le mode admin");
+        t2.setTypeface(Ui.font(this, "regular"));
+        Ui.textSize(t2, 14);
+        t2.setTextColor(0xB3FFFFFF);
+        t2.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams t2lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        t2lp.topMargin = dp(10);
+        card.addView(t1);
+        card.addView(t2, t2lp);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        card.setAlpha(0f);
+        root.addView(card, lp);
+        card.animate().alpha(1f).setDuration(250).start();
+        handler.postDelayed(() -> card.animate().alpha(0f).setDuration(400).withEndAction(() -> {
+            root.removeView(card);
+            promptMissingVillaApp();
+        }).start(), 5000);
     }
 
     /** En mode admin, propose d'installer la prochaine appli de la villa absente de la TV. */
@@ -5385,13 +5441,15 @@ public class MainActivity extends Activity {
 
     void applyStatusMode() {
         if (clockBox == null || Scenes.isScenesLook(this)) return;
-        int m = GuestLock.isEnabled(this) && !GuestLock.isLocked(this) ? 0 : getStatusMode(this);
-        clockBox.setVisibility(m == 2 ? View.GONE : View.VISIBLE);
+        boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
+        int m = getStatusMode(this);
+        clockBox.setVisibility(admin || m < 2 ? View.VISIBLE : View.GONE);
+        if (timeChipView != null) timeChipView.setVisibility(m < 2 ? View.VISIBLE : View.GONE);
         int buttons = m == 0 ? View.VISIBLE : View.GONE;
         if (refreshButton != null) refreshButton.setVisibility(buttons);
         if (searchButton != null) searchButton.setVisibility(buttons);
         if (ccButton != null) ccButton.setVisibility(buttons);
-        for (View v : adminPills) v.setVisibility(buttons);
+        for (View v : adminPills) v.setVisibility(admin ? View.VISIBLE : View.GONE);
         if (m == 0) refreshAvatar();
         else if (avatarView != null) avatarView.setVisibility(View.GONE);
     }
