@@ -723,6 +723,10 @@ public final class AppUpdater {
                 Toast.makeText(context,
                         I18n.s(context, "Update installed!", "Güncelleme yüklendi!"),
                         Toast.LENGTH_SHORT).show();
+            } else {
+                String msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+                Toast.makeText(context, "Échec de la mise à jour : " + (msg != null ? msg : "code " + status),
+                        Toast.LENGTH_LONG).show();
             }
         }
     }
