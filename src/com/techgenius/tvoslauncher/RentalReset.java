@@ -60,7 +60,13 @@ final class RentalReset {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    static String getUrl(Context c) { return prefs(c).getString(K_URL, ""); }
+    /** Calendrier de la villa par défaut (relais sur sbh-host.fr vers Zoho). */
+    static final String DEFAULT_URL = "https://sbh-host.fr/clo/cal/";
+
+    static String getUrl(Context c) {
+        String u = prefs(c).getString(K_URL, "");
+        return u.isEmpty() ? DEFAULT_URL : u;
+    }
 
     static void setUrl(Context c, String url) {
         prefs(c).edit().putString(K_URL, url == null ? "" : url.trim())
