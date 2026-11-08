@@ -231,11 +231,23 @@ final class RentalReset {
     private static String fetch(String url) {
         HttpURLConnection conn = null;
         try {
-            conn = (HttpURLConnection) new URL(url).openConnection();
-            conn.setConnectTimeout(10_000);
-            conn.setReadTimeout(15_000);
-            int code = conn.getResponseCode();
-            if (code != 200) { lastFetchError = "erreur HTTP " + code; return null; }
+            // Suit les redirections nous-mêmes (Android ne suit pas https -> http, ni certains 301).
+            String target = url;
+            int code = 0;
+            for (int hop = 0; hop < 6; hop++) {
+                conn = (HttpURLConnection) new URL(target).openConnection();
+                conn.setInstanceFollowRedirects(false);
+                conn.setConnectTimeout(10_000);
+                conn.setReadTimeout(15_000);
+                code = conn.getResponseCode();
+                if (code < 300 || code >= 400) break;
+                String loc = conn.getHeaderField("Location");
+                conn.disconnect();
+                conn = null;
+                if (loc == null || loc.isEmpty()) break;
+                target = new URL(new URL(target), loc).toString();
+            }
+            if (conn == null || code != 200) { lastFetchError = "erreur HTTP " + code; return null; }
             StringBuilder sb = new StringBuilder();
             try (BufferedReader br = new BufferedReader(
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
