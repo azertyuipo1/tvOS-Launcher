@@ -72,9 +72,8 @@ public class SettingsActivity extends Activity {
             PERMS = "Permissions";
 
     private static final String[][] SIDEBAR_SECTIONS = {
-        {LOOK_SCENES, "scene"},
+        {PROFILES, "house"},
         {APPS, "apps"},
-        {PROFILES, "person"},
         {BUTTON_MAPPER, "remote"},
         {QUICK, "bolt"},
         {ADVANCED, "shield"},
@@ -111,7 +110,7 @@ public class SettingsActivity extends Activity {
         }
     };
 
-    private String currentSection = LOOK_SCENES;
+    private String currentSection = PROFILES;
     private boolean inRows = false;
     private boolean rebuilding = false;
     private String liftedSceneId = null;
@@ -241,7 +240,7 @@ public class SettingsActivity extends Activity {
             case LOCATION:
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
             case APPS: return tr("Apps", "Uygulamalar");
-            case PROFILES: return tr("People", "Kişiler");
+            case PROFILES: return "Maison";
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
             case BUTTON_MAPPER: return tr("Button mapper", "Düğme eşleyici");
             case QUICK: return tr("Quick settings", "Hızlı ayarlar");
@@ -939,18 +938,7 @@ public class SettingsActivity extends Activity {
      */
     void pageLookAndScenes() {
         // Villa : mode classique uniquement, arrière-plan téléchargé depuis une adresse web.
-        section("ARRIÈRE-PLAN");
-        row("Adresse de l'image", () -> RemoteWallpaper.getUrl(this) + "  ›", this::promptBackgroundUrl);
-        infoRowDynamic("État", () -> RemoteWallpaper.getStatus(this), null);
-        row("Vérifier maintenant", () -> "›", () -> {
-            showStatusMsg("Vérification de l'image…");
-            Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-            RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
-            list.postDelayed(() -> { if (!isFinishing()) refreshAll(); }, 4000);
-        });
-        infoNote("Remplace l'image sur le serveur pour changer le fond : la TV la récupère à l'allumage "
-                + "et toutes les 30 minutes. Format conseillé : 1920 × 1080 (16:9). "
-                + "Une image d'un autre format est recadrée, jamais déformée.");
+        pageHouse();
     }
 
     private void promptBackgroundUrl() {
@@ -1244,7 +1232,12 @@ public class SettingsActivity extends Activity {
     }
 
     void pageProfiles() {
-        section(tr("PEOPLE", "KİŞİLER"));
+        pageHouse();
+    }
+
+    /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
+    void pageHouse() {
+        section("VILLA");
         List<Profiles.Profile> ps = Profiles.list(this);
         String curId = Profiles.current(this).id;
         for (int i = 0; i < ps.size(); i++) {
@@ -1261,6 +1254,106 @@ public class SettingsActivity extends Activity {
         if (ps.isEmpty() && Profiles.canAdd(this)) {
             row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
         }
+
+        section("ARRIÈRE-PLAN");
+        row("Adresse de l'image", () -> RemoteWallpaper.getUrl(this) + "  ›", this::promptBackgroundUrl);
+        infoRowDynamic("État", () -> RemoteWallpaper.getStatus(this), null);
+        row("Vérifier maintenant", () -> "›", () -> {
+            showStatusMsg("Vérification de l'image…");
+            Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+            RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
+            list.postDelayed(() -> { if (!isFinishing()) refreshAll(); }, 4000);
+        });
+        infoNote("Remplace l'image sur le serveur pour changer le fond : la TV la récupère à l'allumage "
+                + "et toutes les 30 minutes. Format conseillé : 1920 × 1080 (16:9). "
+                + "Une image d'un autre format est recadrée, jamais déformée.");
+        section("MODE LOCATION");
+        if (!rentalCalendarRefreshed) {
+            rentalCalendarRefreshed = true;
+            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+        }
+        row("Calendrier des réservations (JSON)",
+                () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
+                this::promptRentalUrl);
+        infoRowDynamic("État du calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Prochains départs",
+                () -> {
+                    List<String> d = RentalReset.upcomingDepartures(this, 3);
+                    if (!RentalReset.isEnabled(this)) return "—";
+                    return d.isEmpty() ? "Aucun départ à venir" : android.text.TextUtils.join("  ·  ", d);
+                }, null);
+        row("Heure de check-out",
+                () -> RentalReset.getCheckoutHour(this) + "h",
+                () -> {
+                    int h = RentalReset.getCheckoutHour(this) + 1;
+                    RentalReset.setCheckoutHour(this, h > 15 ? 10 : h);
+                    refreshAll();
+                });
+        infoRowDynamic("Dernier départ traité",
+                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+        row("Simuler un départ au prochain allumage",
+                () -> RentalReset.isDepartureSimulated(this) ? "Prévu ✓" : "›",
+                () -> {
+                    RentalReset.simulateDepartureOnNextWake(this);
+                    refreshAll();
+                    showStatusMsg("Mets la TV en veille puis rallume-la : les comptes seront déconnectés.");
+                });
+        row("Déconnecter les comptes maintenant", () -> "›", () -> {
+            showStatusMsg("Déconnexion en cours…");
+            RentalReset.forceNow(this, () -> {
+                if (!isFinishing()) {
+                    refreshAll();
+                    showStatusMsg(RentalReset.getLastResult(this));
+                }
+            });
+        });
+        infoRowDynamic("Langue de la TV",
+                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
+        row("Boutons en haut à droite de l'accueil",
+                () -> {
+                    int m = MainActivity.getStatusMode(this);
+                    return m == 0 ? "Tout afficher" : m == 1 ? "Heure seule" : "Masqués";
+                },
+                () -> {
+                    MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
+                    refreshAll();
+                });
+        row("Installer les applis manquantes",
+                () -> {
+                    List<String[]> m = MainActivity.villaMissing(this);
+                    if (m.isEmpty()) return "Toutes installées";
+                    StringBuilder sb = new StringBuilder();
+                    for (String[] a : m) sb.append(sb.length() > 0 ? ", " : "").append(a[0]);
+                    return sb + " ›";
+                },
+                () -> {
+                    List<String[]> m = MainActivity.villaMissing(this);
+                    if (m.isEmpty()) return;
+                    String[] app = m.get(0);
+                    android.net.Uri uri = app[1].isEmpty()
+                            ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
+                            : android.net.Uri.parse("market://details?id=" + app[1]);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (Throwable t) {
+                        showStatusMsg("Play Store introuvable.");
+                    }
+                });
+        row("Verrouillage invités (appui long 7 s sur OK depuis l'accueil)",
+                () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
+                () -> {
+                    boolean on = !GuestLock.isEnabled(this);
+                    GuestLock.setEnabled(this, on);
+                    refreshAll();
+                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 7 secondes sur OK depuis l'accueil."
+                            : "Verrouillage désactivé.");
+                });
+        infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
+                + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
+                + "Nécessite le mode ADB persistant.");
+
     }
 
     private void promptRenamePerson(Profiles.Profile p, int rowIdx) {
@@ -1653,93 +1746,6 @@ public class SettingsActivity extends Activity {
     private boolean rentalCalendarRefreshed = false;
 
     void pageUpdates() {
-        section("MODE LOCATION");
-        if (!rentalCalendarRefreshed) {
-            rentalCalendarRefreshed = true;
-            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
-        }
-        row("Calendrier des réservations (JSON)",
-                () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
-                this::promptRentalUrl);
-        infoRowDynamic("État du calendrier", () -> RentalReset.getFetchStatus(this), null);
-        infoRowDynamic("Prochains départs",
-                () -> {
-                    List<String> d = RentalReset.upcomingDepartures(this, 3);
-                    if (!RentalReset.isEnabled(this)) return "—";
-                    return d.isEmpty() ? "Aucun départ à venir" : android.text.TextUtils.join("  ·  ", d);
-                }, null);
-        row("Heure de check-out",
-                () -> RentalReset.getCheckoutHour(this) + "h",
-                () -> {
-                    int h = RentalReset.getCheckoutHour(this) + 1;
-                    RentalReset.setCheckoutHour(this, h > 15 ? 10 : h);
-                    refreshAll();
-                });
-        infoRowDynamic("Dernier départ traité",
-                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
-        infoRowDynamic("Dernière déconnexion",
-                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
-        row("Simuler un départ au prochain allumage",
-                () -> RentalReset.isDepartureSimulated(this) ? "Prévu ✓" : "›",
-                () -> {
-                    RentalReset.simulateDepartureOnNextWake(this);
-                    refreshAll();
-                    showStatusMsg("Mets la TV en veille puis rallume-la : les comptes seront déconnectés.");
-                });
-        row("Déconnecter les comptes maintenant", () -> "›", () -> {
-            showStatusMsg("Déconnexion en cours…");
-            RentalReset.forceNow(this, () -> {
-                if (!isFinishing()) {
-                    refreshAll();
-                    showStatusMsg(RentalReset.getLastResult(this));
-                }
-            });
-        });
-        infoRowDynamic("Langue de la TV",
-                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
-        row("Boutons en haut à droite de l'accueil",
-                () -> {
-                    int m = MainActivity.getStatusMode(this);
-                    return m == 0 ? "Tout afficher" : m == 1 ? "Heure seule" : "Masqués";
-                },
-                () -> {
-                    MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
-                    refreshAll();
-                });
-        row("Installer les applis manquantes",
-                () -> {
-                    List<String[]> m = MainActivity.villaMissing(this);
-                    if (m.isEmpty()) return "Toutes installées";
-                    StringBuilder sb = new StringBuilder();
-                    for (String[] a : m) sb.append(sb.length() > 0 ? ", " : "").append(a[0]);
-                    return sb + " ›";
-                },
-                () -> {
-                    List<String[]> m = MainActivity.villaMissing(this);
-                    if (m.isEmpty()) return;
-                    String[] app = m.get(0);
-                    android.net.Uri uri = app[1].isEmpty()
-                            ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
-                            : android.net.Uri.parse("market://details?id=" + app[1]);
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                    } catch (Throwable t) {
-                        showStatusMsg("Play Store introuvable.");
-                    }
-                });
-        row("Verrouillage invités (appui long 7 s sur OK depuis l'accueil)",
-                () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
-                () -> {
-                    boolean on = !GuestLock.isEnabled(this);
-                    GuestLock.setEnabled(this, on);
-                    refreshAll();
-                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 7 secondes sur OK depuis l'accueil."
-                            : "Verrouillage désactivé.");
-                });
-        infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
-                + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
-                + "Nécessite le mode ADB persistant.");
-
         section(tr("UPDATES", "GÜNCELLEMELER"));
         row(tr("Automatic updates", "Otomatik güncellemeler"),
                 () -> AppUpdater.isAutoUpdateEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
