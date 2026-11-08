@@ -1764,7 +1764,7 @@ public class SettingsActivity extends Activity {
                 }
             });
         });
-        infoRowDynamic("Applis en anglais",
+        infoRowDynamic("Langue de la TV",
                 () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
         row("Boutons en haut à droite de l'accueil",
                 () -> {

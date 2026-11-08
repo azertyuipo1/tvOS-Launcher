@@ -245,33 +245,26 @@ public class PowerService extends AccessibilityService {
         }, "villa-no-sleep").start();
     }
 
-    /** Applis de streaming forcées en anglais (langue par appli, Android 13 et plus). */
-    static final String[] ENGLISH_APPS = {
-            "com.netflix.ninja", "com.amazon.amazonvideo.livingroom", "com.wbd.stream", "com.disney.disneyplus",
-    };
-
+    /**
+     * Toute la TV en anglais (menus, Netflix, Prime…). Le changement se fait par ADB avec les droits
+     * du shell, via app_process sur la classe LocaleSetter de cet APK. Rien n'est fait si la TV est
+     * déjà en anglais. Le launcher garde sa propre langue.
+     */
     static void applyEnglishApps(Context c) {
         String status;
-        if (android.os.Build.VERSION.SDK_INT < 33) {
-            status = "non disponible (Android " + android.os.Build.VERSION.RELEASE + ", il faut Android 13+)";
-        } else {
-            int ok = 0;
-            String err = "";
-            for (String pkg : ENGLISH_APPS) {
-                try {
-                    c.getPackageManager().getPackageInfo(pkg, 0);
-                } catch (Exception notInstalled) {
-                    continue;
-                }
-                try {
-                    String out = LocalAdb.execShellOutput(c, "cmd locale set-app-locales " + pkg + " --locales en-US");
-                    if (out == null || out.trim().isEmpty() || !out.toLowerCase(java.util.Locale.ROOT).contains("error")) ok++;
-                    else err = out.trim();
-                } catch (Exception e) {
-                    err = String.valueOf(e.getMessage());
-                }
+        try {
+            java.util.Locale cur = android.content.res.Resources.getSystem().getConfiguration().getLocales().get(0);
+            if ("en".equals(cur.getLanguage())) {
+                status = "✓ TV en anglais (" + cur.toLanguageTag() + ")";
+            } else {
+                String apk = c.getApplicationInfo().sourceDir;
+                String out = LocalAdb.execShellOutput(c, "CLASSPATH=" + apk
+                        + " app_process /system/bin com.techgenius.tvoslauncher.LocaleSetter en-US");
+                status = out != null && out.contains("LOCALE_OK") ? "✓ TV passée en anglais"
+                        : "erreur : " + (out == null ? "pas de réponse" : out.trim());
             }
-            status = err.isEmpty() ? "✓ " + ok + " appli(s) en anglais" : "erreur : " + err;
+        } catch (Throwable t) {
+            status = "erreur : " + t.getMessage();
         }
         c.getSharedPreferences("villa", Context.MODE_PRIVATE).edit().putString("english_apps", status).apply();
     }
