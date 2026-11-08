@@ -857,33 +857,37 @@ public class MainActivity extends Activity {
         Ui.textSize(eyebrow, 15);
         eyebrow.setTextColor(0xD9FFFFFF);
         eyebrow.setLetterSpacing(0.32f);
-        eyebrow.setAllCaps(true);
+        eyebrow.setIncludeFontPadding(false);
         eyebrow.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
         eyebrow.setSingleLine(true);
         welcomeLine = new TextView(this);
         welcomeLine.setTypeface(Ui.font(this, "regular"));
-        Ui.textSize(welcomeLine, 40);
+        Ui.textSize(welcomeLine, 30);
+        welcomeLine.setIncludeFontPadding(false);
         welcomeLine.setTextColor(Color.WHITE);
         welcomeLine.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
         welcomeLine.setSingleLine(true);
         profileTitle = new TextView(this);
         profileTitle.setTypeface(Ui.font(this, "display"));
-        Ui.textSize(profileTitle, 52);
+        Ui.textSize(profileTitle, 38);
+        profileTitle.setIncludeFontPadding(false);
         profileTitle.setTextColor(Color.WHITE);
         profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
         profileTitle.setSingleLine(true);
-        profileTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        profileTitle.setMaxWidth((int) (screenW * 0.62f));
-        profileTitle.setPadding(0, 0, dp(12), 0);
+        profileTitle.setPadding(0, 0, dp(16), dp(4));
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
         titleBox.setClipChildren(false);
         titleBox.addView(eyebrow);
         LinearLayout.LayoutParams welp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        welp.topMargin = dp(10);
+        welp.topMargin = dp(8);
         titleBox.addView(welcomeLine, welp);
-        titleBox.addView(profileTitle);
+        LinearLayout.LayoutParams namelp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        namelp.topMargin = dp(4);
+        titleBox.addView(profileTitle, namelp);
+        titleBoxView = titleBox;
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
         ptlp.leftMargin = (int) (screenW * 0.065f);
@@ -899,13 +903,23 @@ public class MainActivity extends Activity {
         Ui.textSize(bigClock, 46);
         bigClock.setTextColor(Color.WHITE);
         bigClock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
+        bigClock.setGravity(Gravity.END);
+        bigClock.setIncludeFontPadding(false);
         bigDate = new TextView(this);
         bigDate.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(bigDate, 15);
         bigDate.setTextColor(0xE6FFFFFF);
         bigDate.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
-        clockCol.addView(bigClock);
-        clockCol.addView(bigDate);
+        bigDate.setGravity(Gravity.END);
+        LinearLayout.LayoutParams bclp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bclp.gravity = Gravity.END;
+        clockCol.addView(bigClock, bclp);
+        LinearLayout.LayoutParams bdlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bdlp.gravity = Gravity.END;
+        bdlp.topMargin = dp(4);
+        clockCol.addView(bigDate, bdlp);
         clockColView = clockCol;
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
@@ -914,6 +928,7 @@ public class MainActivity extends Activity {
         root.addView(clockCol, cclp);
         refreshProfileTitle();
         handler.post(villaTick);
+        root.getViewTreeObserver().addOnGlobalLayoutListener(this::alignTitleToDock);
         watchNetwork();
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
@@ -3737,6 +3752,27 @@ public class MainActivity extends Activity {
         }
     };
 
+    View titleBoxView;
+    private int alignedLeft = -1, alignedRight = -1;
+
+    /** Bloc de gauche aligné sur le bord gauche du dock en verre, horloge sur son bord droit. */
+    void alignTitleToDock() {
+        if (dockRow == null || titleBoxView == null || clockColView == null || dockRow.getWidth() == 0) return;
+        int[] loc = new int[2];
+        dockRow.getLocationInWindow(loc);
+        int left = loc[0];
+        int right = screenW - (loc[0] + dockRow.getWidth());
+        if (left == alignedLeft && right == alignedRight) return;
+        alignedLeft = left;
+        alignedRight = right;
+        FrameLayout.LayoutParams t = (FrameLayout.LayoutParams) titleBoxView.getLayoutParams();
+        t.leftMargin = Math.max(0, left);
+        titleBoxView.setLayoutParams(t);
+        FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
+        k.rightMargin = Math.max(0, right);
+        clockColView.setLayoutParams(k);
+    }
+
     void refreshProfileTitle() {
         if (profileTitle == null) return;
         boolean scenes = Scenes.isScenesLook(this);
@@ -3745,7 +3781,7 @@ public class MainActivity extends Activity {
         RentalReset.Stay stay = RentalReset.currentStay(this);
         boolean guest = stay != null && !stay.name.isEmpty();
         if (guest) {
-            eyebrow.setText(villa);
+            eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
             welcomeLine.setText(RentalReset.greeting(this, stay));
             profileTitle.setText(stay.name.endsWith(".") ? stay.name : stay.name + ".");
         } else {
@@ -3756,7 +3792,11 @@ public class MainActivity extends Activity {
         profileTitle.setVisibility(profileTitle.length() == 0 || scenes ? View.GONE : View.VISIBLE);
         if (bigClock != null) {
             java.util.Date now = new java.util.Date();
-            bigClock.setText(new java.text.SimpleDateFormat("h:mm", java.util.Locale.US).format(now));
+            String hm = new java.text.SimpleDateFormat("h:mm", java.util.Locale.US).format(now);
+            String ap = new java.text.SimpleDateFormat("a", java.util.Locale.US).format(now);
+            android.text.SpannableString cs = new android.text.SpannableString(hm + " " + ap);
+            cs.setSpan(new android.text.style.RelativeSizeSpan(0.42f), hm.length(), cs.length(), 0);
+            bigClock.setText(cs);
             bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
             boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
             clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
