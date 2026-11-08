@@ -899,8 +899,8 @@ public class MainActivity extends Activity {
         clockCol.setOrientation(LinearLayout.VERTICAL);
         clockCol.setGravity(Gravity.END);
         bigClock = new TextView(this);
-        bigClock.setTypeface(Ui.font(this, "clock"));
-        Ui.textSize(bigClock, 34);
+        bigClock.setTypeface(Ui.font(this, "medium"));
+        Ui.textSize(bigClock, 30);
         bigClock.setTextColor(Color.WHITE);
         bigClock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
         bigClock.setGravity(Gravity.END);
