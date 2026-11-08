@@ -34,6 +34,8 @@ import java.util.Set;
 public final class ButtonMapper {
 
     public static final String TARGET_CONTROL_PANEL = "control_panel";
+    /** La touche est avalée et ne fait plus rien (touches TV, Input, YouTube… pour les locations). */
+    public static final String TARGET_NOTHING = "nothing";
     public static final String TARGET_RECENT_APPS = "recent_apps";
     public static final String TARGET_AMBIENT = "ambient";
     public static final String TARGET_LOCK_SCREEN = "lock_screen";
@@ -356,6 +358,16 @@ public final class ButtonMapper {
     }
 
     /** Drops any half-finished multi-tap detection so no key can stay swallowed. */
+    /** Une seule fois : désactive les touches TV et Input pour les locations (modifiable dans le Button Mapper). */
+    public static void applyVillaDefaults(Context c) {
+        SharedPreferences p = prefs(c);
+        if (p.getBoolean("villa_default_keys", false)) return;
+        for (int code : new int[]{KeyEvent.KEYCODE_TV, KeyEvent.KEYCODE_TV_INPUT}) {
+            if (getTarget(c, code, TAP_SINGLE).isEmpty()) setTarget(c, code, TAP_SINGLE, TARGET_NOTHING);
+        }
+        p.edit().putBoolean("villa_default_keys", true).apply();
+    }
+
     public static void cancelPendingTaps() {
         try {
             for (Runnable r : pendingTapRunnables.values()) MAIN.removeCallbacks(r);
@@ -437,6 +449,7 @@ public final class ButtonMapper {
 
     public static String targetLabel(Context c, String target) {
         if (target == null || target.isEmpty()) return I18n.s(c, "None", "Yok");
+        if (TARGET_NOTHING.equals(target)) return "Désactivée";
         if (TARGET_CONTROL_PANEL.equals(target)) {
             return I18n.s(c, "Control Panel", "Denetim Paneli");
         }
@@ -617,7 +630,7 @@ public final class ButtonMapper {
     }
 
     public static void executeTarget(Context c, String target) {
-        if (target == null || target.isEmpty()) return;
+        if (target == null || target.isEmpty() || TARGET_NOTHING.equals(target)) return;
         if (TARGET_CONTROL_PANEL.equals(target)) {
             RecentAppsOverlay.dismiss();
             ControlPanelOverlay.toggle(c);
@@ -797,6 +810,10 @@ public final class ButtonMapper {
         // 4. Power Off (Screen Off)
         labels.add("⏻  " + I18n.s(a, "Power Off (Screen Off)", "Kapat (Ekranı Kapat)"));
         targets.add(TARGET_POWER_OFF);
+
+        // Désactiver la touche
+        labels.add("⛔  Ne rien faire (désactiver la touche)");
+        targets.add(TARGET_NOTHING);
 
         // 5. Send Key Code (Media, Mute, Input, Subtitles, Custom KeyCode...)
         labels.add("⌨  " + I18n.s(a, "Send Key Code…", "Tuş Kodu Gönder…"));

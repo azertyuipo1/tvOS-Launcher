@@ -211,6 +211,7 @@ public class PowerService extends AccessibilityService {
         LocalAdb.ensureKeepAliveWatchdog(this);
         MediaWatchService.ensureSessionTracking(this);
         RentalReset.check(this);
+        ButtonMapper.applyVillaDefaults(this);
 
         // If "Launch Automatically on System Boot" is enabled and the system just booted,
         // AccessibilityService connects much earlier than BOOT_COMPLETED on many TVs: launch Home immediately!
