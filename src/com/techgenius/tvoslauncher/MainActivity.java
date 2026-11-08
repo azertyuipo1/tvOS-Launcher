@@ -3763,6 +3763,7 @@ public class MainActivity extends Activity {
             if (++villaTicks % 90 == 0) {
                 RentalReset.check(MainActivity.this);
                 refreshRemoteWallpaper();
+                CloudBackup.autoDaily(MainActivity.this);
             }
             handler.postDelayed(this, 20_000L);
         }

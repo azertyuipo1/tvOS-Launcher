@@ -1267,6 +1267,15 @@ public class SettingsActivity extends Activity {
         infoNote("Remplace l'image sur le serveur pour changer le fond : la TV la récupère à l'allumage "
                 + "et toutes les 30 minutes. Format conseillé : 1920 × 1080 (16:9). "
                 + "Une image d'un autre format est recadrée, jamais déformée.");
+        section("SAUVEGARDE EN LIGNE");
+        row("Sauvegarder sur sbh-host.fr", () -> "›", () -> {
+            showStatusMsg("Sauvegarde en cours…");
+            CloudBackup.upload(this, m -> { if (!isFinishing()) { refreshAll(); showStatusMsg(m); } });
+        });
+        infoRowDynamic("Dernière sauvegarde", () -> CloudBackup.getStatus(this), null);
+        row("Restaurer depuis sbh-host.fr", () -> "›", () -> CloudBackup.restore(this));
+        infoNote("Une sauvegarde automatique est aussi faite une fois par jour. Les sauvegardes sont rangées "
+                + "par villa (nom du profil) et aucune n'en écrase une autre.");
         section("MODE LOCATION");
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
