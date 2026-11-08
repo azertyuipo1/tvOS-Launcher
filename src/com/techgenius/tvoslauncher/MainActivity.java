@@ -731,6 +731,14 @@ public class MainActivity extends Activity {
         timeChip.addView(time);
         clockBox.addView(timeChip, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, btn));
 
+        // Pastilles du mode admin : mise à jour du launcher, réglages de la TV, Play Store.
+        adminPills.clear();
+        adminPills.add(makeAdminPill("update", "Mettre à jour", btn,
+                () -> AppUpdater.manualCheckAndPrompt(this, null)));
+        adminPills.add(makeAdminPill("gear", "Réglages TV", btn,
+                () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
+        adminPills.add(makeAdminPill("apps", "Play Store", btn, this::openPlayStore));
+
         // Refresh: reloads every part of the carousel (recommendations, news, Continue Watching) and weather.
         refreshButton = new ImageView(this);
         refreshButton.setScaleType(ImageView.ScaleType.CENTER);
@@ -2543,24 +2551,20 @@ public class MainActivity extends Activity {
                 default: return false;
             }
         }
-        if (f == refreshButton || f == searchButton || f == ccButton || f == avatarView) {
-            // Status row, left to right: Refresh, Search, Control Center, profile.
+        List<View> row = statusRowViews();
+        if (f != null && row.contains(f)) {
+            // Status row, left to right: admin pills, Refresh, Search, Control Center, profile.
+            int idx = row.indexOf(f);
             if (k == KeyEvent.KEYCODE_DPAD_LEFT) {
                 if (down) {
-                    if (f == avatarView) ccButton.requestFocus();
-                    else if (f == ccButton) searchButton.requestFocus();
-                    else if (f == searchButton) refreshButton.requestFocus();
+                    if (idx > 0) row.get(idx - 1).requestFocus();
                     else if (switcher.getVisibility() == View.VISIBLE) switcher.requestFocus();
                     else if (weatherShown()) weatherCard.requestFocus();
                 }
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (down) {
-                    if (f == refreshButton) searchButton.requestFocus();
-                    else if (f == searchButton) ccButton.requestFocus();
-                    else if (f == ccButton && avatarView != null && avatarView.getVisibility() == View.VISIBLE) avatarView.requestFocus();
-                }
+                if (down && idx < row.size() - 1) row.get(idx + 1).requestFocus();
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_DOWN || k == KeyEvent.KEYCODE_BACK) {
@@ -3636,6 +3640,63 @@ public class MainActivity extends Activity {
                 }
             });
         });
+    }
+
+    final List<View> adminPills = new ArrayList<>();
+
+    /** Pastille en verre (icône + texte) de la barre du haut, blanche quand elle est sélectionnée. */
+    View makeAdminPill(String glyph, String text, int btn, Runnable action) {
+        TextView pill = new TextView(this);
+        pill.setText(text);
+        Ui.textSize(pill, 14);
+        pill.setTypeface(Ui.font(this, "medium"));
+        pill.setTextColor(Color.WHITE);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setSingleLine(true);
+        pill.setPadding(dp(14), 0, dp(16), 0);
+        pill.setCompoundDrawablePadding(dp(8));
+        pill.setCompoundDrawablesWithIntrinsicBounds(
+                new BitmapDrawable(getResources(), Glyphs.get(glyph, dp(18), Color.WHITE)), null, null, null);
+        LiquidGlass glass = new LiquidGlass(btn / 2f, 0x1F000000, glassSource, screenW, screenH, unit).adaptive();
+        glass.lens = dp(4);
+        GradientDrawable lit = new GradientDrawable();
+        lit.setCornerRadius(btn / 2f);
+        lit.setColor(Color.WHITE);
+        pill.setBackground(glass);
+        pill.setFocusable(true);
+        pill.setClickable(true);
+        pill.setOnFocusChangeListener((v, has) -> {
+            pill.setBackground(has ? lit : glass);
+            int col = has ? 0xFF111114 : Color.WHITE;
+            pill.setTextColor(col);
+            pill.setCompoundDrawablesWithIntrinsicBounds(
+                    new BitmapDrawable(getResources(), Glyphs.get(glyph, dp(18), col)), null, null, null);
+            v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(200).setInterpolator(LIFT).start();
+        });
+        pill.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, btn);
+        lp.leftMargin = dp(12);
+        clockBox.addView(pill, lp);
+        return pill;
+    }
+
+    /** Ouvre le Play Store (Google Play Store sur Google TV). */
+    void openPlayStore() {
+        PackageManager pm = getPackageManager();
+        Intent i = pm.getLeanbackLaunchIntentForPackage("com.android.vending");
+        if (i == null) i = pm.getLaunchIntentForPackage("com.android.vending");
+        if (i == null) i = new Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=netflix"));
+        startSafe(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    /** Boutons visibles de la barre du haut, de gauche à droite. */
+    List<View> statusRowViews() {
+        List<View> l = new ArrayList<>();
+        for (View v : adminPills) if (v.getVisibility() == View.VISIBLE) l.add(v);
+        for (View v : new View[]{refreshButton, searchButton, ccButton, avatarView}) {
+            if (v != null && v.getVisibility() == View.VISIBLE) l.add(v);
+        }
+        return l;
     }
 
     /** Mode admin refermé : on masque à nouveau la barre du haut et les fenêtres d'admin. */
@@ -5330,6 +5391,7 @@ public class MainActivity extends Activity {
         if (refreshButton != null) refreshButton.setVisibility(buttons);
         if (searchButton != null) searchButton.setVisibility(buttons);
         if (ccButton != null) ccButton.setVisibility(buttons);
+        for (View v : adminPills) v.setVisibility(buttons);
         if (m == 0) refreshAvatar();
         else if (avatarView != null) avatarView.setVisibility(View.GONE);
     }
