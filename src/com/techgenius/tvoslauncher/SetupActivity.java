@@ -109,10 +109,14 @@ public class SetupActivity extends Activity {
 
         setContentView(root);
 
+        // Villa : français par défaut, mode classique uniquement, pas de météo.
+        if (!getSharedPreferences("settings", MODE_PRIVATE).contains("villa_lang_set")) {
+            I18n.setLang(this, I18n.LANG_FR);
+            getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("villa_lang_set", true).apply();
+        }
+        Scenes.setLook(this, Scenes.LOOK_CLASSIC);
         steps.add(this::hello);
         steps.add(this::profile);
-        steps.add(this::look);
-        steps.add(this::weather);
         steps.add(this::presentation);
         steps.add(this::homeAndPermissions);
         steps.add(this::defaultHomeSetup);
@@ -405,20 +409,6 @@ public class SetupActivity extends Activity {
             startRow.setNextFocusRightId(skipBtn.getId());
             skipBtn.setNextFocusDownId(startRow.getId());
             skipBtn.setNextFocusLeftId(startRow.getId());
-        }
-        for (int i = 0; i < I18n.LANGUAGES.length; i++) {
-            final int rowIdx = i + 1;
-            final String code = I18n.LANGUAGES[i][0];
-            final String title = I18n.LANGUAGES[i][1];
-            final String sub = I18n.LANGUAGES[i][2];
-            View langRow = option(l, title, sub, code.equals(curLang), () -> {
-                I18n.setLang(this, code);
-                show(0, 0);
-                focusRow(rowIdx);
-            });
-            if (skipBtn != null) {
-                langRow.setNextFocusRightId(skipBtn.getId());
-            }
         }
         TextView by = new TextView(this);
         by.setText("by techgenius");

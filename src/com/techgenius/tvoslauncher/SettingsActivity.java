@@ -73,13 +73,10 @@ public class SettingsActivity extends Activity {
 
     private static final String[][] SIDEBAR_SECTIONS = {
         {LOOK_SCENES, "scene"},
-        {WEATHER, "cloud"},
         {APPS, "apps"},
         {PROFILES, "person"},
-        {CONTROL_PANEL, "sliders"},
         {BUTTON_MAPPER, "remote"},
         {QUICK, "bolt"},
-        {LANGUAGE, "globe"},
         {ADVANCED, "shield"},
         {UPDATES, "update"},
         {ABOUT, "info"}
@@ -240,7 +237,7 @@ public class SettingsActivity extends Activity {
 
     private String sectionTitle(String sec) {
         switch (sec) {
-            case LOOK_SCENES: return tr("Appearance and scenes", "Görünüm ve sahneler");
+            case LOOK_SCENES: return tr("Appearance", "Görünüm");
             case LOCATION:
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
             case APPS: return tr("Apps", "Uygulamalar");
@@ -941,103 +938,42 @@ public class SettingsActivity extends Activity {
      * - CLASSIC BACKGROUND: Couch-TV photos & ambient themes
      */
     void pageLookAndScenes() {
-        boolean scenesLook = Scenes.isScenesLook(this);
-        if (scenesLook) {
-            section(tr("DOCK", "DOCK"));
-            row(tr("Dock size", "Dock boyutu"),
-                    () -> Scenes.dockScaleLabel(this),
-                    () -> openSubMenu("dock_size"));
-            row(tr("Show app names", "Uygulama adlarını göster"),
-                    () -> Scenes.isDockNamesShown(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                    () -> {
-                        Scenes.setDockNamesShown(this, !Scenes.isDockNamesShown(this));
-                        refreshAll();
-                    });
-        }
+        // Villa : mode classique uniquement, arrière-plan téléchargé depuis une adresse web.
+        section("ARRIÈRE-PLAN");
+        row("Adresse de l'image", () -> RemoteWallpaper.getUrl(this) + "  ›", this::promptBackgroundUrl);
+        infoRowDynamic("État", () -> RemoteWallpaper.getStatus(this), null);
+        row("Vérifier maintenant", () -> "›", () -> {
+            showStatusMsg("Vérification de l'image…");
+            Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+            RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
+            list.postDelayed(() -> { if (!isFinishing()) refreshAll(); }, 4000);
+        });
+        infoNote("Remplace l'image sur le serveur pour changer le fond : la TV la récupère à l'allumage "
+                + "et toutes les 30 minutes. Format conseillé : 1920 × 1080 (16:9). "
+                + "Une image d'un autre format est recadrée, jamais déformée.");
+    }
 
-        section(tr("LOOK", "GÖRÜNÜM"));
-        choiceRow(
-                tr("Night scenes", "Gece sahneleri"),
-                tr("A big glass clock, scenes taking turns", "Büyük cam saat, sırayla değişen sahneler"),
-                scenesLook,
-                () -> {
-                    Scenes.setLook(this, Scenes.LOOK_SCENES);
-                    selectSection(LOOK_SCENES, true, 1);
-                });
-        choiceRow(
-                tr("Classic", "Klasik"),
-                tr("One photo and a grid of app banners", "Tek fotoğraf ve uygulama afişleri ızgarası"),
-                !scenesLook,
-                () -> {
-                    Scenes.setLook(this, Scenes.LOOK_CLASSIC);
-                    selectSection(LOOK_SCENES, true, 1);
-                });
-
-        section(tr("SCENES", "SAHNELER"));
-        List<String> order = Scenes.getSceneOrder(this);
-        for (int i = 0; i < order.size(); i++) {
-            String id = order.get(i);
-            if (Scenes.isCustomId(id)) continue;
-            final int sceneIdx = i;
-            Scenes.Spec spec = Scenes.byId(id);
-            sceneCheckRow(spec, sceneIdx, order);
-        }
-        for (int slot = 1; slot <= Scenes.MAX_CUSTOM_SCENES; slot++) {
-            customSceneRow(slot);
-            if (!Scenes.isSceneEnabled(this, Scenes.customId(slot))) {
-                break;
-            }
-        }
-        folderShuffleSceneRow();
-
-        if (Scenes.isAnyCustomSceneEnabled(this)) {
-            row(tr("Clock position", "Saat konumu"),
-                    () -> Scenes.customClockPosLabel(this),
-                    () -> {
-                        Scenes.cycleCustomClockPos(this);
-                        refreshAll();
-                    });
-        }
-
-        row(tr("Each scene stays", "Her sahne süresi"),
-                () -> Scenes.getStaySeconds(this) + tr(" seconds", " saniye"),
-                () -> {
-                    Scenes.cycleStaySeconds(this);
+    private void promptBackgroundUrl() {
+        android.widget.EditText in = new android.widget.EditText(this);
+        in.setSingleLine(true);
+        in.setHint(RemoteWallpaper.DEFAULT_URL);
+        in.setText(RemoteWallpaper.getUrl(this));
+        int pad = u(14);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(in);
+        AlertDialog dlg = dialog("Adresse de l'image d'arrière-plan")
+                .setView(box)
+                .setPositiveButton("Enregistrer", (d, w) -> {
+                    RemoteWallpaper.setUrl(this, in.getText().toString());
+                    Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+                    RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
                     refreshAll();
-                });
-
-        row(tr("Clock", "Saat"),
-                () -> Scenes.isClock24h(this) ? tr("24 hour", "24 saat") : tr("12 hour", "12 saat"),
-                () -> {
-                    Scenes.setClock24h(this, !Scenes.isClock24h(this));
-                    refreshAll();
-                });
-
-        row(tr("Clock font", "Saat yazı tipi"),
-                () -> Scenes.clockStyleLabel(this),
-                () -> {
-                    Scenes.cycleClockStyle(this);
-                    refreshAll();
-                });
-
-        section(tr("CLASSIC BACKGROUND", "KLASİK ARKA PLAN"));
-        String curWall = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-        for (int i = 0; i < Scenes.CLASSIC_PHOTOS.length; i++) {
-            final String photoFile = Scenes.CLASSIC_PHOTOS[i][0];
-            final String wallKey = "photo:" + photoFile;
-            final String label = I18n.s(this, Scenes.CLASSIC_PHOTOS[i][1], Scenes.CLASSIC_PHOTOS[i][2]);
-            classicPhotoRow(label, "backgrounds/" + photoFile, wallKey.equals(curWall), () -> {
-                Profiles.homePrefs(this).edit().putString("wallpaper", wallKey).apply();
-                rebuildMainRows();
-            });
-        }
-        row(tr("Ambient colour themes…", "Ortam renk temaları…"), () -> {
-            String k = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
-            int idx = Arrays.asList(MainActivity.WALL_KEYS).indexOf(k);
-            return MainActivity.wallName(this, Math.max(0, idx));
-        }, () -> openSubMenu("ambient_themes"));
-        customClassicPhotoRow("custom".equals(curWall));
-        folderShuffleClassicRow(MainActivity.FOLDER_SHUFFLE_WALL_KEY.equals(curWall));
+                })
+                .setNegativeButton("Annuler", null)
+                .show();
+        Ui.setupDialogEditText(in, dlg);
+        in.requestFocus();
     }
 
     void pageApps() {
@@ -1100,7 +1036,7 @@ public class SettingsActivity extends Activity {
                 "İpucu: Ana ekran dock'undaki herhangi bir uygulamayı taşımak veya gizlemek için OK tuşuna basılı tutun."));
 
         // One section per streaming app with a continue-watching popup on its dock tile.
-        for (WatchCloud cloud : new WatchCloud[]{new NuvioCloud(this), new StremioCloud(this)}) {
+        for (WatchCloud cloud : new WatchCloud[0]) {  // villa : Stremio et Nuvio masqués
             section(cloud.name().toUpperCase(java.util.Locale.ROOT));
             row(tr("Continue Watching on dock", "Dock'ta İzlemeye Devam Et"),
                     () -> cloud.popupEnabled() ? tr("On", "Açık") : tr("Off", "Kapalı"),
@@ -1321,15 +1257,10 @@ public class SettingsActivity extends Activity {
                     isActive,
                     () -> openSubMenu("profile_actions:" + p.id));
         }
-        if (Profiles.canAdd(this)) {
+        // Villa : un seul profil (le nom de la villa) ; pas d'ajout ni d'options multi-profils.
+        if (ps.isEmpty() && Profiles.canAdd(this)) {
             row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
         }
-        section(tr("OPTIONS", "SEÇENEKLER"));
-        row(tr("Ask who is watching on wake", "TV açıldığında kimin izlediğini sor"),
-                () -> Profiles.askOnWake(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> Profiles.setAskOnWake(this, !Profiles.askOnWake(this)));
-        infoNote(tr("Each person keeps their own Keep Watching row and app order.",
-                "Her kişi kendi İzlemeye Devam Et satırını ve uygulama düzenini korur."));
     }
 
     private void promptRenamePerson(Profiles.Profile p, int rowIdx) {

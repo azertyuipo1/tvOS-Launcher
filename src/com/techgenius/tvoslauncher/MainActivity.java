@@ -277,9 +277,11 @@ public class MainActivity extends Activity {
         // Startup: the app list (package manager, banners, icon colours) and the wallpaper are
         // prepared in the background while the window's views are built (~250 ms saved on 1 GHz TVs).
         java.util.concurrent.Future<?> appsTask = io.submit(this::loadApps);
-        if (!prefs.getBoolean("villa_wall", false)) {
-            prefs.edit().putString("wallpaper", "photo:villa.jpg").putBoolean("villa_wall", true).apply();
+        if (!prefs.getBoolean("villa_wall_remote", false)) {
+            prefs.edit().putString("wallpaper", RemoteWallpaper.WALL_KEY)
+                    .putBoolean("villa_wall", true).putBoolean("villa_wall_remote", true).apply();
         }
+        refreshRemoteWallpaper();
         if (!prefs.getBoolean("villa_shelf_off", false)) {
             Suggestions.setShelf(this, Suggestions.SHELF_NONE);
             prefs.edit().putBoolean("villa_shelf_off", true).apply();
@@ -315,6 +317,7 @@ public class MainActivity extends Activity {
                 LocalAdb.scheduleKeepAliveRepair(c, 1500L);
                 RentalReset.check(c);
                 GuestLock.lock();
+                refreshRemoteWallpaper();
                 if (!Profiles.askOnWake(c) || Profiles.list(c).size() < 2) return;
                 if (resumed) {
                     showProfilePicker(true);
@@ -1245,6 +1248,15 @@ public class MainActivity extends Activity {
             Bitmap custom = CustomMedia.getCustomClassicWallpaper(this);
             if (custom != null && !custom.isRecycled()) {
                 Bitmap copy = custom.copy(Bitmap.Config.ARGB_8888, true);
+                return bakeShade(copy);
+            }
+        }
+        if (RemoteWallpaper.WALL_KEY.equals(style)) {
+            Bitmap rb = RemoteWallpaper.load(this, 1280, 720);
+            if (rb == null) rb = Scenes.loadAssetBitmap(this, "backgrounds/villa.jpg", 1280, 720);
+            if (rb != null) {
+                Bitmap copy = rb.copy(Bitmap.Config.ARGB_8888, true);
+                if (copy != rb) rb.recycle();
                 return bakeShade(copy);
             }
         }
@@ -3748,7 +3760,10 @@ public class MainActivity extends Activity {
     final Runnable villaTick = new Runnable() {
         @Override public void run() {
             refreshProfileTitle();
-            if (++villaTicks % 90 == 0) RentalReset.check(MainActivity.this);
+            if (++villaTicks % 90 == 0) {
+                RentalReset.check(MainActivity.this);
+                refreshRemoteWallpaper();
+            }
             handler.postDelayed(this, 20_000L);
         }
     };
@@ -3772,6 +3787,15 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
         k.rightMargin = Math.max(0, right);
         clockColView.setLayoutParams(k);
+    }
+
+    /** Retélécharge l'arrière-plan s'il a changé sur le serveur, et l'affiche aussitôt. */
+    void refreshRemoteWallpaper() {
+        RemoteWallpaper.refresh(this, () -> {
+            if (isFinishing()) return;
+            String ws = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
+            if (RemoteWallpaper.WALL_KEY.equals(ws)) setWallpaper(ws);
+        });
     }
 
     void refreshProfileTitle() {
