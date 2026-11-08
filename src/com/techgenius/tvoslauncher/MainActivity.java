@@ -851,39 +851,69 @@ public class MainActivity extends Activity {
         clp.rightMargin = dockOuter - grow;
         root.addView(clockBox, clp);
 
-        // Nom du profil en haut à gauche, grand et sobre, à la manière de tvOS.
+        // Accueil à gauche (style hôtel) : étiquette avec le nom de la villa, salutation, prénoms.
+        eyebrow = new TextView(this);
+        eyebrow.setTypeface(Ui.font(this, "semibold"));
+        Ui.textSize(eyebrow, 15);
+        eyebrow.setTextColor(0xD9FFFFFF);
+        eyebrow.setLetterSpacing(0.32f);
+        eyebrow.setAllCaps(true);
+        eyebrow.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
+        eyebrow.setSingleLine(true);
+        welcomeLine = new TextView(this);
+        welcomeLine.setTypeface(Ui.font(this, "regular"));
+        Ui.textSize(welcomeLine, 40);
+        welcomeLine.setTextColor(Color.WHITE);
+        welcomeLine.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
+        welcomeLine.setSingleLine(true);
         profileTitle = new TextView(this);
         profileTitle.setTypeface(Ui.font(this, "display"));
         Ui.textSize(profileTitle, 52);
-        profileTitle.setGravity(Gravity.CENTER_HORIZONTAL);
         profileTitle.setTextColor(Color.WHITE);
-        profileTitle.setLetterSpacing(-0.01f);
-        profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x80000000);
+        profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
         profileTitle.setSingleLine(true);
-        // Accueil du client du séjour en cours, sous le nom : plus fin, discret, élégant.
-        welcomeLine = new TextView(this);
-        welcomeLine.setTypeface(Ui.font(this, "regular"));
-        Ui.textSize(welcomeLine, 22);
-        welcomeLine.setGravity(Gravity.CENTER_HORIZONTAL);
-        welcomeLine.setTextColor(0xE6FFFFFF);
-        welcomeLine.setLetterSpacing(0.04f);
-        welcomeLine.setShadowLayer(dp(10), 0, dp(1), 0x99000000);
-        welcomeLine.setSingleLine(true);
-        welcomeLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        welcomeLine.setMaxWidth((int) (screenW * 0.7f));
+        profileTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        profileTitle.setMaxWidth((int) (screenW * 0.62f));
+        profileTitle.setPadding(0, 0, dp(12), 0);
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
-        titleBox.setGravity(Gravity.CENTER_HORIZONTAL);
-        titleBox.addView(profileTitle);
+        titleBox.setClipChildren(false);
+        titleBox.addView(eyebrow);
         LinearLayout.LayoutParams welp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        welp.topMargin = dp(6);
+        welp.topMargin = dp(10);
         titleBox.addView(welcomeLine, welp);
+        titleBox.addView(profileTitle);
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        ptlp.topMargin = (int) (screenH * 0.16f);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
+        ptlp.leftMargin = (int) (screenW * 0.065f);
+        ptlp.topMargin = (int) (screenH * 0.24f);
         root.addView(titleBox, ptlp);
+
+        // Horloge fine en haut à droite, avec la date (en anglais, format 12 h).
+        LinearLayout clockCol = new LinearLayout(this);
+        clockCol.setOrientation(LinearLayout.VERTICAL);
+        clockCol.setGravity(Gravity.END);
+        bigClock = new TextView(this);
+        bigClock.setTypeface(Ui.font(this, "clock"));
+        Ui.textSize(bigClock, 46);
+        bigClock.setTextColor(Color.WHITE);
+        bigClock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
+        bigDate = new TextView(this);
+        bigDate.setTypeface(Ui.font(this, "medium"));
+        Ui.textSize(bigDate, 15);
+        bigDate.setTextColor(0xE6FFFFFF);
+        bigDate.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
+        clockCol.addView(bigClock);
+        clockCol.addView(bigDate);
+        clockColView = clockCol;
+        FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        cclp.rightMargin = (int) (screenW * 0.065f);
+        cclp.topMargin = dp(36);
+        root.addView(clockCol, cclp);
         refreshProfileTitle();
+        handler.post(villaTick);
         watchNetwork();
 
         // Weather overview in the top-left corner, over the top shelf; OK opens the forecast.
@@ -3694,18 +3724,42 @@ public class MainActivity extends Activity {
     final List<View> adminPills = new ArrayList<>();
     TextView profileTitle;
 
-    TextView welcomeLine;
+    TextView welcomeLine, eyebrow, bigClock, bigDate;
+    View clockColView;
+    private int villaTicks = 0;
+
+    /** Toutes les 20 s : horloge, date, salutation ; toutes les 30 min : vérification des départs. */
+    final Runnable villaTick = new Runnable() {
+        @Override public void run() {
+            refreshProfileTitle();
+            if (++villaTicks % 90 == 0) RentalReset.check(MainActivity.this);
+            handler.postDelayed(this, 20_000L);
+        }
+    };
 
     void refreshProfileTitle() {
         if (profileTitle == null) return;
         boolean scenes = Scenes.isScenesLook(this);
-        String n = Profiles.current(this).name;
-        profileTitle.setText(n == null ? "" : n);
-        profileTitle.setVisibility(n == null || n.isEmpty() || scenes ? View.GONE : View.VISIBLE);
-        if (welcomeLine != null) {
-            String g = RentalReset.currentGuest(this);
-            welcomeLine.setText(g.isEmpty() ? "" : "Welcome, " + g);
-            welcomeLine.setVisibility(g.isEmpty() || scenes ? View.GONE : View.VISIBLE);
+        String villa = Profiles.current(this).name;
+        if (villa == null) villa = "";
+        RentalReset.Stay stay = RentalReset.currentStay(this);
+        boolean guest = stay != null && !stay.name.isEmpty();
+        if (guest) {
+            eyebrow.setText(villa);
+            welcomeLine.setText(RentalReset.greeting(this, stay));
+            profileTitle.setText(stay.name.endsWith(".") ? stay.name : stay.name + ".");
+        } else {
+            profileTitle.setText(villa);
+        }
+        eyebrow.setVisibility(guest && !villa.isEmpty() && !scenes ? View.VISIBLE : View.GONE);
+        welcomeLine.setVisibility(guest && !scenes ? View.VISIBLE : View.GONE);
+        profileTitle.setVisibility(profileTitle.length() == 0 || scenes ? View.GONE : View.VISIBLE);
+        if (bigClock != null) {
+            java.util.Date now = new java.util.Date();
+            bigClock.setText(new java.text.SimpleDateFormat("h:mm", java.util.Locale.US).format(now));
+            bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
+            boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
+            clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
         }
     }
 
@@ -4758,6 +4812,7 @@ public class MainActivity extends Activity {
         return sec;
     }
 
+    static final boolean VILLA_NO_IDLE = true;
     final Runnable idleRunnable = this::enterIdle;
     final Runnable lockIdleRunnable = () -> {
         if (resumed && !ambientShowcase) {
@@ -4768,6 +4823,7 @@ public class MainActivity extends Activity {
     void resetIdle() {
         handler.removeCallbacks(idleRunnable);
         handler.removeCallbacks(lockIdleRunnable);
+        if (VILLA_NO_IDLE) return;  // villa : pas d'écran de veille du launcher
         int sec = idleSeconds();
         if (sec > 0 && resumed) handler.postDelayed(idleRunnable, sec * 1000L);
         int lockMin = Scenes.getLockIdleMinutes(this);
@@ -5485,6 +5541,7 @@ public class MainActivity extends Activity {
         if (searchButton != null) searchButton.setVisibility(buttons);
         if (ccButton != null) ccButton.setVisibility(buttons);
         for (View v : adminPills) v.setVisibility(admin ? View.VISIBLE : View.GONE);
+        if (clockColView != null) clockColView.setVisibility(admin || Scenes.isScenesLook(this) ? View.GONE : View.VISIBLE);
         if (m == 0) refreshAvatar();
         else if (avatarView != null) avatarView.setVisibility(View.GONE);
     }

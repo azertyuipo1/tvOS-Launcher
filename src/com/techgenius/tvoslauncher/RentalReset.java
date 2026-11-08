@@ -146,15 +146,17 @@ final class RentalReset {
         }, "rental-reset").start();
     }
 
+    /** Séjour en cours : prénoms affichés, dates d'arrivée et de départ (yyyy-MM-dd). */
+    static final class Stay { String name = "", start, end; }
+
     /**
-     * Nom du client du séjour en cours (vide sinon) : champ « welcome » préparé par le serveur,
-     * ou 1er champ de l'enregistrement du séjour en cours si le JSON contient les noms.
-     * Séjour en cours : arrivée <= aujourd'hui, et départ après aujourd'hui (ou aujourd'hui avant
-     * l'heure de check-out). Le jour d'un changement, le client qui part reste affiché jusqu'au check-out.
+     * Séjour en cours, ou null : arrivée <= aujourd'hui, et départ après aujourd'hui (ou aujourd'hui
+     * avant l'heure de check-out). Le jour d'un changement, le client qui part reste jusqu'au check-out.
+     * Nom : champ « welcome » préparé par un serveur, ou 1er champ de l'enregistrement.
      */
-    static String currentGuest(Context c) {
+    static Stay currentStay(Context c) {
         String json = prefs(c).getString(K_CACHE, null);
-        if (json == null) return "";
+        if (json == null) return null;
         try {
             JSONObject root = new JSONObject(json);
             JSONArray data = root.optJSONArray("data");
@@ -162,7 +164,7 @@ final class RentalReset {
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.getTime());
             boolean beforeCheckout = now.get(Calendar.HOUR_OF_DAY) < getCheckoutHour(c);
             JSONObject best = null;
-            String bestStart = null;
+            Stay stay = null;
             for (int i = 0; data != null && i < data.length(); i++) {
                 JSONObject r = data.optJSONObject(i);
                 if (r == null) continue;
@@ -172,20 +174,49 @@ final class RentalReset {
                 e = e.substring(0, 10);
                 boolean current = s.compareTo(today) <= 0
                         && (e.compareTo(today) > 0 || (e.equals(today) && beforeCheckout));
-                if (current && (bestStart == null || s.compareTo(bestStart) < 0)) { best = r; bestStart = s; }
-            }
-            if (best != null) {
-                java.util.Iterator<String> keys = best.keys();
-                if (keys.hasNext()) {
-                    String k = keys.next();
-                    Object v = best.opt(k);
-                    if (v instanceof String && !isTechnicalKey(k)) return ((String) v).trim();
+                if (current && (stay == null || s.compareTo(stay.start) < 0)) {
+                    best = r;
+                    stay = new Stay();
+                    stay.start = s;
+                    stay.end = e;
                 }
             }
-            return best != null ? root.optString("welcome", "").trim() : "";
+            if (stay == null) return null;
+            java.util.Iterator<String> keys = best.keys();
+            if (keys.hasNext()) {
+                String k = keys.next();
+                Object v = best.opt(k);
+                if (v instanceof String && !isTechnicalKey(k)) stay.name = ((String) v).trim();
+            }
+            if (stay.name.isEmpty()) stay.name = root.optString("welcome", "").trim();
+            return stay;
         } catch (Exception e) {
-            return "";
+            return null;
         }
+    }
+
+    static String currentGuest(Context c) {
+        Stay s = currentStay(c);
+        return s == null ? "" : s.name;
+    }
+
+    /**
+     * Salutation selon le moment du séjour : « Welcome, » le jour d'arrivée et le lendemain,
+     * « Thank you for staying with us, » le jour du départ, sinon bonjour selon l'heure.
+     */
+    static String greeting(Context c, Stay s) {
+        Calendar now = Calendar.getInstance();
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String today = f.format(now.getTime());
+        Calendar next = Calendar.getInstance();
+        try { next.setTime(f.parse(s.start)); } catch (Exception ignored) { }
+        next.add(Calendar.DAY_OF_MONTH, 1);
+        if (today.equals(s.end)) return "Thank you for staying with us,";
+        if (today.equals(s.start) || today.equals(f.format(next.getTime()))) return "Welcome,";
+        int h = now.get(Calendar.HOUR_OF_DAY);
+        if (h >= 5 && h < 12) return "Good morning,";
+        if (h >= 12 && h < 18) return "Good afternoon,";
+        return "Good evening,";
     }
 
     private static boolean isTechnicalKey(String k) {

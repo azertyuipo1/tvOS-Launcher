@@ -212,12 +212,36 @@ public class PowerService extends AccessibilityService {
         MediaWatchService.ensureSessionTracking(this);
         RentalReset.check(this);
         ButtonMapper.applyVillaDefaults(this);
+        applyVillaNoSleep(getApplicationContext());
 
         // If "Launch Automatically on System Boot" is enabled and the system just booted,
         // AccessibilityService connects much earlier than BOOT_COMPLETED on many TVs: launch Home immediately!
         if (SystemClock.elapsedRealtime() < 150_000L && BootReceiver.isLaunchOnBootEnabled(this)) {
             BootReceiver.triggerFastBootSequenceIfNeeded(this);
         }
+    }
+
+    /**
+     * Villa : pas d'écran de veille Google TV et pas de mise en veille automatique (le client
+     * éteint la TV lui-même). Réappliqué à chaque démarrage du service.
+     */
+    static void applyVillaNoSleep(Context c) {
+        new Thread(() -> {
+            try {
+                android.content.ContentResolver cr = c.getContentResolver();
+                android.provider.Settings.Secure.putInt(cr, "screensaver_enabled", 0);
+                android.provider.Settings.Secure.putInt(cr, "screensaver_activate_on_sleep", 0);
+                android.provider.Settings.Secure.putInt(cr, "screensaver_activate_on_dock", 0);
+                android.provider.Settings.Secure.putInt(cr, "sleep_timeout", -1);
+                android.provider.Settings.Secure.putInt(cr, "attentive_timeout", -1);
+            } catch (Throwable ignored) {
+            }
+            // Délai d'extinction de l'écran : réglage « system », modifiable seulement par ADB.
+            try {
+                LocalAdb.execShellOutput(c, "settings put system screen_off_timeout 2147483647");
+            } catch (Throwable ignored) {
+            }
+        }, "villa-no-sleep").start();
     }
 
     @Override
