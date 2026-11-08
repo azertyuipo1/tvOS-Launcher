@@ -241,7 +241,39 @@ public class PowerService extends AccessibilityService {
                 LocalAdb.execShellOutput(c, "settings put system screen_off_timeout 2147483647");
             } catch (Throwable ignored) {
             }
+            applyEnglishApps(c);
         }, "villa-no-sleep").start();
+    }
+
+    /** Applis de streaming forcées en anglais (langue par appli, Android 13 et plus). */
+    static final String[] ENGLISH_APPS = {
+            "com.netflix.ninja", "com.amazon.amazonvideo.livingroom", "com.wbd.stream", "com.disney.disneyplus",
+    };
+
+    static void applyEnglishApps(Context c) {
+        String status;
+        if (android.os.Build.VERSION.SDK_INT < 33) {
+            status = "non disponible (Android " + android.os.Build.VERSION.RELEASE + ", il faut Android 13+)";
+        } else {
+            int ok = 0;
+            String err = "";
+            for (String pkg : ENGLISH_APPS) {
+                try {
+                    c.getPackageManager().getPackageInfo(pkg, 0);
+                } catch (Exception notInstalled) {
+                    continue;
+                }
+                try {
+                    String out = LocalAdb.execShellOutput(c, "cmd locale set-app-locales " + pkg + " --locales en-US");
+                    if (out == null || out.trim().isEmpty() || !out.toLowerCase(java.util.Locale.ROOT).contains("error")) ok++;
+                    else err = out.trim();
+                } catch (Exception e) {
+                    err = String.valueOf(e.getMessage());
+                }
+            }
+            status = err.isEmpty() ? "✓ " + ok + " appli(s) en anglais" : "erreur : " + err;
+        }
+        c.getSharedPreferences("villa", Context.MODE_PRIVATE).edit().putString("english_apps", status).apply();
     }
 
     @Override
