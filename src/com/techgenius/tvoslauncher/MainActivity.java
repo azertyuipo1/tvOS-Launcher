@@ -3568,7 +3568,7 @@ public class MainActivity extends Activity {
 
     /** Applis de la villa, dans l'ordre d'affichage : {nom, paquet Play Store, mots-clés du nom ou du paquet}. */
     static final String[][] VILLA_APPS = {
-            {"NextForTv", "", "next"},
+            {"ITVSTREAM (Next)", "com.itvstream", "com.itvstream|itvstream"},
             {"Netflix", "com.netflix.ninja", "netflix"},
             {"Prime Video", "com.amazon.amazonvideo.livingroom", "prime video|amazonvideo"},
             {"HBO Max", "com.wbd.stream", "hbo|com.wbd.stream"},
