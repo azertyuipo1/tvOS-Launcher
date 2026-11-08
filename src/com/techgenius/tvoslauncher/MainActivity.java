@@ -3795,7 +3795,7 @@ public class MainActivity extends Activity {
             String hm = new java.text.SimpleDateFormat("h:mm", java.util.Locale.US).format(now);
             String ap = new java.text.SimpleDateFormat("a", java.util.Locale.US).format(now).toLowerCase(java.util.Locale.US);
             android.text.SpannableString cs = new android.text.SpannableString(hm + " " + ap);
-            cs.setSpan(new android.text.style.RelativeSizeSpan(0.42f), hm.length(), cs.length(), 0);
+            cs.setSpan(new android.text.style.RelativeSizeSpan(0.6f), hm.length(), cs.length(), 0);
             bigClock.setText(cs);
             bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
             boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
