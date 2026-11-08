@@ -3181,6 +3181,7 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
+        GuestLock.trackOkHold(this, ev);
         if (ambientShowcase) {
             if (ev == null) return true;
             int action = ev.getAction();
@@ -3623,10 +3624,24 @@ public class MainActivity extends Activity {
                 if (ok && avail) {
                     AppUpdater.showUpdateAvailableDialog(m, ver, url, AppUpdater.getCachedChangelog(m), null);
                 } else {
-                    m.promptMissingVillaApp();
+                    m.showAdminDialog();
                 }
             });
         });
+    }
+
+    /** Boîte du mode admin : accès direct aux réglages du launcher et de la TV. */
+    void showAdminDialog() {
+        if (isFinishing()) return;
+        applyStatusMode();
+        villaPromptDialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("Mode admin (10 minutes)")
+                .setMessage("Toutes les touches et tous les réglages sont déverrouillés.")
+                .setPositiveButton("Réglages du launcher", (d, w) ->
+                        startActivity(new Intent(this, SettingsActivity.class)))
+                .setNeutralButton("Réglages de la TV", (d, w) -> startSafe(new Intent(Settings.ACTION_SETTINGS)))
+                .setNegativeButton("Fermer", (d, w) -> handler.post(this::promptMissingVillaApp))
+                .show();
     }
 
     /** En mode admin, propose d'installer la prochaine appli de la villa absente de la TV. */
@@ -5291,7 +5306,7 @@ public class MainActivity extends Activity {
 
     void applyStatusMode() {
         if (clockBox == null || Scenes.isScenesLook(this)) return;
-        int m = getStatusMode(this);
+        int m = GuestLock.isEnabled(this) && !GuestLock.isLocked(this) ? 0 : getStatusMode(this);
         clockBox.setVisibility(m == 2 ? View.GONE : View.VISIBLE);
         int buttons = m == 0 ? View.VISIBLE : View.GONE;
         if (refreshButton != null) refreshButton.setVisibility(buttons);

@@ -93,17 +93,34 @@ final class GuestLock {
     static boolean onAnyKey(Context c, KeyEvent e) {
         if (!isLocked(c)) return false;
         int code = e.getKeyCode();
-        // Mode admin : OK maintenu 10 secondes sur l'accueil.
-        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)
-                && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() > 0 && onHome()) {
-            if (e.getEventTime() - e.getDownTime() >= HOLD_MS) {
-                unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
-                Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
-                        Toast.LENGTH_LONG).show();
-                MainActivity.onAdminUnlocked();
-            }
-        }
+        if (onHome()) trackOkHold(c, e);
         return !isAllowedKey(code);
+    }
+
+    private static long okDownAt = 0L;
+
+    /**
+     * Mode admin : OK maintenu 10 secondes sur l'accueil. Mesuré avec notre propre horloge, au fil
+     * des répétitions comme au relâchement (certaines télécommandes n'envoient pas de répétitions).
+     * Appelée par le service d'accessibilité et par l'accueil lui-même.
+     */
+    static void trackOkHold(Context c, KeyEvent e) {
+        int code = e.getKeyCode();
+        if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return;
+        if (!isLocked(c)) return;
+        long now = SystemClock.uptimeMillis();
+        if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
+            okDownAt = now;
+            return;
+        }
+        if (okDownAt > 0 && now - okDownAt >= HOLD_MS) {
+            okDownAt = 0L;
+            unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
+            Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
+                    Toast.LENGTH_LONG).show();
+            MainActivity.onAdminUnlocked();
+        }
+        if (e.getAction() == KeyEvent.ACTION_UP) okDownAt = 0L;
     }
 
     /** Réglages de la TV ouverts alors que c'est verrouillé : retour à l'accueil. */
