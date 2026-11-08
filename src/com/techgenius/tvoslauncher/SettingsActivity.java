@@ -1357,6 +1357,28 @@ public class SettingsActivity extends Activity {
         in.requestFocus();
     }
 
+    private void promptRentalUrl() {
+        android.widget.EditText in = new android.widget.EditText(this);
+        in.setSingleLine(true);
+        in.setHint("https://…");
+        in.setText(RentalReset.getUrl(this));
+        int pad = u(14);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(in);
+        AlertDialog dlg = dialog("Lien du calendrier (JSON)")
+                .setView(box)
+                .setPositiveButton("Enregistrer", (d, w) -> {
+                    RentalReset.setUrl(this, in.getText().toString());
+                    refreshAll();
+                    RentalReset.forceCheckSoon(this, this::refreshAll);
+                })
+                .setNegativeButton(tr("Cancel", "İptal"), null)
+                .show();
+        Ui.setupDialogEditText(in, dlg);
+        in.requestFocus();
+    }
+
     private void promptAddPerson() {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
@@ -1699,6 +1721,34 @@ public class SettingsActivity extends Activity {
     private boolean checkingLatestRelease = false;
 
     void pageUpdates() {
+        section("MODE LOCATION");
+        row("Calendrier des réservations (JSON)",
+                () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
+                this::promptRentalUrl);
+        row("Heure de check-out",
+                () -> RentalReset.getCheckoutHour(this) + "h",
+                () -> {
+                    int h = RentalReset.getCheckoutHour(this) + 1;
+                    RentalReset.setCheckoutHour(this, h > 15 ? 10 : h);
+                    refreshAll();
+                });
+        infoRowDynamic("Dernier départ traité",
+                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+        row("Déconnecter les comptes maintenant", () -> "›", () -> {
+            showStatusMsg("Déconnexion en cours…");
+            RentalReset.forceNow(this, () -> {
+                if (!isFinishing()) {
+                    refreshAll();
+                    showStatusMsg(RentalReset.getLastResult(this));
+                }
+            });
+        });
+        infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
+                + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
+                + "Nécessite le mode ADB persistant.");
+
         section(tr("UPDATES", "GÜNCELLEMELER"));
         row(tr("Automatic updates", "Otomatik güncellemeler"),
                 () -> AppUpdater.isAutoUpdateEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),

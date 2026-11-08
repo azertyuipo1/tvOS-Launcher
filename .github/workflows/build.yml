@@ -1,0 +1,52 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK (build-tools 34, platform 34)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+
+      - name: Clé de signature
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Ajoute le secret KEYSTORE_B64 (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > release.keystore
+
+      - name: Build
+        env:
+          RELEASE_KEYSTORE: release.keystore
+          RELEASE_KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+          RELEASE_KEY_ALIAS: tvos-release
+          VERSION_NAME: 2.1.${{ github.run_number }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          export VERSION_CODE=$((1000 + VERSION_CODE))
+          bash build.sh
+
+      - name: Publier la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v2.1.${{ github.run_number }}" build/tvos-home.apk \
+            --title "v2.1.${{ github.run_number }} (mode location)" \
+            --notes "Build automatique : ${{ github.event.head_commit.message || 'manuel' }}"

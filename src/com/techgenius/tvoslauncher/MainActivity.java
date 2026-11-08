@@ -306,6 +306,7 @@ public class MainActivity extends Activity {
             @Override public void onReceive(Context c, Intent i) {
                 AirPlayGuard.check(c, true);
                 LocalAdb.scheduleKeepAliveRepair(c, 1500L);
+                RentalReset.check(c);
                 if (!Profiles.askOnWake(c) || Profiles.list(c).size() < 2) return;
                 if (resumed) {
                     showProfilePicker(true);
@@ -317,6 +318,7 @@ public class MainActivity extends Activity {
         };
         registerReceiver(wakeReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON));
         LocalAdb.ensureKeepAliveWatchdog(this);
+        RentalReset.check(this);
     }
 
     @Override
