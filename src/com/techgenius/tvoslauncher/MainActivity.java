@@ -3582,14 +3582,20 @@ public class MainActivity extends Activity {
 
     /** Une seule fois par profil : masque tout sauf VILLA_VISIBLE_PKGS (réversible dans Applis masquées). */
     private void applyVillaDefaultHidden(java.util.Collection<AppEntry> entries) {
-        if (prefs.getBoolean("villa_default_hidden", false)) return;
         Set<String> keep = new HashSet<>(java.util.Arrays.asList(VILLA_VISIBLE_PKGS));
         Set<String> hidden = new HashSet<>(prefs.getStringSet(PREF_HIDDEN, Collections.emptySet()));
+        boolean first = !prefs.getBoolean("villa_default_hidden", false);
+        boolean changed = false;
         for (AppEntry e : entries) {
-            if (e.pkg != null && keep.contains(e.pkg)) continue;
-            if (labelKept(e.label)) continue;
-            hidden.add(e.key);
+            boolean kept = (e.pkg != null && keep.contains(e.pkg)) || labelKept(e.label);
+            if (kept) {
+                changed |= hidden.remove(e.key);
+                if (e.pkg != null) changed |= hidden.remove(e.pkg);
+            } else if (first) {
+                changed |= hidden.add(e.key);
+            }
         }
+        if (!first && !changed) return;
         prefs.edit().putStringSet(PREF_HIDDEN, hidden).putBoolean("villa_default_hidden", true).apply();
     }
 

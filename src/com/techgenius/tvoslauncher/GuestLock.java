@@ -66,11 +66,35 @@ final class GuestLock {
      * Touche Réglages (appelée par le service d'accessibilité). Renvoie true si la touche est
      * consommée. Au 7e appui rapproché : déverrouillage et ouverture des réglages de la TV.
      */
-    static boolean onSettingsKey(Context c, KeyEvent e) {
-        if (!isLocked(c)) return false;
+    private static int lastKeyCode = 0;
+
+    /** Touches qui ne servent jamais au déverrouillage (navigation, volume, alimentation). */
+    private static boolean isNavKey(int k) {
+        switch (k) {
+            case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BACK: case KeyEvent.KEYCODE_HOME:
+            case KeyEvent.KEYCODE_VOLUME_UP: case KeyEvent.KEYCODE_VOLUME_DOWN:
+            case KeyEvent.KEYCODE_VOLUME_MUTE: case KeyEvent.KEYCODE_POWER:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Compte les appuis rapides sur une même touche (hors navigation). 7 appuis = déverrouillage.
+     * Renvoie true si la touche doit être avalée (touche Réglages ou Menu pendant le verrou).
+     */
+    static boolean onAnyKey(Context c, KeyEvent e) {
+        int code = e.getKeyCode();
+        if (!isLocked(c) || isNavKey(code)) return false;
+        boolean swallow = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_MENU;
         if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
             long now = SystemClock.elapsedRealtime();
-            pressCount = (now - lastPressMs <= PRESS_GAP_MS) ? pressCount + 1 : 1;
+            pressCount = (code == lastKeyCode && now - lastPressMs <= PRESS_GAP_MS) ? pressCount + 1 : 1;
+            lastKeyCode = code;
             lastPressMs = now;
             if (pressCount >= PRESSES) {
                 pressCount = 0;
@@ -80,9 +104,10 @@ final class GuestLock {
                     c.startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 } catch (Throwable ignored) {
                 }
+                return true;
             }
         }
-        return true;
+        return swallow;
     }
 
     /** Réglages de la TV ouverts par un autre chemin alors que c'est verrouillé : retour à l'accueil. */
