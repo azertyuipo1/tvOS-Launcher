@@ -826,11 +826,22 @@ public class PowerService extends AccessibilityService {
         if (instance != null) next(instance);
     }
 
+    private long lastGuestLockPromptMs = 0L;
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e != null && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getPackageName() != null) {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
+            if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)
+                    && SystemClock.elapsedRealtime() - lastGuestLockPromptMs > 2000L) {
+                lastGuestLockPromptMs = SystemClock.elapsedRealtime();
+                try {
+                    startActivity(new Intent(this, GuestLock.PinActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                } catch (Throwable ignored) {
+                }
+            }
             MediaWatchService.pollActiveSessionsAsync(this);
 
             // Fire TV Stick ("Home on Fire" style) & OEM Home Button Fix:

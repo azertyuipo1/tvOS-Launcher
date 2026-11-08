@@ -150,5 +150,10 @@
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustNothing"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode|density" />
+        <activity
+            android:name=".GuestLock$PinActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

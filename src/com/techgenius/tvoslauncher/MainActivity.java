@@ -307,6 +307,7 @@ public class MainActivity extends Activity {
                 AirPlayGuard.check(c, true);
                 LocalAdb.scheduleKeepAliveRepair(c, 1500L);
                 RentalReset.check(c);
+                GuestLock.lock();
                 if (!Profiles.askOnWake(c) || Profiles.list(c).size() < 2) return;
                 if (resumed) {
                     showProfilePicker(true);
@@ -5230,6 +5231,10 @@ public class MainActivity extends Activity {
      * rows below; the focused row becomes a white pill with dark text. Back closes it.
      */
     void showMenu(View anchor, String title, List<String> labels, List<Runnable> actions, int destructive) {
+        if (GuestLock.isLocked(this)) {
+            GuestLock.require(this, () -> showMenu(anchor, title, labels, actions, destructive), null);
+            return;
+        }
         closeMenu();
         menuReturnFocus = anchor;
         stopSway(null);
