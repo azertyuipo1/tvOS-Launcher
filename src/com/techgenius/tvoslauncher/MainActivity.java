@@ -3359,6 +3359,7 @@ public class MainActivity extends Activity {
                 }
             }
         }
+        applyVillaOrder();
     }
 
     /** Fallback Settings tile for TVs whose settings app has no launcher entry. */
@@ -3565,30 +3566,55 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Applis visibles par défaut à la première installation ; toutes les autres sont masquées. */
-    static final String[] VILLA_VISIBLE_PKGS = {
-            "com.netflix.ninja",                  // Netflix
-            "com.amazon.amazonvideo.livingroom",  // Prime Video
+    /** Applis de la villa, dans l'ordre d'affichage : {nom, paquet Play Store, mots-clés du nom ou du paquet}. */
+    static final String[][] VILLA_APPS = {
+            {"NextForTv", "", "next"},
+            {"Netflix", "com.netflix.ninja", "netflix"},
+            {"Prime Video", "com.amazon.amazonvideo.livingroom", "prime video|amazonvideo"},
+            {"HBO Max", "com.wbd.stream", "hbo|com.wbd.stream"},
+            {"Disney+", "com.disney.disneyplus", "disney"},
     };
-    /** Applis gardées visibles d'après leur nom affiché (nom technique inconnu). */
-    static final String[] VILLA_VISIBLE_LABELS = { "next" };  // NextForTv
 
-    private static boolean labelKept(String label) {
-        if (label == null) return false;
-        String l = label.toLowerCase(java.util.Locale.ROOT);
-        for (String k : VILLA_VISIBLE_LABELS) if (l.contains(k)) return true;
-        return false;
+    /** Rang de l'appli dans VILLA_APPS, ou -1 si elle n'en fait pas partie. */
+    static int villaRank(String label, String pkg) {
+        String l = label == null ? "" : label.toLowerCase(java.util.Locale.ROOT);
+        String p = pkg == null ? "" : pkg.toLowerCase(java.util.Locale.ROOT);
+        if (p.startsWith("com.techgenius.")) return -1;
+        for (int i = 0; i < VILLA_APPS.length; i++) {
+            for (String k : VILLA_APPS[i][2].split("\\|")) {
+                if (l.contains(k) || p.contains(k)) return i;
+            }
+        }
+        return -1;
     }
 
-    /** Une seule fois par profil : masque tout sauf VILLA_VISIBLE_PKGS (réversible dans Applis masquées). */
+    /** Applis de VILLA_APPS absentes de la TV (pour les installer depuis le Play Store). */
+    static List<String[]> villaMissing(Context c) {
+        PackageManager pm = c.getPackageManager();
+        boolean[] found = new boolean[VILLA_APPS.length];
+        for (String cat : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (android.content.pm.ResolveInfo ri : pm.queryIntentActivities(
+                    new Intent(Intent.ACTION_MAIN).addCategory(cat), 0)) {
+                if (ri.activityInfo == null) continue;
+                int r = villaRank(ri.loadLabel(pm).toString(), ri.activityInfo.packageName);
+                if (r >= 0) found[r] = true;
+            }
+        }
+        List<String[]> missing = new ArrayList<>();
+        for (int i = 0; i < VILLA_APPS.length; i++) if (!found[i]) missing.add(VILLA_APPS[i]);
+        return missing;
+    }
+
+    /**
+     * Applis de la villa toujours visibles ; à la première installation, toutes les autres sont
+     * masquées (réversible dans Réglages du launcher > Applis > Applis masquées).
+     */
     private void applyVillaDefaultHidden(java.util.Collection<AppEntry> entries) {
-        Set<String> keep = new HashSet<>(java.util.Arrays.asList(VILLA_VISIBLE_PKGS));
         Set<String> hidden = new HashSet<>(prefs.getStringSet(PREF_HIDDEN, Collections.emptySet()));
         boolean first = !prefs.getBoolean("villa_default_hidden", false);
         boolean changed = false;
         for (AppEntry e : entries) {
-            boolean kept = (e.pkg != null && keep.contains(e.pkg)) || labelKept(e.label);
-            if (kept) {
+            if (villaRank(e.label, e.pkg) >= 0) {
                 changed |= hidden.remove(e.key);
                 if (e.pkg != null) changed |= hidden.remove(e.pkg);
             } else if (first) {
@@ -3597,6 +3623,16 @@ public class MainActivity extends Activity {
         }
         if (!first && !changed) return;
         prefs.edit().putStringSet(PREF_HIDDEN, hidden).putBoolean("villa_default_hidden", true).apply();
+    }
+
+    /** Place les applis de la villa en tête, dans l'ordre de VILLA_APPS. */
+    private void applyVillaOrder() {
+        List<AppEntry> villa = new ArrayList<>();
+        for (AppEntry e : apps) if (villaRank(e.label, e.pkg) >= 0) villa.add(e);
+        if (villa.isEmpty()) return;
+        Collections.sort(villa, (x, y) -> Integer.compare(villaRank(x.label, x.pkg), villaRank(y.label, y.pkg)));
+        apps.removeAll(villa);
+        apps.addAll(0, villa);
     }
 
     void setHidden(AppEntry a, boolean hide) {

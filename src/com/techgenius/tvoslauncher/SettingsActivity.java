@@ -1754,13 +1754,34 @@ public class SettingsActivity extends Activity {
                     MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
                     refreshAll();
                 });
-        row("Verrouillage invités (7 appuis sur Réglages)",
+        row("Installer les applis manquantes",
+                () -> {
+                    List<String[]> m = MainActivity.villaMissing(this);
+                    if (m.isEmpty()) return "Toutes installées";
+                    StringBuilder sb = new StringBuilder();
+                    for (String[] a : m) sb.append(sb.length() > 0 ? ", " : "").append(a[0]);
+                    return sb + " ›";
+                },
+                () -> {
+                    List<String[]> m = MainActivity.villaMissing(this);
+                    if (m.isEmpty()) return;
+                    String[] app = m.get(0);
+                    android.net.Uri uri = app[1].isEmpty()
+                            ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
+                            : android.net.Uri.parse("market://details?id=" + app[1]);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (Throwable t) {
+                        showStatusMsg("Play Store introuvable.");
+                    }
+                });
+        row("Verrouillage invités (7 appuis sur Retour depuis l'accueil)",
                 () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
                 () -> {
                     boolean on = !GuestLock.isEnabled(this);
                     GuestLock.setEnabled(this, on);
                     refreshAll();
-                    showStatusMsg(on ? "Verrouillage activé. Teste maintenant : 7 appuis rapides sur la touche Réglages."
+                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : 7 appuis rapides sur Retour depuis l'accueil."
                             : "Verrouillage désactivé.");
                 });
         infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "

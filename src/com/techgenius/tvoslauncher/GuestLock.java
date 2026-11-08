@@ -5,22 +5,25 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.view.KeyEvent;
 import android.widget.Toast;
 
 /**
- * Verrouillage invités : protège les réglages de la TV, les réglages du launcher et les menus
- * d'édition (déplacer, renommer, masquer, désinstaller). Pour déverrouiller, appuyer 7 fois de
- * suite sur la touche Réglages de la télécommande : tout reste ouvert 10 minutes, ou jusqu'à la
- * mise en veille de la TV.
+ * Verrouillage invités (actif par défaut une fois la configuration initiale terminée).
+ *
+ * Verrouillé : seules les touches de navigation et d'usage restent actives (flèches, OK, Retour,
+ * Home, Power, Muet, Volume +/-). Toutes les autres touches sont ignorées, les réglages de la TV
+ * renvoient à l'accueil, et les réglages du launcher et l'appui long sur les applis sont bloqués.
+ *
+ * Déverrouillage admin : 7 appuis rapides sur Retour depuis l'accueil du launcher. Tout est
+ * ouvert pendant 10 minutes, ou jusqu'à la mise en veille.
  */
 final class GuestLock {
     private static final String PREFS = "guest_lock";
     private static final String K_ENABLED = "enabled";
     private static final long UNLOCK_MS = 10 * 60_000L;
     private static final int PRESSES = 7;
-    private static final long PRESS_GAP_MS = 3_000L;
+    private static final long PRESS_GAP_MS = 800L;
 
     private static volatile long unlockedUntil = 0L;
     private static int pressCount = 0;
@@ -40,16 +43,20 @@ final class GuestLock {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    static boolean isEnabled(Context c) { return prefs(c).getBoolean(K_ENABLED, false); }
+    static boolean isEnabled(Context c) { return prefs(c).getBoolean(K_ENABLED, true); }
 
-    /** À l'activation, on laisse 10 minutes ouvertes pour tester les 7 appuis avant que le verrou ne joue. */
     static void setEnabled(Context c, boolean on) {
         prefs(c).edit().putBoolean(K_ENABLED, on).apply();
         unlockedUntil = on ? System.currentTimeMillis() + UNLOCK_MS : 0L;
     }
 
+    private static boolean setupDone(Context c) {
+        return c.getApplicationContext().getSharedPreferences("setup", Context.MODE_PRIVATE)
+                .getBoolean(SetupActivity.K_DONE, false);
+    }
+
     static boolean isLocked(Context c) {
-        return isEnabled(c) && System.currentTimeMillis() > unlockedUntil;
+        return isEnabled(c) && setupDone(c) && System.currentTimeMillis() > unlockedUntil;
     }
 
     static void lock() { unlockedUntil = 0L; }
@@ -58,59 +65,51 @@ final class GuestLock {
         if (pkg == null || pkg.startsWith("com.techgenius.")) return false;
         for (String p : LOCKED_PACKAGES) if (p.equals(pkg)) return true;
         // Panneaux de réglages des fabricants (ex. réglages rapides Sony).
-        String l = pkg.toLowerCase(java.util.Locale.ROOT);
-        return l.contains("settings");
+        return pkg.toLowerCase(java.util.Locale.ROOT).contains("settings");
     }
 
-    /**
-     * Touche Réglages (appelée par le service d'accessibilité). Renvoie true si la touche est
-     * consommée. Au 7e appui rapproché : déverrouillage et ouverture des réglages de la TV.
-     */
-    private static int lastKeyCode = 0;
-
-    /** Touches qui ne servent jamais au déverrouillage (navigation, volume, alimentation). */
-    private static boolean isNavKey(int k) {
+    /** Touches toujours autorisées pour les invités. */
+    private static boolean isAllowedKey(int k) {
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
             case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_BACK: case KeyEvent.KEYCODE_HOME:
+            case KeyEvent.KEYCODE_POWER:
             case KeyEvent.KEYCODE_VOLUME_UP: case KeyEvent.KEYCODE_VOLUME_DOWN:
-            case KeyEvent.KEYCODE_VOLUME_MUTE: case KeyEvent.KEYCODE_POWER:
+            case KeyEvent.KEYCODE_VOLUME_MUTE:
                 return true;
             default:
                 return false;
         }
     }
 
-    /**
-     * Compte les appuis rapides sur une même touche (hors navigation). 7 appuis = déverrouillage.
-     * Renvoie true si la touche doit être avalée (touche Réglages ou Menu pendant le verrou).
-     */
+    private static boolean onHome() {
+        MainActivity m = MainActivity.activeInstance;
+        return m != null && m.resumed;
+    }
+
+    /** Appelée pour chaque touche par le service d'accessibilité. Renvoie true si la touche est avalée. */
     static boolean onAnyKey(Context c, KeyEvent e) {
+        if (!isLocked(c)) return false;
         int code = e.getKeyCode();
-        if (!isLocked(c) || isNavKey(code)) return false;
-        boolean swallow = code == KeyEvent.KEYCODE_SETTINGS || code == KeyEvent.KEYCODE_MENU;
-        if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
+        if (code == KeyEvent.KEYCODE_BACK && e.getAction() == KeyEvent.ACTION_DOWN
+                && e.getRepeatCount() == 0 && onHome()) {
             long now = SystemClock.elapsedRealtime();
-            pressCount = (code == lastKeyCode && now - lastPressMs <= PRESS_GAP_MS) ? pressCount + 1 : 1;
-            lastKeyCode = code;
+            pressCount = (now - lastPressMs <= PRESS_GAP_MS) ? pressCount + 1 : 1;
             lastPressMs = now;
             if (pressCount >= PRESSES) {
                 pressCount = 0;
                 unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
-                Toast.makeText(c, "Réglages déverrouillés pour 10 minutes", Toast.LENGTH_SHORT).show();
-                try {
-                    c.startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (Throwable ignored) {
-                }
-                return true;
+                Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
+                        Toast.LENGTH_LONG).show();
             }
         }
-        return swallow;
+        return !isAllowedKey(code);
     }
 
-    /** Réglages de la TV ouverts par un autre chemin alors que c'est verrouillé : retour à l'accueil. */
+    /** Réglages de la TV ouverts alors que c'est verrouillé : retour à l'accueil. */
     static void bounceHome(Context c) {
         long now = SystemClock.elapsedRealtime();
         if (now - lastBounceMs < 1500L) return;
