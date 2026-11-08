@@ -854,7 +854,7 @@ public class MainActivity extends Activity {
         // Nom du profil en haut à gauche, grand et sobre, à la manière de tvOS.
         profileTitle = new TextView(this);
         profileTitle.setTypeface(Ui.font(this, "display"));
-        Ui.textSize(profileTitle, 38);
+        Ui.textSize(profileTitle, 52);
         profileTitle.setGravity(Gravity.CENTER_HORIZONTAL);
         profileTitle.setTextColor(Color.WHITE);
         profileTitle.setLetterSpacing(-0.01f);
@@ -862,7 +862,7 @@ public class MainActivity extends Activity {
         profileTitle.setSingleLine(true);
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        ptlp.topMargin = dp(72);
+        ptlp.topMargin = (int) (screenH * 0.16f);
         root.addView(profileTitle, ptlp);
         refreshProfileTitle();
         watchNetwork();
