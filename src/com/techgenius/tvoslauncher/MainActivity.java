@@ -3324,6 +3324,7 @@ public class MainActivity extends Activity {
             }
         }
 
+        applyVillaDefaultHidden(all.values());
         Set<String> hidden = prefs.getStringSet(PREF_HIDDEN, Collections.emptySet());
         Set<String> other = prefs.getStringSet(PREF_OTHER, Collections.emptySet());
         Map<String, AppEntry> pool = new LinkedHashMap<>();
@@ -3562,6 +3563,24 @@ public class MainActivity extends Activity {
             apps.add(tenthRealIdx, moved);
             saveOrder();
         }
+    }
+
+    /** Applis visibles par défaut à la première installation ; toutes les autres sont masquées. */
+    static final String[] VILLA_VISIBLE_PKGS = {
+            "com.netflix.ninja",                  // Netflix
+            "com.amazon.amazonvideo.livingroom",  // Prime Video
+    };
+
+    /** Une seule fois par profil : masque tout sauf VILLA_VISIBLE_PKGS (réversible dans Applis masquées). */
+    private void applyVillaDefaultHidden(java.util.Collection<AppEntry> entries) {
+        if (prefs.getBoolean("villa_default_hidden", false)) return;
+        Set<String> keep = new HashSet<>(java.util.Arrays.asList(VILLA_VISIBLE_PKGS));
+        Set<String> hidden = new HashSet<>(prefs.getStringSet(PREF_HIDDEN, Collections.emptySet()));
+        for (AppEntry e : entries) {
+            if (e.pkg != null && keep.contains(e.pkg)) continue;
+            hidden.add(e.key);
+        }
+        prefs.edit().putStringSet(PREF_HIDDEN, hidden).putBoolean("villa_default_hidden", true).apply();
     }
 
     void setHidden(AppEntry a, boolean hide) {
