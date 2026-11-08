@@ -608,6 +608,15 @@ public final class AppUpdater {
                 } catch (Throwable ignored) {
                 }
 
+                // Installateur standard d'Android en priorité (fiable sur les TV Sony) ; l'ADB ne sert
+                // qu'en secours, si l'appli n'a pas le droit d'installer des applis inconnues.
+                if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
+                    downloading = false;
+                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                    MAIN.post(() -> installWithPackageInstaller(activity, apkFile));
+                    return;
+                }
+
                 // 1. If ADB is currently active (port 5555 open), install automatically via LocalAdb
                 if (LocalAdb.isAdbPortCurrentlyOpen()) {
                     MAIN.post(() -> Toast.makeText(appCtx,
