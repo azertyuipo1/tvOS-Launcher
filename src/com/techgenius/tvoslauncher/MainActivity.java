@@ -3570,6 +3570,15 @@ public class MainActivity extends Activity {
             "com.netflix.ninja",                  // Netflix
             "com.amazon.amazonvideo.livingroom",  // Prime Video
     };
+    /** Applis gardées visibles d'après leur nom affiché (nom technique inconnu). */
+    static final String[] VILLA_VISIBLE_LABELS = { "next" };  // NextForTv
+
+    private static boolean labelKept(String label) {
+        if (label == null) return false;
+        String l = label.toLowerCase(java.util.Locale.ROOT);
+        for (String k : VILLA_VISIBLE_LABELS) if (l.contains(k)) return true;
+        return false;
+    }
 
     /** Une seule fois par profil : masque tout sauf VILLA_VISIBLE_PKGS (réversible dans Applis masquées). */
     private void applyVillaDefaultHidden(java.util.Collection<AppEntry> entries) {
@@ -3578,6 +3587,7 @@ public class MainActivity extends Activity {
         Set<String> hidden = new HashSet<>(prefs.getStringSet(PREF_HIDDEN, Collections.emptySet()));
         for (AppEntry e : entries) {
             if (e.pkg != null && keep.contains(e.pkg)) continue;
+            if (labelKept(e.label)) continue;
             hidden.add(e.key);
         }
         prefs.edit().putStringSet(PREF_HIDDEN, hidden).putBoolean("villa_default_hidden", true).apply();
