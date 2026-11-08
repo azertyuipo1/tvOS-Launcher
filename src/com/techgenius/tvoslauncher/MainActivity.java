@@ -426,6 +426,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         applyStatusMode();
+        handler.postDelayed(this::promptMissingVillaApp, 800);
         if (!I18n.getLang(this).equals(activeLang) || !Scenes.getLook(this).equals(activeLook)) {
             recreate();
             return;
@@ -3606,6 +3607,51 @@ public class MainActivity extends Activity {
         List<String[]> missing = new ArrayList<>();
         for (int i = 0; i < VILLA_APPS.length; i++) if (!found[i]) missing.add(VILLA_APPS[i]);
         return missing;
+    }
+
+    private boolean villaPromptSnoozed = false;
+    private android.app.Dialog villaPromptDialog;
+
+    /** Mode admin activé : propose la mise à jour si elle existe, sinon les applis manquantes. */
+    static void onAdminUnlocked() {
+        MainActivity m = activeInstance;
+        if (m == null) return;
+        m.runOnUiThread(() -> {
+            m.villaPromptSnoozed = false;
+            AppUpdater.checkForUpdates(m, (ok, ver, url, avail, err) -> {
+                if (m.isFinishing()) return;
+                if (ok && avail) {
+                    AppUpdater.showUpdateAvailableDialog(m, ver, url, AppUpdater.getCachedChangelog(m), null);
+                } else {
+                    m.promptMissingVillaApp();
+                }
+            });
+        });
+    }
+
+    /** En mode admin, propose d'installer la prochaine appli de la villa absente de la TV. */
+    void promptMissingVillaApp() {
+        if (GuestLock.isLocked(this) || villaPromptSnoozed || isFinishing()) return;
+        if (villaPromptDialog != null && villaPromptDialog.isShowing()) return;
+        List<String[]> missing = villaMissing(this);
+        if (missing.isEmpty()) return;
+        String[] app = missing.get(0);
+        String more = missing.size() > 1 ? "\n\nEnsuite : " + (missing.size() - 1) + " autre(s) appli(s) à installer." : "";
+        villaPromptDialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("Appli manquante")
+                .setMessage(app[0] + " n'est pas installée sur cette TV. L'installer depuis le Play Store ?" + more)
+                .setPositiveButton("Installer", (d, w) -> {
+                    Uri uri = app[1].isEmpty()
+                            ? Uri.parse("market://search?q=" + Uri.encode(app[0]))
+                            : Uri.parse("market://details?id=" + app[1]);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (Throwable t) {
+                        Toast.makeText(this, "Play Store introuvable", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Plus tard", (d, w) -> villaPromptSnoozed = true)
+                .show();
     }
 
     /** Place les applis de la villa en tête, dans l'ordre de VILLA_APPS. */

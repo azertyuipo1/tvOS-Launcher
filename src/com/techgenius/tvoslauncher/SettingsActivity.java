@@ -1775,13 +1775,13 @@ public class SettingsActivity extends Activity {
                         showStatusMsg("Play Store introuvable.");
                     }
                 });
-        row("Verrouillage invités (appui long 3 s sur OK depuis l'accueil)",
+        row("Verrouillage invités (appui long 10 s sur OK depuis l'accueil)",
                 () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
                 () -> {
                     boolean on = !GuestLock.isEnabled(this);
                     GuestLock.setEnabled(this, on);
                     refreshAll();
-                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 3 secondes sur OK depuis l'accueil."
+                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 10 secondes sur OK depuis l'accueil."
                             : "Verrouillage désactivé.");
                 });
         infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
