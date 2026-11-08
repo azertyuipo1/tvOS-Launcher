@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
  * and downloads/installs the latest APK either automatically or manually from Settings -> Updates.
  */
 public final class AppUpdater {
+    static final boolean VILLA_MANUAL_ONLY = true;
     public static final String GITHUB_API_LATEST =
             "https://api.github.com/repos/azertyuipo1/tvOS-Launcher/releases/latest";
     public static final String GITHUB_FALLBACK_APK =
@@ -220,6 +221,8 @@ public final class AppUpdater {
      * when a newer release is found.
      */
     public static void checkAutoUpdateIfNeeded(Activity activity) {
+        // Villa : pas de vérification automatique ; seulement en mode admin (OK maintenu) ou via « Mettre à jour ».
+        if (VILLA_MANUAL_ONLY) return;
         if (activity == null || activity.isFinishing()) return;
         if (!isAutoUpdateEnabled(activity)) return;
         if (checking || downloading) return;
