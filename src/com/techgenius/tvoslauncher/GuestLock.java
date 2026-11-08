@@ -55,8 +55,11 @@ final class GuestLock {
     static void lock() { unlockedUntil = 0L; }
 
     static boolean isLockedPackage(String pkg) {
+        if (pkg == null || pkg.startsWith("com.techgenius.")) return false;
         for (String p : LOCKED_PACKAGES) if (p.equals(pkg)) return true;
-        return false;
+        // Panneaux de réglages des fabricants (ex. réglages rapides Sony).
+        String l = pkg.toLowerCase(java.util.Locale.ROOT);
+        return l.contains("settings");
     }
 
     /**

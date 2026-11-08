@@ -582,6 +582,10 @@ public final class ButtonMapper {
         if (t1.isEmpty() && t2.isEmpty() && t3.isEmpty()) {
             return false;
         }
+        // Touche désactivée : seulement pour les invités ; après les 7 appuis (admin), elle refonctionne.
+        if (TARGET_NOTHING.equals(t1) && t2.isEmpty() && t3.isEmpty()) {
+            return GuestLock.isLocked(c);
+        }
 
         if (action == KeyEvent.ACTION_DOWN && ev.getRepeatCount() == 0) {
             final Context appCtx = c.getApplicationContext();

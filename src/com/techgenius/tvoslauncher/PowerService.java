@@ -746,6 +746,7 @@ public class PowerService extends AccessibilityService {
         if (event == null) return false;
         int code = event.getKeyCode();
         if (code == KeyEvent.KEYCODE_SETTINGS && GuestLock.onSettingsKey(this, event)) return true;
+        if (code == KeyEvent.KEYCODE_MENU && GuestLock.isLocked(this)) return true;
         if (event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0
                 && (code == KeyEvent.KEYCODE_BACK
