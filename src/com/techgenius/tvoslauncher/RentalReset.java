@@ -145,6 +145,56 @@ final class RentalReset {
         }, "rental-reset").start();
     }
 
+    /**
+     * Nom du client du séjour en cours (vide sinon) : champ « welcome » préparé par le serveur,
+     * ou 1er champ de l'enregistrement du séjour en cours si le JSON contient les noms.
+     * Séjour en cours : arrivée <= aujourd'hui, et départ après aujourd'hui (ou aujourd'hui avant
+     * l'heure de check-out). Le jour d'un changement, le client qui part reste affiché jusqu'au check-out.
+     */
+    static String currentGuest(Context c) {
+        String json = prefs(c).getString(K_CACHE, null);
+        if (json == null) return "";
+        try {
+            JSONObject root = new JSONObject(json);
+            JSONArray data = root.optJSONArray("data");
+            Calendar now = Calendar.getInstance();
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.getTime());
+            boolean beforeCheckout = now.get(Calendar.HOUR_OF_DAY) < getCheckoutHour(c);
+            JSONObject best = null;
+            String bestStart = null;
+            for (int i = 0; data != null && i < data.length(); i++) {
+                JSONObject r = data.optJSONObject(i);
+                if (r == null) continue;
+                String s = r.optString("startDate", ""), e = r.optString("endDate", "");
+                if (s.length() < 10 || e.length() < 10) continue;
+                s = s.substring(0, 10);
+                e = e.substring(0, 10);
+                boolean current = s.compareTo(today) <= 0
+                        && (e.compareTo(today) > 0 || (e.equals(today) && beforeCheckout));
+                if (current && (bestStart == null || s.compareTo(bestStart) < 0)) { best = r; bestStart = s; }
+            }
+            if (best != null) {
+                java.util.Iterator<String> keys = best.keys();
+                if (keys.hasNext()) {
+                    String k = keys.next();
+                    Object v = best.opt(k);
+                    if (v instanceof String && !isTechnicalKey(k)) return ((String) v).trim();
+                }
+            }
+            return best != null ? root.optString("welcome", "").trim() : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static boolean isTechnicalKey(String k) {
+        switch (k) {
+            case "startDate": case "endDate": case "status": case "ID": case "villaId":
+            case "agencyId": case "bedrooms": return true;
+            default: return false;
+        }
+    }
+
     static String getFetchStatus(Context c) { return prefs(c).getString(K_FETCH_STATUS, "pas encore lu"); }
 
     /** Relit le calendrier en arrière-plan (sans rien déconnecter), puis onDone sur le fil principal. */
@@ -192,6 +242,10 @@ final class RentalReset {
             try { JSONArray d = new JSONObject(json).optJSONArray("data"); n = d == null ? 0 : d.length(); } catch (Exception ignored) { }
             prefs(c).edit().putString(K_CACHE, json)
                     .putString(K_FETCH_STATUS, "✓ lu le " + when + " (" + n + " réservations)").apply();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                MainActivity m = MainActivity.activeInstance;
+                if (m != null) m.refreshProfileTitle();
+            });
         } else {
             prefs(c).edit().putString(K_FETCH_STATUS, "✗ " + lastFetchError + " — " + when).apply();
             json = prefs(c).getString(K_CACHE, null);

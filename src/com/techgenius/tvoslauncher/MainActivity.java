@@ -860,10 +860,29 @@ public class MainActivity extends Activity {
         profileTitle.setLetterSpacing(-0.01f);
         profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x80000000);
         profileTitle.setSingleLine(true);
+        // Accueil du client du séjour en cours, sous le nom : plus fin, discret, élégant.
+        welcomeLine = new TextView(this);
+        welcomeLine.setTypeface(Ui.font(this, "regular"));
+        Ui.textSize(welcomeLine, 22);
+        welcomeLine.setGravity(Gravity.CENTER_HORIZONTAL);
+        welcomeLine.setTextColor(0xE6FFFFFF);
+        welcomeLine.setLetterSpacing(0.04f);
+        welcomeLine.setShadowLayer(dp(10), 0, dp(1), 0x99000000);
+        welcomeLine.setSingleLine(true);
+        welcomeLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        welcomeLine.setMaxWidth((int) (screenW * 0.7f));
+        LinearLayout titleBox = new LinearLayout(this);
+        titleBox.setOrientation(LinearLayout.VERTICAL);
+        titleBox.setGravity(Gravity.CENTER_HORIZONTAL);
+        titleBox.addView(profileTitle);
+        LinearLayout.LayoutParams welp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        welp.topMargin = dp(6);
+        titleBox.addView(welcomeLine, welp);
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         ptlp.topMargin = (int) (screenH * 0.16f);
-        root.addView(profileTitle, ptlp);
+        root.addView(titleBox, ptlp);
         refreshProfileTitle();
         watchNetwork();
 
@@ -3675,11 +3694,19 @@ public class MainActivity extends Activity {
     final List<View> adminPills = new ArrayList<>();
     TextView profileTitle;
 
+    TextView welcomeLine;
+
     void refreshProfileTitle() {
         if (profileTitle == null) return;
+        boolean scenes = Scenes.isScenesLook(this);
         String n = Profiles.current(this).name;
         profileTitle.setText(n == null ? "" : n);
-        profileTitle.setVisibility(n == null || n.isEmpty() || Scenes.isScenesLook(this) ? View.GONE : View.VISIBLE);
+        profileTitle.setVisibility(n == null || n.isEmpty() || scenes ? View.GONE : View.VISIBLE);
+        if (welcomeLine != null) {
+            String g = RentalReset.currentGuest(this);
+            welcomeLine.setText(g.isEmpty() ? "" : "Welcome, " + g);
+            welcomeLine.setVisibility(g.isEmpty() || scenes ? View.GONE : View.VISIBLE);
+        }
     }
 
     /** Pastille en verre (icône + texte) de la barre du haut, blanche quand elle est sélectionnée. */
