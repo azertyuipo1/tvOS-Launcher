@@ -1357,31 +1357,6 @@ public class SettingsActivity extends Activity {
         in.requestFocus();
     }
 
-    private void promptGuestPin() {
-        android.widget.EditText in = new android.widget.EditText(this);
-        in.setSingleLine(true);
-        in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
-                | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        in.setHint("Nouveau code (vide = désactiver)");
-        int pad = u(14);
-        FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
-        box.addView(in);
-        AlertDialog dlg = dialog("Code de verrouillage invités")
-                .setView(box)
-                .setPositiveButton("Enregistrer", (d, w) -> {
-                    String pin = in.getText().toString().trim();
-                    GuestLock.setPin(this, pin);
-                    refreshAll();
-                    showStatusMsg(pin.isEmpty() ? "Verrouillage désactivé."
-                            : "Verrouillage activé : réglages et modification de l'accueil protégés.");
-                })
-                .setNegativeButton(tr("Cancel", "İptal"), null)
-                .show();
-        Ui.setupDialogEditText(in, dlg);
-        in.requestFocus();
-    }
-
     private void promptRentalUrl() {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
@@ -1744,7 +1719,6 @@ public class SettingsActivity extends Activity {
     }
 
     private boolean checkingLatestRelease = false;
-    private boolean guestLockPrompting = false;
 
     void pageUpdates() {
         section("MODE LOCATION");
@@ -1780,9 +1754,15 @@ public class SettingsActivity extends Activity {
                     MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
                     refreshAll();
                 });
-        row("Code de verrouillage invités",
-                () -> GuestLock.hasPin(this) ? "Activé ›" : "Désactivé ›",
-                this::promptGuestPin);
+        row("Verrouillage invités (7 appuis sur Réglages)",
+                () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
+                () -> {
+                    boolean on = !GuestLock.isEnabled(this);
+                    GuestLock.setEnabled(this, on);
+                    refreshAll();
+                    showStatusMsg(on ? "Verrouillage activé. Teste maintenant : 7 appuis rapides sur la touche Réglages."
+                            : "Verrouillage désactivé.");
+                });
         infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
                 + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
                 + "Nécessite le mode ADB persistant.");
@@ -5220,10 +5200,7 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (GuestLock.isLocked(this) && !guestLockPrompting) {
-            guestLockPrompting = true;
-            GuestLock.require(this, () -> guestLockPrompting = false, this::finish);
-        }
+        if (GuestLock.isLocked(this)) finish();
         if (BUTTON_MAPPER.equals(currentSection)) {
             rebuildMainRows();
         } else {

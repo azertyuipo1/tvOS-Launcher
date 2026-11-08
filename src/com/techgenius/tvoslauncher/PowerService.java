@@ -744,6 +744,7 @@ public class PowerService extends AccessibilityService {
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
         int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_SETTINGS && GuestLock.onSettingsKey(this, event)) return true;
         if (event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0
                 && (code == KeyEvent.KEYCODE_BACK
@@ -826,21 +827,13 @@ public class PowerService extends AccessibilityService {
         if (instance != null) next(instance);
     }
 
-    private long lastGuestLockPromptMs = 0L;
-
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e != null && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getPackageName() != null) {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
-            if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)
-                    && SystemClock.elapsedRealtime() - lastGuestLockPromptMs > 2000L) {
-                lastGuestLockPromptMs = SystemClock.elapsedRealtime();
-                try {
-                    startActivity(new Intent(this, GuestLock.PinActivity.class)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (Throwable ignored) {
-                }
+            if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)) {
+                GuestLock.bounceHome(this);
             }
             MediaWatchService.pollActiveSessionsAsync(this);
 

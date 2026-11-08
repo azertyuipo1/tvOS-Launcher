@@ -5257,7 +5257,6 @@ public class MainActivity extends Activity {
      */
     void showMenu(View anchor, String title, List<String> labels, List<Runnable> actions, int destructive) {
         if (GuestLock.isLocked(this)) {
-            GuestLock.require(this, () -> showMenu(anchor, title, labels, actions, destructive), null);
             return;
         }
         closeMenu();
