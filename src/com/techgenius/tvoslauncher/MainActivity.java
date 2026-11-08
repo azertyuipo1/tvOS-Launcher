@@ -277,6 +277,9 @@ public class MainActivity extends Activity {
         // Startup: the app list (package manager, banners, icon colours) and the wallpaper are
         // prepared in the background while the window's views are built (~250 ms saved on 1 GHz TVs).
         java.util.concurrent.Future<?> appsTask = io.submit(this::loadApps);
+        if (!prefs.getBoolean("villa_wall", false)) {
+            prefs.edit().putString("wallpaper", "photo:villa.jpg").putBoolean("villa_wall", true).apply();
+        }
         if (!Scenes.isScenesLook(this)) {
             String wall = prefs.getString("wallpaper", "photo:tessellated-pavement.jpg");
             wallPrefetch = new java.util.concurrent.FutureTask<>(() -> makeWallpaper(wall));
@@ -3324,12 +3327,12 @@ public class MainActivity extends Activity {
             }
         }
 
-        applyVillaDefaultHidden(all.values());
         Set<String> hidden = prefs.getStringSet(PREF_HIDDEN, Collections.emptySet());
         Set<String> other = prefs.getStringSet(PREF_OTHER, Collections.emptySet());
         Map<String, AppEntry> pool = new LinkedHashMap<>();
         for (AppEntry e : all.values()) {
-            if (hidden.contains(e.key) || (e.pkg != null && hidden.contains(e.pkg))) {
+            if (villaRank(e.label, e.pkg) < 0
+                    || hidden.contains(e.key) || (e.pkg != null && hidden.contains(e.pkg))) {
                 hiddenApps.add(e);
             } else if (other.contains(e.key) || (e.pkg != null && other.contains(e.pkg))) {
                 otherApps.add(e);
@@ -3603,26 +3606,6 @@ public class MainActivity extends Activity {
         List<String[]> missing = new ArrayList<>();
         for (int i = 0; i < VILLA_APPS.length; i++) if (!found[i]) missing.add(VILLA_APPS[i]);
         return missing;
-    }
-
-    /**
-     * Applis de la villa toujours visibles ; à la première installation, toutes les autres sont
-     * masquées (réversible dans Réglages du launcher > Applis > Applis masquées).
-     */
-    private void applyVillaDefaultHidden(java.util.Collection<AppEntry> entries) {
-        Set<String> hidden = new HashSet<>(prefs.getStringSet(PREF_HIDDEN, Collections.emptySet()));
-        boolean first = !prefs.getBoolean("villa_default_hidden", false);
-        boolean changed = false;
-        for (AppEntry e : entries) {
-            if (villaRank(e.label, e.pkg) >= 0) {
-                changed |= hidden.remove(e.key);
-                if (e.pkg != null) changed |= hidden.remove(e.pkg);
-            } else if (first) {
-                changed |= hidden.add(e.key);
-            }
-        }
-        if (!first && !changed) return;
-        prefs.edit().putStringSet(PREF_HIDDEN, hidden).putBoolean("villa_default_hidden", true).apply();
     }
 
     /** Place les applis de la villa en tête, dans l'ordre de VILLA_APPS. */

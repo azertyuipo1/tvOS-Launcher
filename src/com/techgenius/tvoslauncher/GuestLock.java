@@ -12,22 +12,19 @@ import android.widget.Toast;
  * Verrouillage invités (actif par défaut une fois la configuration initiale terminée).
  *
  * Verrouillé : seules les touches de navigation et d'usage restent actives (flèches, OK, Retour,
- * Home, Power, Muet, Volume +/-). Toutes les autres touches sont ignorées, les réglages de la TV
+ * Home, Power, Muet, Volume +/-, Lecture/Pause). Toutes les autres touches sont ignorées, les réglages de la TV
  * renvoient à l'accueil, et les réglages du launcher et l'appui long sur les applis sont bloqués.
  *
- * Déverrouillage admin : 7 appuis rapides sur Retour depuis l'accueil du launcher. Tout est
+ * Déverrouillage admin : appui long (3 s) sur OK depuis l'accueil du launcher. Tout est
  * ouvert pendant 10 minutes, ou jusqu'à la mise en veille.
  */
 final class GuestLock {
     private static final String PREFS = "guest_lock";
     private static final String K_ENABLED = "enabled";
     private static final long UNLOCK_MS = 10 * 60_000L;
-    private static final int PRESSES = 7;
-    private static final long PRESS_GAP_MS = 800L;
+    private static final long HOLD_MS = 3_000L;
 
     private static volatile long unlockedUntil = 0L;
-    private static int pressCount = 0;
-    private static long lastPressMs = 0L;
     private static long lastBounceMs = 0L;
 
     /** Applis système verrouillées (réglages Android TV / Google TV). */
@@ -79,6 +76,8 @@ final class GuestLock {
             case KeyEvent.KEYCODE_POWER:
             case KeyEvent.KEYCODE_VOLUME_UP: case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE:
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY:
+            case KeyEvent.KEYCODE_MEDIA_PAUSE:
                 return true;
             default:
                 return false;
@@ -94,13 +93,10 @@ final class GuestLock {
     static boolean onAnyKey(Context c, KeyEvent e) {
         if (!isLocked(c)) return false;
         int code = e.getKeyCode();
-        if (code == KeyEvent.KEYCODE_BACK && e.getAction() == KeyEvent.ACTION_DOWN
-                && e.getRepeatCount() == 0 && onHome()) {
-            long now = SystemClock.elapsedRealtime();
-            pressCount = (now - lastPressMs <= PRESS_GAP_MS) ? pressCount + 1 : 1;
-            lastPressMs = now;
-            if (pressCount >= PRESSES) {
-                pressCount = 0;
+        // Mode admin : OK maintenu 3 secondes sur l'accueil.
+        if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)
+                && e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() > 0 && onHome()) {
+            if (e.getEventTime() - e.getDownTime() >= HOLD_MS) {
                 unlockedUntil = System.currentTimeMillis() + UNLOCK_MS;
                 Toast.makeText(c, "Mode admin : tout est déverrouillé pendant 10 minutes",
                         Toast.LENGTH_LONG).show();
