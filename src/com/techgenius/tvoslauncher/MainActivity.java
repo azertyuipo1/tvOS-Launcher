@@ -854,7 +854,7 @@ public class MainActivity extends Activity {
         // Accueil à gauche (style hôtel) : étiquette avec le nom de la villa, salutation, prénoms.
         eyebrow = new TextView(this);
         eyebrow.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(eyebrow, 15);
+        Ui.textSize(eyebrow, 13);
         eyebrow.setTextColor(0xD9FFFFFF);
         eyebrow.setLetterSpacing(0.32f);
         eyebrow.setIncludeFontPadding(false);
@@ -862,14 +862,14 @@ public class MainActivity extends Activity {
         eyebrow.setSingleLine(true);
         welcomeLine = new TextView(this);
         welcomeLine.setTypeface(Ui.font(this, "regular"));
-        Ui.textSize(welcomeLine, 30);
+        Ui.textSize(welcomeLine, 24);
         welcomeLine.setIncludeFontPadding(false);
         welcomeLine.setTextColor(Color.WHITE);
         welcomeLine.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
         welcomeLine.setSingleLine(true);
         profileTitle = new TextView(this);
         profileTitle.setTypeface(Ui.font(this, "display"));
-        Ui.textSize(profileTitle, 38);
+        Ui.textSize(profileTitle, 30);
         profileTitle.setIncludeFontPadding(false);
         profileTitle.setTextColor(Color.WHITE);
         profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
@@ -900,7 +900,7 @@ public class MainActivity extends Activity {
         clockCol.setGravity(Gravity.END);
         bigClock = new TextView(this);
         bigClock.setTypeface(Ui.font(this, "clock"));
-        Ui.textSize(bigClock, 46);
+        Ui.textSize(bigClock, 34);
         bigClock.setTextColor(Color.WHITE);
         bigClock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
         bigClock.setGravity(Gravity.END);
@@ -3783,7 +3783,7 @@ public class MainActivity extends Activity {
         if (guest) {
             eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
             welcomeLine.setText(RentalReset.greeting(this, stay));
-            profileTitle.setText(stay.name.endsWith(".") ? stay.name : stay.name + ".");
+            profileTitle.setText(stay.name.replaceAll("\\.+$", ""));
         } else {
             profileTitle.setText(villa);
         }
@@ -3793,7 +3793,7 @@ public class MainActivity extends Activity {
         if (bigClock != null) {
             java.util.Date now = new java.util.Date();
             String hm = new java.text.SimpleDateFormat("h:mm", java.util.Locale.US).format(now);
-            String ap = new java.text.SimpleDateFormat("a", java.util.Locale.US).format(now);
+            String ap = new java.text.SimpleDateFormat("a", java.util.Locale.US).format(now).toLowerCase(java.util.Locale.US);
             android.text.SpannableString cs = new android.text.SpannableString(hm + " " + ap);
             cs.setSpan(new android.text.style.RelativeSizeSpan(0.42f), hm.length(), cs.length(), 0);
             bigClock.setText(cs);
