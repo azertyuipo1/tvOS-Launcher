@@ -1725,6 +1725,12 @@ public class SettingsActivity extends Activity {
         row("Calendrier des réservations (JSON)",
                 () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
                 this::promptRentalUrl);
+        infoRowDynamic("Prochains départs",
+                () -> {
+                    List<String> d = RentalReset.upcomingDepartures(this, 3);
+                    if (!RentalReset.isEnabled(this)) return "—";
+                    return d.isEmpty() ? "Aucun (ou calendrier pas encore lu)" : android.text.TextUtils.join("  ·  ", d);
+                }, null);
         row("Heure de check-out",
                 () -> RentalReset.getCheckoutHour(this) + "h",
                 () -> {

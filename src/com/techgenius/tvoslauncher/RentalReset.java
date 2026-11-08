@@ -138,6 +138,33 @@ final class RentalReset {
         }, "rental-reset").start();
     }
 
+    /** Les n prochains départs (jj/mm/aaaa) d'après la dernière copie du calendrier. */
+    static List<String> upcomingDepartures(Context c, int n) {
+        List<String> ends = new ArrayList<>();
+        String json = prefs(c).getString(K_CACHE, null);
+        if (json == null) return ends;
+        try {
+            JSONArray data = new JSONObject(json).optJSONArray("data");
+            if (data == null) return ends;
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            for (int i = 0; i < data.length(); i++) {
+                JSONObject r = data.optJSONObject(i);
+                if (r == null) continue;
+                String end = r.optString("endDate", "").trim();
+                if (end.length() >= 10 && end.substring(0, 10).compareTo(today) >= 0) ends.add(end.substring(0, 10));
+            }
+        } catch (Exception ignored) {
+        }
+        java.util.Collections.sort(ends);
+        List<String> out = new ArrayList<>();
+        for (String e : ends) {
+            if (out.size() >= n) break;
+            String fr = e.substring(8, 10) + "/" + e.substring(5, 7) + "/" + e.substring(0, 4);
+            if (!out.contains(fr)) out.add(fr);
+        }
+        return out;
+    }
+
     /** Date (yyyy-MM-dd) du départ le plus récent dont l'heure de check-out est passée, ou null. */
     static String latestDueDeparture(Context c) {
         String json = fetch(getUrl(c));

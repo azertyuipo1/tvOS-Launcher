@@ -738,13 +738,13 @@ public class MainActivity extends Activity {
 
         // Pastilles du mode admin : mise à jour du launcher, réglages de la TV, Play Store.
         adminPills.clear();
-        adminPills.add(makeAdminPill("update", "Mettre à jour", btn,
-                () -> AppUpdater.manualCheckAndPrompt(this, null)));
+        adminPills.add(makeAdminPill("apps", "Play Store", btn, this::openPlayStore));
         adminPills.add(makeAdminPill("gear", "Réglages TV", btn,
                 () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
-        adminPills.add(makeAdminPill("apps", "Play Store", btn, this::openPlayStore));
         adminPills.add(makeAdminPill("sliders", "Réglages Launcher", btn,
                 () -> startActivity(new Intent(this, SettingsActivity.class))));
+        adminPills.add(makeAdminPill("update", "Mettre à jour", btn,
+                () -> AppUpdater.manualCheckAndPrompt(this, null)));
 
         // Refresh: reloads every part of the carousel (recommendations, news, Continue Watching) and weather.
         refreshButton = new ImageView(this);
@@ -853,16 +853,16 @@ public class MainActivity extends Activity {
 
         // Nom du profil en haut à gauche, grand et sobre, à la manière de tvOS.
         profileTitle = new TextView(this);
-        profileTitle.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(profileTitle, 34);
+        profileTitle.setTypeface(Ui.font(this, "display"));
+        Ui.textSize(profileTitle, 38);
+        profileTitle.setGravity(Gravity.CENTER_HORIZONTAL);
         profileTitle.setTextColor(Color.WHITE);
         profileTitle.setLetterSpacing(-0.01f);
         profileTitle.setShadowLayer(dp(12), 0, dp(2), 0x80000000);
         profileTitle.setSingleLine(true);
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
-        ptlp.leftMargin = dp(56);
-        ptlp.topMargin = dp(40);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        ptlp.topMargin = dp(72);
         root.addView(profileTitle, ptlp);
         refreshProfileTitle();
         watchNetwork();
@@ -2049,7 +2049,7 @@ public class MainActivity extends Activity {
         if (switcher == null) return;
         if (!"suggest".equals(shelfMode)) setShelfMode("suggest");
         boolean show = tabsShown();
-        if (!show && switcher.isFocused()) ccButton.requestFocus();
+        if (!show && switcher.isFocused()) focusStatusRow();
         switcher.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
@@ -2067,7 +2067,15 @@ public class MainActivity extends Activity {
 
     /** Up from the shelf/dock: the tab bar, or the status row when the tab bar is hidden. */
     void focusTop() {
-        (switcher != null && switcher.getVisibility() == View.VISIBLE ? switcher : ccButton).requestFocus();
+        if (switcher != null && switcher.getVisibility() == View.VISIBLE) switcher.requestFocus();
+        else focusStatusRow();
+    }
+
+    /** Premier bouton visible de la barre du haut (pastilles du mode admin comprises). */
+    void focusStatusRow() {
+        if (clockBox == null || clockBox.getVisibility() != View.VISIBLE) return;
+        List<View> row = statusRowViews();
+        if (!row.isEmpty()) row.get(0).requestFocus();
     }
 
     boolean continueMode() {
@@ -2550,7 +2558,7 @@ public class MainActivity extends Activity {
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
                     // Past the last tab, Right continues to the status row (Control Center).
                     if (down) {
-                        if (continueMode()) ccButton.requestFocus();
+                        if (continueMode()) focusStatusRow();
                         else setShelfMode("continue");
                     }
                     return true;
@@ -2558,7 +2566,7 @@ public class MainActivity extends Activity {
                 case KeyEvent.KEYCODE_ENTER:
                     if (!down) setShelfMode(continueMode() ? "suggest" : "continue");
                     return true;
-                case KeyEvent.KEYCODE_DPAD_UP: if (down) ccButton.requestFocus(); return true;
+                case KeyEvent.KEYCODE_DPAD_UP: if (down) focusStatusRow(); return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                 case KeyEvent.KEYCODE_BACK:
                     if (down) {

@@ -34,20 +34,8 @@ public final class I18n {
     public static final String LANG_KO = "ko";
 
     public static final String[][] LANGUAGES = {
-        {LANG_EN, "English", "Use tvOS Launcher in English"},
-        {LANG_TR, "Türkçe", "tvOS Launcher'ı Türkçe kullanın"},
-        {LANG_SV, "Svenska", "Använd tvOS Launcher på svenska"},
-        {LANG_HI, "हिन्दी (Indian)", "tvOS Launcher का उपयोग हिन्दी में करें"},
-        {LANG_ES, "Español", "Usar tvOS Launcher en español"},
         {LANG_FR, "Français", "Utiliser tvOS Launcher en français"},
-        {LANG_DE, "Deutsch", "tvOS Launcher auf Deutsch verwenden"},
-        {LANG_IT, "Italiano", "Usa tvOS Launcher in italiano"},
-        {LANG_RU, "Русский", "Использовать tvOS Launcher на русском"},
-        {LANG_PT, "Português", "Usar o tvOS Launcher em português"},
-        {LANG_AR, "العربية", "استخدم tvOS Launcher باللغة العربية"},
-        {LANG_JA, "日本語", "tvOS Launcher を日本語で使用する"},
-        {LANG_ZH, "中文", "使用中文版 tvOS Launcher"},
-        {LANG_KO, "한국어", "tvOS Launcher를 한국어로 사용"}
+        {LANG_EN, "English", "Use tvOS Launcher in English"}
     };
 
     private static final Set<String> SUPPORTED = new HashSet<>(Arrays.asList(
