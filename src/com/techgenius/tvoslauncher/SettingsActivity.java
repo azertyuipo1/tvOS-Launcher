@@ -1771,6 +1771,15 @@ public class SettingsActivity extends Activity {
                 }
             });
         });
+        row("Boutons en haut à droite de l'accueil",
+                () -> {
+                    int m = MainActivity.getStatusMode(this);
+                    return m == 0 ? "Tout afficher" : m == 1 ? "Heure seule" : "Masqués";
+                },
+                () -> {
+                    MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
+                    refreshAll();
+                });
         row("Code de verrouillage invités",
                 () -> GuestLock.hasPin(this) ? "Activé ›" : "Désactivé ›",
                 this::promptGuestPin);

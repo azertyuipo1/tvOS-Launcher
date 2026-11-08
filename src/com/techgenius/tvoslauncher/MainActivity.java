@@ -422,6 +422,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        applyStatusMode();
         if (!I18n.getLang(this).equals(activeLang) || !Scenes.getLook(this).equals(activeLook)) {
             recreate();
             return;
@@ -896,6 +897,7 @@ public class MainActivity extends Activity {
         heroDots.setVisibility(scenes ? View.GONE : View.VISIBLE);
         if (switcher != null) switcher.setVisibility(scenes || !tabsShown() ? View.GONE : View.VISIBLE);
         clockBox.setVisibility(scenes ? View.GONE : View.VISIBLE);
+        if (!scenes) applyStatusMode();
         if (weatherCard != null) {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
@@ -5176,11 +5178,32 @@ public class MainActivity extends Activity {
         in.requestFocus();
     }
 
+    /** Barre en haut à droite : 0 = tout afficher, 1 = heure seule, 2 = masquée (par défaut). */
+    static int getStatusMode(Context c) {
+        return c.getSharedPreferences("villa", MODE_PRIVATE).getInt("status_mode", 2);
+    }
+
+    static void setStatusMode(Context c, int m) {
+        c.getSharedPreferences("villa", MODE_PRIVATE).edit().putInt("status_mode", m).apply();
+    }
+
+    void applyStatusMode() {
+        if (clockBox == null || Scenes.isScenesLook(this)) return;
+        int m = getStatusMode(this);
+        clockBox.setVisibility(m == 2 ? View.GONE : View.VISIBLE);
+        int buttons = m == 0 ? View.VISIBLE : View.GONE;
+        if (refreshButton != null) refreshButton.setVisibility(buttons);
+        if (searchButton != null) searchButton.setVisibility(buttons);
+        if (ccButton != null) ccButton.setVisibility(buttons);
+        if (m == 0) refreshAvatar();
+        else if (avatarView != null) avatarView.setVisibility(View.GONE);
+    }
+
     void refreshAvatar() {
         boolean multi = Profiles.list(this).size() > 1;
         if (avatarView != null) {
             avatarView.setImageBitmap(Profiles.avatar(this, Profiles.current(this), avatarSize));
-            avatarView.setVisibility(multi ? View.VISIBLE : View.GONE);
+            avatarView.setVisibility(multi && getStatusMode(this) == 0 ? View.VISIBLE : View.GONE);
         }
         if (sceneHome != null) sceneHome.refreshWhoBar();
     }
