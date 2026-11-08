@@ -262,6 +262,13 @@ public class PowerService extends AccessibilityService {
                         + " app_process /system/bin com.techgenius.tvoslauncher.LocaleSetter en-US");
                 status = out != null && out.contains("LOCALE_OK") ? "✓ TV passée en anglais"
                         : "erreur : " + (out == null ? "pas de réponse" : out.trim());
+                if (status.startsWith("✓")) {
+                    // Les applis déjà ouvertes gardent l'ancienne langue : on les ferme pour qu'elles repartent en anglais.
+                    for (String pkg : new String[]{"com.netflix.ninja", "com.amazon.amazonvideo.livingroom",
+                            "com.wbd.stream", "com.disney.disneyplus", "com.android.vending"}) {
+                        try { LocalAdb.execShellOutput(c, "am force-stop " + pkg); } catch (Throwable ignored) { }
+                    }
+                }
             }
         } catch (Throwable t) {
             status = "erreur : " + t.getMessage();
