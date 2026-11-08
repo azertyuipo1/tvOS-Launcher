@@ -61,8 +61,9 @@ final class RentalReset {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Calendrier de la villa par défaut (relais sur sbh-host.fr vers Zoho). */
-    static final String DEFAULT_URL = "https://sbh-host.fr/clo/cal/";
+    /** Calendrier de la villa CLO par défaut (rapport Zoho tv_calendar : prénoms et dates de séjour). */
+    static final String DEFAULT_URL = "https://creator.zoho.com/publishapi/v2/sbhassets/villa-clo/report/tv_calendar"
+            + "?privatelink=h2uWZ05PA2EdDE7ROnGqtbHzN5jR8Rrv07JTGHAGjntp9OPqxzkBU4hArwWOXkbCAmZBwFB4pPBBRepggGR2SvZSBWCxX1SErAtY";
 
     static String getUrl(Context c) {
         String u = prefs(c).getString(K_URL, "");
