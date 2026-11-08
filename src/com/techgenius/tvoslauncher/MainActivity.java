@@ -881,11 +881,11 @@ public class MainActivity extends Activity {
         titleBox.addView(eyebrow);
         LinearLayout.LayoutParams welp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        welp.topMargin = dp(8);
+        welp.topMargin = dp(5);
         titleBox.addView(welcomeLine, welp);
         LinearLayout.LayoutParams namelp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        namelp.topMargin = dp(4);
+        namelp.topMargin = dp(1);
         titleBox.addView(profileTitle, namelp);
         titleBoxView = titleBox;
         FrameLayout.LayoutParams ptlp = new FrameLayout.LayoutParams(
@@ -900,7 +900,7 @@ public class MainActivity extends Activity {
         clockCol.setGravity(Gravity.END);
         bigClock = new TextView(this);
         bigClock.setTypeface(Ui.font(this, "medium"));
-        Ui.textSize(bigClock, 30);
+        Ui.textSize(bigClock, 24);
         bigClock.setTextColor(Color.WHITE);
         bigClock.setShadowLayer(dp(10), 0, dp(2), 0x99000000);
         bigClock.setGravity(Gravity.END);
@@ -911,6 +911,7 @@ public class MainActivity extends Activity {
         bigDate.setTextColor(0xE6FFFFFF);
         bigDate.setShadowLayer(dp(8), 0, dp(1), 0x99000000);
         bigDate.setGravity(Gravity.END);
+        bigDate.setIncludeFontPadding(false);
         LinearLayout.LayoutParams bclp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         bclp.gravity = Gravity.END;
@@ -918,7 +919,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams bdlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         bdlp.gravity = Gravity.END;
-        bdlp.topMargin = dp(4);
+        bdlp.topMargin = -dp(2);
         clockCol.addView(bigDate, bdlp);
         clockColView = clockCol;
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
