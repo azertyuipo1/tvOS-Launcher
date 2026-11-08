@@ -1660,7 +1660,9 @@ public final class CustomMedia {
         "app_custom_names", "button_mapper", "control_panel",
         "weather", "suggestions", "inputs", "clicks",
         "media_watch", "cleanyourtv", "cleanyourtv_prefs", "local_adb", "present",
-        "custom_media", "app_updater", "screensaver"
+        "custom_media", "app_updater", "screensaver",
+        // Réglages de la villa : arrière-plan, langue, calendrier / check-out, verrouillage invités.
+        "villa", "rental_reset", "guest_lock"
     };
 
     private static File resolveDownloadFolder() {
