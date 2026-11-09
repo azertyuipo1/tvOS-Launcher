@@ -3938,7 +3938,11 @@ public class MainActivity extends Activity {
         if (titleShown && titleRight + gap <= cardLeft) {
             // Bas du nom des clients aligné sur le bas de la carte ; si la carte toucherait l'heure,
             // c'est le bloc de gauche qui descend un peu.
-            top = baseTitleTop + titleH - w.height;
+            // Ligne de base du nom (bas des lettres sans jambage : a, b, n…), pas le bas des « p » ou « q ».
+            int baseline = profileTitle != null && profileTitle.getVisibility() == View.VISIBLE
+                    && profileTitle.getBaseline() > 0
+                    ? profileTitle.getTop() + profileTitle.getBaseline() : titleH;
+            top = baseTitleTop + baseline - w.height;
             if (top < minTop) {
                 titleTop = baseTitleTop + (minTop - top);
                 top = minTop;
