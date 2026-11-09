@@ -889,7 +889,20 @@ public class PowerService extends AccessibilityService {
         String s = (pkg + "/" + cls).toLowerCase(java.util.Locale.ROOT);
         if (s.startsWith("com.techgenius.")) return false;
         return s.matches(".*(remote.?pair|pair.?remote|rcu.?pair|pair.?rcu|remotecontrol.?pair|btremote|bt_remote"
-                + "|remote.?setup|pairing.?activity|accessorypair|pairaccessor|addaccessor).*");
+                + "|remote.?setup|pairing.?activity|remotepair|pairremote|rcpair|tvpairing).*");
+    }
+
+    /** Derniers écrans affichés (pour identifier un écran gênant depuis Maison). */
+    private void logScreen(String pkg, String cls) {
+        if (pkg.startsWith("com.techgenius.") || cls.isEmpty() || cls.startsWith("android.widget")) return;
+        android.content.SharedPreferences p = getSharedPreferences("villa", MODE_PRIVATE);
+        String entry = pkg + "/" + cls;
+        String old = p.getString("last_screens", "");
+        if (old.startsWith(entry)) return;
+        String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
+        StringBuilder sb = new StringBuilder(entry);
+        for (int i = 0; i < Math.min(parts.length, 7); i++) sb.append('\n').append(parts[i]);
+        p.edit().putString("last_screens", sb.toString()).apply();
     }
 
     @Override
@@ -901,9 +914,11 @@ public class PowerService extends AccessibilityService {
                 GuestLock.bounceHome(this);
             }
             // Boîtiers (Mecool…) : l'écran « appairer la télécommande » revient quand on utilise la
-            // télécommande de la TV (HDMI-CEC). En mode verrouillé, on le ferme ; en mode admin, on le laisse.
+            // télécommande de la TV (HDMI-CEC). On le ferme toujours (l'appairage reste possible
+            // depuis Réglages TV → Télécommandes et accessoires).
             String fgCls = e.getClassName() == null ? "" : e.getClassName().toString();
-            if (GuestLock.isLocked(this) && isRemotePairingScreen(fgPkg, fgCls)) {
+            logScreen(fgPkg, fgCls);
+            if (GuestLock.isEnabled(this) && isRemotePairingScreen(fgPkg, fgCls)) {
                 getSharedPreferences("villa", MODE_PRIVATE).edit().putString("pairing_blocked",
                         fgPkg + "/" + fgCls + " — " + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE)
                                 .format(new java.util.Date())).apply();
