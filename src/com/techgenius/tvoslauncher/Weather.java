@@ -48,7 +48,7 @@ final class Weather {
     }
 
     static boolean enabled(Context c) {
-        return prefs(c).getBoolean(K_ENABLED, true);
+        return false; // Villa : pas de météo sur l'accueil.
     }
 
     /** "c" or "f"; automatic picks Fahrenheit for the US, Liberia and Myanmar. */

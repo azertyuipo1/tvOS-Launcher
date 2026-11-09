@@ -163,6 +163,8 @@ final class VillaFolder {
                     String txt = (String) r[1];
                     int n = 0;
                     for (String v : parse(txt).values()) if (!v.isEmpty()) n++;
+                    String name = parse(txt).get(K_NAME);
+                    if (name != null && !name.isEmpty()) syncProfileName(c, name);
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
                             .putString(P_STATUS, "✓ lu le " + when + " (" + n + " réglage" + (n > 1 ? "s" : "") + " imposé" + (n > 1 ? "s" : "") + ")")
                             .apply();
@@ -182,6 +184,20 @@ final class VillaFolder {
         } catch (Throwable t) {
             prefs(c).edit().putString(P_STATUS, "✗ dossier injoignable (" + t.getClass().getSimpleName() + ") — " + when).apply();
         }
+    }
+
+    /** Le nom imposé par config.txt remplace le nom du profil saisi sur la TV (partout dans le launcher). */
+    private static void syncProfileName(Context c, String name) {
+        try {
+            Profiles.Profile p = Profiles.current(c);
+            if (name.equals(p.name)) return;
+            p.name = name;
+            Profiles.update(c, p);
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                MainActivity m = MainActivity.activeInstance;
+                if (m != null) m.refreshProfileTitle();
+            });
+        } catch (Throwable ignored) { }
     }
 
     /** {code HTTP, texte} ; suit les redirections. */

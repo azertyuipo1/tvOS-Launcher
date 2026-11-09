@@ -422,31 +422,39 @@ public class SetupActivity extends Activity {
     }
 
     void profile() {
-        title(tr("Create Your Profile", "Profilinizi Olu\u015fturun"));
-        subtitle(tr(
-                "Your name and an avatar. Each profile keeps its own apps, background and Home Screen. Up to three people can have one.",
-                "Ad\u0131n\u0131z ve bir avatar. Her profil kendi uygulamalar\u0131n\u0131, arka plan\u0131n\u0131 ve Ana Ekran\u0131n\u0131 saklar. En fazla \u00fc\u00e7 ki\u015fi kullanabilir."));
+        // Villa : on demande le dossier de la villa ; nom, photo et calendrier viennent de config.txt.
+        title("Dossier de la villa");
+        subtitle("Tapez le nom de la villa (ex. « clo ») ou l'adresse complète de son dossier. "
+                + "Le nom affiché, l'arrière-plan et le calendrier sont ensuite récupérés automatiquement.");
         Profiles.Profile p = Profiles.current(this);
         LinearLayout l = list();
-        View nameRow = option(l, tr("Name", "Ad"), I18n.profileName(this, p.name), false, () -> {
+        View nameRow = option(l, "Dossier", VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) + "  ·  " + VillaFolder.villaName(this)
+                : "Non configuré", false, () -> {
             EditText in = new EditText(this);
             in.setSingleLine(true);
-            in.setText(p.name);
+            in.setHint("clo");
+            in.setText(VillaFolder.getBase(this));
             in.setSelection(in.getText().length());
             int pad = u(14);
             FrameLayout box = new FrameLayout(this);
             box.setPadding(pad, pad / 2, pad, 0);
             box.addView(in);
             android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle(tr("Your name", "Ad\u0131n\u0131z")).setView(box)
-                    .setPositiveButton(tr("OK", "Tamam"), (d, w) -> {
-                        String n = in.getText().toString().trim();
-                        if (!n.isEmpty()) {
-                            p.name = n;
-                            Profiles.update(this, p);
-                        }
-                        show(index, 0);
-                    }).setNegativeButton(tr("Cancel", "\u0130ptal"), null).show();
+                    .setTitle("Dossier de la villa").setView(box)
+                    .setPositiveButton("OK", (d, w) -> {
+                        VillaFolder.setBase(this, in.getText().toString());
+                        Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+                        new Thread(() -> {
+                            VillaFolder.refreshBlocking(this);
+                            runOnUiThread(() -> {
+                                if (isFinishing()) return;
+                                RemoteWallpaper.refresh(this, null);
+                                RentalReset.forceCheckSoon(this, null);
+                                show(index, 0);
+                                android.widget.Toast.makeText(this, VillaFolder.getStatus(this), android.widget.Toast.LENGTH_LONG).show();
+                            });
+                        }, "setup-folder").start();
+                    }).setNegativeButton("Annuler", null).show();
             Ui.setupDialogEditText(in, dlg);
             in.requestFocus();
         });

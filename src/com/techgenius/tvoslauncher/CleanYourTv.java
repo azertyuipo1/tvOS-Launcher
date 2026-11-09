@@ -1761,6 +1761,15 @@ public final class CleanYourTv {
     public static void toggleSinglePackage(Activity activity, String pkg, boolean disable,
                                            boolean allowAnySystemApp, Runnable onDone) {
         if (pkg == null || pkg.isEmpty() || pkg.equals(activity.getPackageName())) return;
+        if (disable && SETUPWRAITH.equals(pkg) && !wifiGuardPassed) {
+            keepWifiThen(activity, Collections.singletonList(pkg), list -> {
+                if (list.isEmpty()) return;
+                wifiGuardPassed = true;
+                try { toggleSinglePackage(activity, pkg, true, allowAnySystemApp, onDone); }
+                finally { wifiGuardPassed = false; }
+            });
+            return;
+        }
         String resolvedLabel = resolvePackageLabel(activity, pkg);
         if (disable && isCriticalProtectedService(pkg, resolvedLabel)) {
             dialog(activity, tr(activity, "🛑 Critical System Service", "🛑 Kritik Sistem Servisi"))
@@ -1871,6 +1880,37 @@ public final class CleanYourTv {
                 .show();
     }
 
+    private static final String SETUPWRAITH = "com.google.android.tungsten.setupwraith";
+    private static boolean wifiGuardPassed = false;
+
+    /**
+     * Avant de désactiver setupwraith : si le Wi-Fi lui appartient, on le réenregistre (mot de passe).
+     * Si l'utilisateur refuse, on ne désactive pas setupwraith, pour ne pas perdre le Wi-Fi.
+     */
+    static void keepWifiThen(Activity activity, List<String> pkgs, java.util.function.Consumer<List<String>> go) {
+        if (!pkgs.contains(SETUPWRAITH)) { go.accept(pkgs); return; }
+        new Thread(() -> {
+            boolean owned = false;
+            try {
+                String dump = LocalAdb.execShellOutput(activity, "dumpsys wifi | grep -o 'cname=[^ ]*'");
+                owned = dump != null && dump.contains(SETUPWRAITH);
+            } catch (Throwable ignored) { }
+            final boolean fOwned = owned;
+            activity.runOnUiThread(() -> {
+                if (activity.isFinishing()) return;
+                if (!fOwned) { go.accept(pkgs); return; }
+                WifiKeeper.ask(activity, ok -> {
+                    if (ok) { go.accept(pkgs); return; }
+                    List<String> rest = new ArrayList<>(pkgs);
+                    rest.remove(SETUPWRAITH);
+                    android.widget.Toast.makeText(activity, "setupwraith laissé actif pour garder le Wi-Fi.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                    if (!rest.isEmpty()) go.accept(rest);
+                });
+            });
+        }, "keep-wifi").start();
+    }
+
     private static String friendlyFallbackName(String pkg) {
         switch (pkg) {
             case "com.google.android.apps.tv.launcherx": return "Google TV Home (LauncherX)";
@@ -1969,7 +2009,13 @@ public final class CleanYourTv {
                 } catch (Throwable ignored) {
                 }
 
-                if (finalIsGoogleTv) {
+                if (finalIsGoogleTv && finalWifiOwnedBySetupwraith) {
+                    // Villa : on réenregistre d'abord le Wi-Fi (mot de passe), sinon l'ancien avertissement.
+                    WifiKeeper.ask(activity, ok -> {
+                        if (ok) showAppChecklistDialog(activity, model, installedPkgs, enabledPkgs, false, onChanged);
+                        else showGoogleTvWifiWarningDialog(activity, model, installedPkgs, enabledPkgs, true, onChanged);
+                    });
+                } else if (finalIsGoogleTv) {
                     showGoogleTvWifiWarningDialog(activity, model, installedPkgs, enabledPkgs,
                             finalWifiOwnedBySetupwraith, onChanged);
                 } else {
@@ -2211,6 +2257,11 @@ public final class CleanYourTv {
 
     public static void executeDebloatPackages(Activity activity, String titleLabel,
                                               List<String> packagesToDisable, Runnable onChanged) {
+        keepWifiThen(activity, packagesToDisable, list -> executeDebloatPackagesNow(activity, titleLabel, list, onChanged));
+    }
+
+    private static void executeDebloatPackagesNow(Activity activity, String titleLabel,
+                                                  List<String> packagesToDisable, Runnable onChanged) {
         String slug = getSelectedModelSlug(activity);
         ModelEntry entry = findModelBySlug(activity, slug);
         if (entry == null) {

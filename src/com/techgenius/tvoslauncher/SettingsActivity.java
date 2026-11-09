@@ -3082,6 +3082,12 @@ public class SettingsActivity extends Activity {
                          "⚠️ Mevcut Wi-Fi ağınız setupwraith tarafından kaydedilmiş. setupwraith'i devre dışı bırakmadan önce Wi-Fi Ayarları'ndan ağınızı unutup yeniden bağlanın.")
                     : tr("On Google TV, if you disable setupwraith, make sure your Wi-Fi network was re-added in Wi-Fi Settings.",
                          "Google TV'de setupwraith'i devre dışı bırakacaksanız Wi-Fi ağınızı Wi-Fi Ayarları'ndan yeniden eklediğinizden emin olun."));
+            if (cytChecklistWifiOwnedBySetupwraith) {
+                row("📶 Réenregistrer le Wi-Fi automatiquement…", () -> "›",
+                        () -> WifiKeeper.ask(this, ok -> {
+                            if (ok) { cytChecklistWifiOwnedBySetupwraith = false; rebuildMainRows(); }
+                        }));
+            }
             row(tr("📶 Open Wi-Fi Settings…", "📶 Wi-Fi Ayarlarını Aç…"),
                     () -> "›",
                     () -> {
