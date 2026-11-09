@@ -244,6 +244,10 @@ public class PowerService extends AccessibilityService {
             AppUpdater.grantInstallPermission(c); // mises à jour par la pastille, même sur un boîtier neuf
             applyEnglishApps(c);
             applyVillaTimeZone(c);
+            // Écran « appairer la télécommande » des boîtiers : neutralisé dès le démarrage.
+            for (String p : PAIRING_PKGS) neutralizePairingApp(c, p);
+            String seen = c.getSharedPreferences("villa", Context.MODE_PRIVATE).getString("pairing_pkg", "");
+            if (!seen.isEmpty()) neutralizePairingApp(c, seen);
         }, "villa-no-sleep").start();
     }
 
@@ -911,13 +915,34 @@ public class PowerService extends AccessibilityService {
     private void disablePairingApp(String pkg) {
         if (!pkg.toLowerCase(java.util.Locale.ROOT).matches(".*(rcupair|remotepair|rcpair|btremote|remotecontrolpair).*")) return;
         final android.content.Context c = getApplicationContext();
-        new Thread(() -> {
-            try {
-                String out = LocalAdb.execShellOutput(c, "pm disable-user --user 0 " + pkg);
-                c.getSharedPreferences("villa", MODE_PRIVATE).edit().putString("pairing_disabled",
-                        pkg + " : " + (out == null ? "?" : out.trim())).apply();
-            } catch (Throwable ignored) { }
-        }, "disable-pairing").start();
+        c.getSharedPreferences("villa", MODE_PRIVATE).edit().putString("pairing_pkg", pkg).apply();
+        new Thread(() -> neutralizePairingApp(c, pkg), "disable-pairing").start();
+    }
+
+    /** Applis d'appairage connues des boîtiers (Mecool / Skyworth). */
+    static final String[] PAIRING_PKGS = {"com.mft.rcupair", "com.skyworthdigital.rcupair"};
+
+    /**
+     * Désactive l'appli d'appairage ; si le fabricant l'interdit, on la retire pour l'utilisateur
+     * (réversible : « cmd package install-existing <paquet> »). Résultat affiché dans Maison.
+     */
+    static void neutralizePairingApp(Context c, String pkg) {
+        String status;
+        try {
+            try { c.getPackageManager().getPackageInfo(pkg, 0); } catch (Exception notInstalled) { return; }
+            String out = LocalAdb.execShellOutput(c, "pm disable-user --user 0 " + pkg + " 2>&1; pm list packages -d | grep -c " + pkg);
+            boolean disabled = out != null && out.trim().endsWith("1");
+            if (disabled) {
+                status = "✓ " + pkg + " désactivée";
+            } else {
+                String out2 = LocalAdb.execShellOutput(c, "pm uninstall -k --user 0 " + pkg + " 2>&1");
+                status = out2 != null && out2.contains("Success") ? "✓ " + pkg + " retirée (réversible)"
+                        : "✗ " + pkg + " : " + (out == null ? "" : out.trim()) + " / " + (out2 == null ? "" : out2.trim());
+            }
+        } catch (Throwable t) {
+            status = "✗ " + pkg + " : " + t.getMessage();
+        }
+        c.getSharedPreferences("villa", Context.MODE_PRIVATE).edit().putString("pairing_disabled", status).apply();
     }
 
     static boolean isRemotePairingScreen(String pkg, String cls) {
