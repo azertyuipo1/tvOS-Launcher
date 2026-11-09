@@ -1237,7 +1237,7 @@ public class SettingsActivity extends Activity {
 
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
-        section("VILLA");
+        section("PROFIL");
         List<Profiles.Profile> ps = Profiles.list(this);
         String curId = Profiles.current(this).id;
         for (int i = 0; i < ps.size(); i++) {
