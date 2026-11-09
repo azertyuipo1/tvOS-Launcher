@@ -52,6 +52,8 @@ final class RentalReset {
             "com.wbd.stream",                     // HBO Max
             "com.hbo.hbonow",                     // HBO Max (ancien paquet)
             "com.hbo.go",                         // HBO (ancien paquet)
+            "com.google.android.youtube.tv",      // YouTube (compte Google du client)
+            "com.google.android.youtube.googletv",
     };
 
     private static final long MIN_INTERVAL_MS = 60_000L;
@@ -238,6 +240,17 @@ final class RentalReset {
         if (h >= 5 && h < 12) return "Good morning,";
         if (h >= 12 && h < 18) return "Good afternoon,";
         return "Good evening,";
+    }
+
+    /** Jour d'arrivée ou lendemain (mêmes jours que « Welcome, ») : on affiche le Wi-Fi. */
+    static boolean isWelcomeDays(Stay s) {
+        if (s == null || s.start == null) return false;
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String today = f.format(new java.util.Date());
+        Calendar next = Calendar.getInstance();
+        try { next.setTime(f.parse(s.start)); } catch (Exception e) { return false; }
+        next.add(Calendar.DAY_OF_MONTH, 1);
+        return today.equals(s.start) || today.equals(f.format(next.getTime()));
     }
 
     private static boolean isTechnicalKey(String k) {

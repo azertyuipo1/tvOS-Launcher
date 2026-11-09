@@ -261,12 +261,10 @@ public final class AppUpdater {
             }
             String cur = getCurrentVersion(activity);
             if (updateAvailable) {
-                showUpdateAvailableDialog(
-                        activity,
-                        latestVersion,
-                        downloadUrl,
-                        getCachedChangelog(activity),
-                        onUiRefresh);
+                // Villa : pas de fenêtre ni de confirmation, installation silencieuse via l'ADB local.
+                Toast.makeText(activity, "Mise à jour v" + latestVersion + " : téléchargement et installation…",
+                        Toast.LENGTH_LONG).show();
+                downloadAndInstall(activity, downloadUrl, latestVersion, true, onUiRefresh);
             } else {
                 Toast.makeText(activity,
                         I18n.s(activity,
@@ -380,7 +378,7 @@ public final class AppUpdater {
                 true,
                 () -> {
                     dlg.dismiss();
-                    downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
+                    downloadAndInstall(activity, downloadUrl, latestVersion, true, onUiRefresh);
                 });
         btnRow.addView(installBtn);
 
@@ -490,7 +488,7 @@ public final class AppUpdater {
                 true,
                 () -> {
                     dlg.dismiss();
-                    downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
+                    downloadAndInstall(activity, downloadUrl, latestVersion, true, onUiRefresh);
                 });
         btnRow.addView(installBtn);
 
@@ -615,6 +613,12 @@ public final class AppUpdater {
                 // qu'en secours, si l'appli n'a pas le droit d'installer des applis inconnues.
                 // Nouveau boîtier : ce droit n'est pas encore donné, on se l'accorde via l'ADB local.
                 grantInstallPermission(appCtx);
+                // Installation silencieuse demandée : ADB d'abord (aucun clic), l'installateur Android en secours.
+                if (autoSilent && LocalAdb.isAdbPortCurrentlyOpen() && LocalAdb.installApkViaAdb(appCtx, apkFile)) {
+                    downloading = false;
+                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                    return;
+                }
                 if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
                     downloading = false;
                     if (onUiRefresh != null) MAIN.post(onUiRefresh);
@@ -655,6 +659,34 @@ public final class AppUpdater {
                 if (conn != null) conn.disconnect();
             }
         }, "github-apk-download").start();
+    }
+
+    /** Appui long sur « Mettre à jour » : réinstalle la dernière version publiée, même si elle est identique. */
+    public static void forceUpdate(Activity activity) {
+        if (activity == null || checking || downloading) return;
+        Toast.makeText(activity, "Mise à jour forcée : recherche de la dernière version…", Toast.LENGTH_SHORT).show();
+        checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
+            if (activity.isFinishing()) return;
+            if (!success) {
+                Toast.makeText(activity, "Impossible de joindre GitHub.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(activity, "Installation de v" + latestVersion + "…", Toast.LENGTH_LONG).show();
+            downloadAndInstall(activity, downloadUrl, latestVersion, true, null);
+        });
+    }
+
+    /** « mise_a_jour: oui » dans config.txt : installe seule toute nouvelle version, sans personne devant la TV. */
+    public static void autoFromConfig() {
+        MAIN.post(() -> {
+            Activity a = MainActivity.activeInstance;
+            if (a == null || a.isFinishing() || checking || downloading) return;
+            checkForUpdates(a, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
+                if (success && updateAvailable && !a.isFinishing()) {
+                    downloadAndInstall(a, downloadUrl, latestVersion, true, null);
+                }
+            });
+        });
     }
 
     /** Accorde au launcher « Installer des applis inconnues » via l'ADB local (sans effet si déjà accordé). */

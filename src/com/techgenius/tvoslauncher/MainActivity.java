@@ -746,8 +746,12 @@ public class MainActivity extends Activity {
                 () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
         adminPills.add(makeAdminPill("sliders", "Réglages Launcher", btn,
                 () -> startActivity(new Intent(this, SettingsActivity.class))));
-        adminPills.add(makeAdminPill("update", "Mettre à jour", btn,
-                () -> AppUpdater.manualCheckAndPrompt(this, null)));
+        View updatePill = makeAdminPill("update", "Mettre à jour", btn,
+                () -> AppUpdater.manualCheckAndPrompt(this, null));
+        // Appui long : réinstalle la dernière version même si elle est déjà installée.
+        updatePill.setLongClickable(true);
+        updatePill.setOnLongClickListener(v -> { AppUpdater.forceUpdate(this); return true; });
+        adminPills.add(updatePill);
 
         // Refresh: reloads every part of the carousel (recommendations, news, Continue Watching) and weather.
         refreshButton = new ImageView(this);
@@ -924,6 +928,7 @@ public class MainActivity extends Activity {
         bdlp.gravity = Gravity.END;
         bdlp.topMargin = -dp(2);
         clockCol.addView(bigDate, bdlp);
+        buildWifiCard(clockCol);
         clockColView = clockCol;
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
@@ -3413,6 +3418,7 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- apps
 
     void loadApps() {
+        refreshVillaApps(this);
         all.clear();
         apps.clear();
         otherApps.clear();
@@ -3685,27 +3691,62 @@ public class MainActivity extends Activity {
      * Applis de la villa, dans l'ordre d'affichage :
      * {nom, paquet Play Store, paquets reconnus, noms affichés reconnus (mots entiers)}.
      */
-    static final String[][] VILLA_APPS = {
+    static final String[][] VILLA_CATALOG = {
             {"ITVSTREAM (Next)", "com.itvstream", "com.itvstream", "itvstream|next|nextfortv"},
             {"Netflix", "com.netflix.ninja", "com.netflix.ninja", "netflix"},
             {"Prime Video", "com.amazon.amazonvideo.livingroom", "com.amazon.amazonvideo.livingroom", "prime video"},
             {"HBO Max", "com.wbd.stream", "com.wbd.stream|com.hbo.hbonow|com.hbo.go", "hbo max|hbo|max"},
             {"Disney+", "com.disney.disneyplus", "com.disney.disneyplus", "disney+|disney plus|disney"},
+            {"YouTube", "com.google.android.youtube.tv", "com.google.android.youtube.tv|com.google.android.youtube.googletv", "youtube"},
+            {"Apple TV", "com.apple.atve.androidtv.appletv", "com.apple.atve.androidtv.appletv", "apple tv"},
+            {"Spotify", "com.spotify.tv.android", "com.spotify.tv.android", "spotify"},
+            {"Canal+", "com.canal.android.canal", "com.canal.android.canal", "canal+|mycanal|canal"},
+            {"Crunchyroll", "com.crunchyroll.crunchyroid", "com.crunchyroll.crunchyroid", "crunchyroll"},
     };
+
+    /** Applis de l'accueil, dans l'ordre : ligne « applis: » de config.txt, sinon les 6 par défaut. */
+    static volatile String[][] VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6);
+
+    static void refreshVillaApps(Context c) {
+        String line = VillaFolder.get(c, VillaFolder.K_APPS);
+        if (line.isEmpty()) { VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6); return; }
+        List<String[]> out = new ArrayList<>();
+        for (String raw : line.split("[,;|]")) {
+            String t = raw.trim();
+            if (t.isEmpty()) continue;
+            String n = t.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9+.]+", " ").trim();
+            String[] hit = null;
+            for (String[] a : VILLA_CATALOG) {
+                if (a[0].toLowerCase(java.util.Locale.ROOT).equals(n) || ("|" + a[2] + "|").contains("|" + t + "|")) { hit = a; break; }
+                for (String k : a[3].split("\\|")) if (k.equals(n)) { hit = a; break; }
+                if (hit != null) break;
+            }
+            if (hit == null) {
+                // Appli hors catalogue : un nom de paquet (com.xxx) ou un nom cherché sur le Play Store.
+                hit = t.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+") ? new String[]{t, t, t, ""} : new String[]{t, "", "", n};
+            }
+            boolean dup = false;
+            for (String[] o : out) if (o == hit || o[0].equals(hit[0])) dup = true;
+            if (!dup) out.add(hit);
+        }
+        if (!out.isEmpty()) VILLA_APPS = out.toArray(new String[0][]);
+    }
 
     /** Rang de l'appli dans VILLA_APPS (paquet exact, ou nom affiché en mots entiers), sinon -1. */
     static int villaRank(String label, String pkg) {
+        final String[][] va = VILLA_APPS;
         String p = pkg == null ? "" : pkg;
         String l = " " + (label == null ? "" : label.toLowerCase(java.util.Locale.ROOT)
                 .replaceAll("[^a-z0-9+]+", " ").trim()) + " ";
-        for (int i = 0; i < VILLA_APPS.length; i++) {
-            for (String k : VILLA_APPS[i][2].split("\\|")) {
+        for (int i = 0; i < va.length; i++) {
+            for (String k : va[i][2].split("\\|")) {
                 if (p.equals(k) || p.startsWith(k + ".")) return i;
             }
         }
         if (p.startsWith("com.techgenius.")) return -1;
-        for (int i = 0; i < VILLA_APPS.length; i++) {
-            for (String k : VILLA_APPS[i][3].split("\\|")) {
+        for (int i = 0; i < va.length; i++) {
+            if (va[i][3].isEmpty()) continue;
+            for (String k : va[i][3].split("\\|")) {
                 if (l.contains(" " + k + " ")) return i;
             }
         }
@@ -3714,18 +3755,20 @@ public class MainActivity extends Activity {
 
     /** Applis de VILLA_APPS absentes de la TV (pour les installer depuis le Play Store). */
     static List<String[]> villaMissing(Context c) {
+        refreshVillaApps(c);
+        final String[][] va = VILLA_APPS;
         PackageManager pm = c.getPackageManager();
-        boolean[] found = new boolean[VILLA_APPS.length];
+        boolean[] found = new boolean[va.length];
         for (String cat : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
             for (android.content.pm.ResolveInfo ri : pm.queryIntentActivities(
                     new Intent(Intent.ACTION_MAIN).addCategory(cat), 0)) {
                 if (ri.activityInfo == null) continue;
                 int r = villaRank(ri.loadLabel(pm).toString(), ri.activityInfo.packageName);
-                if (r >= 0) found[r] = true;
+                if (r >= 0 && r < found.length) found[r] = true;
             }
         }
         List<String[]> missing = new ArrayList<>();
-        for (int i = 0; i < VILLA_APPS.length; i++) if (!found[i]) missing.add(VILLA_APPS[i]);
+        for (int i = 0; i < va.length; i++) if (!found[i]) missing.add(va[i]);
         return missing;
     }
 
@@ -3753,6 +3796,92 @@ public class MainActivity extends Activity {
     TextView profileTitle;
 
     TextView welcomeLine, eyebrow, bigClock, bigDate;
+    LinearLayout wifiCard;
+    android.widget.ImageView wifiQr;
+    TextView wifiSsidTv, wifiPassTv;
+    String wifiPayloadShown = "";
+
+    /** Carte Wi-Fi sous l'heure : QR code + réseau + mot de passe (jour d'arrivée et lendemain). */
+    private void buildWifiCard(LinearLayout col) {
+        wifiCard = new LinearLayout(this);
+        wifiCard.setOrientation(LinearLayout.HORIZONTAL);
+        wifiCard.setGravity(Gravity.CENTER_VERTICAL);
+        int pad = Math.round(screenW * 0.0115f);
+        wifiCard.setPadding(pad, pad, pad + pad / 2, pad);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(screenW * 0.0156f);
+        bg.setColor(0x73202020);
+        bg.setStroke(Math.max(1, dp(1)), 0x46FFFFFF);
+        wifiCard.setBackground(bg);
+        wifiQr = new android.widget.ImageView(this);
+        int qs = Math.round(screenW * 0.078f);
+        android.graphics.drawable.GradientDrawable qbg = new android.graphics.drawable.GradientDrawable();
+        qbg.setCornerRadius(qs * 0.09f);
+        qbg.setColor(Color.WHITE);
+        wifiQr.setBackground(qbg);
+        wifiQr.setClipToOutline(true);
+        wifiQr.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+        wifiCard.addView(wifiQr, new LinearLayout.LayoutParams(qs, qs));
+        LinearLayout txt = new LinearLayout(this);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.leftMargin = pad + pad / 3;
+        TextView t1 = wifiText("WI-FI", "semibold", 10, 0xCCFFFFFF);
+        t1.setLetterSpacing(0.08f);
+        wifiSsidTv = wifiText("", "display", 14, Color.WHITE);
+        TextView t3 = wifiText("Password", "regular", 10, 0xBFFFFFFF);
+        wifiPassTv = wifiText("", "semibold", 13, Color.WHITE);
+        TextView t5 = wifiText("Scan with your phone camera", "regular", 9, 0xB3FFFFFF);
+        txt.addView(t1);
+        txt.addView(wifiSsidTv);
+        View gap = new View(this);
+        txt.addView(gap, new LinearLayout.LayoutParams(1, dp(6)));
+        txt.addView(t3);
+        txt.addView(wifiPassTv);
+        View gap2 = new View(this);
+        txt.addView(gap2, new LinearLayout.LayoutParams(1, dp(4)));
+        txt.addView(t5);
+        wifiCard.addView(txt, tlp);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.gravity = Gravity.END;
+        clp.topMargin = dp(16);
+        wifiCard.setVisibility(View.GONE);
+        col.addView(wifiCard, clp);
+    }
+
+    private TextView wifiText(String s, String font, int size, int color) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTypeface(Ui.font(this, font));
+        Ui.textSize(t, size);
+        t.setTextColor(color);
+        t.setIncludeFontPadding(false);
+        t.setSingleLine(true);
+        return t;
+    }
+
+    private void updateWifiCard(RentalReset.Stay stay, boolean scenes) {
+        if (wifiCard == null) return;
+        String ssid = VillaFolder.get(this, VillaFolder.K_WIFI_SSID);
+        String pass = VillaFolder.get(this, VillaFolder.K_WIFI_PASS);
+        boolean show = !ssid.isEmpty() && !scenes && RentalReset.isWelcomeDays(stay);
+        if (show) {
+            String payload = QrCode.wifiPayload(ssid, pass);
+            if (!payload.equals(wifiPayloadShown)) {
+                QrCode q = QrCode.encode(payload);
+                if (q == null) show = false;
+                else {
+                    wifiQr.setImageBitmap(q.toBitmap(Math.round(screenW * 0.078f)));
+                    wifiPayloadShown = payload;
+                }
+            }
+            wifiSsidTv.setText(ssid);
+            wifiPassTv.setText(pass.isEmpty() ? "—" : pass);
+        }
+        wifiCard.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
     View clockColView;
     private int villaTicks = 0;
 
@@ -3827,6 +3956,7 @@ public class MainActivity extends Activity {
             bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
             boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
             clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
+            updateWifiCard(stay, scenes);
         }
     }
 

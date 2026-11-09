@@ -29,6 +29,10 @@ final class VillaFolder {
     static final String K_NAME = "nom_villa";
     static final String K_CHECKOUT = "heure_checkout";
     static final String K_CALENDAR = "calendrier";
+    static final String K_WIFI_SSID = "reseau_wifi";   // « Réseau WiFi: … »
+    static final String K_WIFI_PASS = "mot_de_passe";  // « Mot de passe: … »
+    static final String K_APPS = "applis";             // « applis: ITVSTREAM, Netflix, … » (ordre de l'accueil)
+    static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
     private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cHM6Ly93d3cuc2JoLWhvc3QuZnIv", 0), StandardCharsets.UTF_8);
@@ -134,6 +138,19 @@ final class VillaFolder {
         return n == null ? "" : n;
     }
 
+    /** « Réseau WiFi » → reseau_wifi, « Mot de passe » → mot_de_passe (accents, majuscules, espaces ignorés). */
+    static String normKey(String k) {
+        String s = java.text.Normalizer.normalize(k.trim(), java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        s = s.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        switch (s) {
+            case "wifi": case "wifi_nom": case "nom_wifi": case "reseau": case "wifi_reseau": return K_WIFI_SSID;
+            case "wifi_mdp": case "mdp": case "mot_de_passe_wifi": case "wifi_mot_de_passe": return K_WIFI_PASS;
+            case "apps": case "applications": return K_APPS;
+            case "mise_a_jour_auto": case "maj": return K_UPDATE;
+            default: return s;
+        }
+    }
+
     static Map<String, String> parse(String txt) {
         Map<String, String> m = new HashMap<>();
         if (txt == null) return m;
@@ -142,7 +159,7 @@ final class VillaFolder {
             if (l.isEmpty() || l.startsWith("#")) continue;
             int i = l.indexOf(':');
             if (i <= 0) continue;
-            String k = l.substring(0, i).trim().toLowerCase(Locale.ROOT);
+            String k = normKey(l.substring(0, i));
             String v = l.substring(i + 1).trim();
             if (K_CALENDAR.equals(k)) v = v.replaceAll("\\s+", "");
             m.put(k, v);
@@ -163,8 +180,20 @@ final class VillaFolder {
                     String txt = (String) r[1];
                     int n = 0;
                     for (String v : parse(txt).values()) if (!v.isEmpty()) n++;
-                    String name = parse(txt).get(K_NAME);
+                    Map<String, String> cfg = parse(txt);
+                    String name = cfg.get(K_NAME);
                     if (name != null && !name.isEmpty()) syncProfileName(c, name);
+                    String oldApps = get(c, K_APPS);
+                    String newApps = cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS);
+                    String upd = cfg.get(K_UPDATE) == null ? "" : cfg.get(K_UPDATE).toLowerCase(Locale.ROOT);
+                    if (upd.matches("oui|yes|true|1|on")) AppUpdater.autoFromConfig();
+                    if (!oldApps.equals(newApps)) {
+                        // Liste ou ordre des applis changé : l'accueil se reconstruit.
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            MainActivity m = MainActivity.activeInstance;
+                            if (m != null) m.reload(null);
+                        });
+                    }
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
                             .putString(P_STATUS, "✓ lu le " + when + " (" + n + " réglage" + (n > 1 ? "s" : "") + " imposé" + (n > 1 ? "s" : "") + ")")
                             .apply();

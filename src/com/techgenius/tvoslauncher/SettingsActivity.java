@@ -1280,7 +1280,14 @@ public class SettingsActivity extends Activity {
                 + "Ne rien modifier à gauche des « : ». Une valeur laissée vide utilise le réglage de la TV.\n\n"
                 + "nom_villa: Villa l'Enclos\n"
                 + "heure_checkout: 12\n"
-                + "calendrier: https://…\n\n"
+                + "calendrier: https://…\n"
+                + "Réseau WiFi: Villa-LEnclos\n"
+                + "Mot de passe: Bienvenue2026\n"
+                + "applis: ITVSTREAM, Netflix, Prime Video, HBO Max, Disney+, YouTube\n"
+                + "mise_a_jour: non\n\n"
+                + "• Réseau WiFi / Mot de passe : affichés avec un QR code sur l'accueil, le jour d'arrivée et le lendemain.\n"
+                + "• applis : les applis de l'accueil, dans cet ordre (nom ou nom de paquet Android).\n"
+                + "• mise_a_jour: oui : toutes les TV installent seules la nouvelle version, sans aucun clic.\n\n"
                 + "Le calendrier peut être :\n"
                 + "• un calendrier personnalisé (JSON), qui affiche le nom des clients. Format attendu : "
                 + "{\"data\":[{\"nom\":\"Mr. & Mrs. Smith\",\"startDate\":\"2026-11-08\",\"endDate\":\"2026-11-15\"}]} "
@@ -1288,6 +1295,29 @@ public class SettingsActivity extends Activity {
                 + "• un calendrier ICS (SBH Calendar : https://sbhcalendar.com/open/by-villa/ics-feed/…). "
                 + "Les départs sont détectés, mais le nom des clients n'est pas affiché.\n\n"
                 + "La TV relit le dossier à l'allumage et toutes les 30 minutes.");
+        section("APPLIS DE L'ACCUEIL");
+        {
+            List<String[]> missing = MainActivity.villaMissing(this);
+            String[][] va = MainActivity.VILLA_APPS;
+            for (int i = 0; i < va.length; i++) {
+                final String[] app = va[i];
+                final boolean miss = missing.contains(app);
+                row((i + 1) + ". " + app[0], () -> miss ? "À installer ›" : "✓ installée", () -> {
+                    if (!miss) return;
+                    android.net.Uri uri = app[1].isEmpty()
+                            ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
+                            : android.net.Uri.parse("market://details?id=" + app[1]);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    } catch (Throwable t) {
+                        showStatusMsg("Play Store introuvable.");
+                    }
+                });
+            }
+            infoNote(VillaFolder.isForced(this, VillaFolder.K_APPS)
+                    ? "Liste et ordre définis par la ligne « applis: » de config.txt."
+                    : "Liste par défaut. Pour la changer, ajoutez une ligne « applis: » dans config.txt.");
+        }
         section("MODE LOCATION");
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
