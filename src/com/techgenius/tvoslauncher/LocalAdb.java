@@ -1201,6 +1201,9 @@ final class LocalAdb {
      * launches a detached background {@code pm install -r} + {@code MainActivity} restart script
      * so updating self never crashes or leaves the launcher closed.
      */
+    /** Réponse de pm lors de la dernière installation par ADB (pour afficher la cause d'un échec). */
+    static volatile String lastInstallOutput = "";
+
     static boolean installApkViaAdb(Context c, File apkFile) {
         if (c == null || apkFile == null || !apkFile.exists() || apkFile.length() < 10_000) {
             return false;
@@ -1255,7 +1258,9 @@ final class LocalAdb {
                     continue;
                 }
 
-                // 3. Launch detached background pm install -r + accessibility refresh + MainActivity restart
+                // 3. Installation SYNCHRONE (on lit la réponse de pm) : si elle échoue, on le sait et
+                //    l'appelant passe à l'installateur Android. Si elle réussit, Android arrête le launcher
+                //    pendant l'installation ; un petit script détaché le relance ensuite.
                 String pkg = c.getPackageName();
                 String existingAcc = "";
                 try {
@@ -1263,23 +1268,24 @@ final class LocalAdb {
                 } catch (Throwable ignored) {
                 }
                 String newAcc = buildCleanAccessibilityServicesList(c, existingAcc);
-                // Détaché de la session ADB (setsid + nohup) : l'installation continue même quand
-                // la connexion se coupe, ce qui arrive forcément puisque le launcher est remplacé.
-                String installCmd = "setsid nohup sh -c '(chmod 644 " + remoteTmp + " 2>/dev/null; "
-                        + "sleep 2; "
-                        + "pm install -r -d -g " + remoteTmp + " || pm install -r -g " + remoteTmp + " || pm install -r " + remoteTmp + "; "
-                        + "rm -f " + remoteTmp + " /sdcard/Download/tvos-update.apk 2>/dev/null; "
+                String log = "/data/local/tmp/tvos-install.log";
+                String helper = "rm -f " + log + "; nohup sh -c '(i=0; while [ $i -lt 90 ]; do sleep 2; i=$((i+1)); "
+                        + "if grep -q Success " + log + " 2>/dev/null; then sleep 2; "
                         + "appops set " + pkg + " ACCESS_RESTRICTED_SETTINGS allow 2>/dev/null; "
                         + "settings put secure enabled_accessibility_services \"" + newAcc + "\" 2>/dev/null; "
                         + "settings put secure accessibility_enabled 1 2>/dev/null; "
-                        + "am start -n " + pkg + "/.MainActivity -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || am start -n " + pkg + "/" + pkg + ".MainActivity 2>/dev/null"
-                        + ")' </dev/null >/dev/null 2>&1 & echo STARTED";
-                String out = runShellCommandOutput(c, h, 5555, installCmd);
-                if (out != null && out.contains("STARTED")) {
-                    portReachable = true;
-                    setPaired(c, true);
-                    return true;
-                }
+                        + "am start -n " + pkg + "/.MainActivity -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null; "
+                        + "rm -f " + remoteTmp + " /sdcard/Download/tvos-update.apk 2>/dev/null; exit 0; fi; "
+                        + "grep -q Failure " + log + " 2>/dev/null && exit 0; done)' </dev/null >/dev/null 2>&1 & echo HELPER";
+                try { runShellCommandOutput(c, h, 5555, helper); } catch (Throwable ignored) { }
+                String out = runShellCommandOutput(c, h, 5555,
+                        "chmod 644 " + remoteTmp + " 2>/dev/null; pm install -r -g " + remoteTmp + " > " + log + " 2>&1"
+                                + " || pm install -r " + remoteTmp + " > " + log + " 2>&1; cat " + log);
+                lastInstallOutput = out == null ? "" : out.trim();
+                portReachable = true;
+                setPaired(c, true);
+                if (out != null && out.contains("Success")) return true;
+                return false;
             } catch (Throwable ignored) {
             }
         }

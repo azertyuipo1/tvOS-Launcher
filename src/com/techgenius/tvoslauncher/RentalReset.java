@@ -253,6 +253,31 @@ final class RentalReset {
         return today.equals(s.start) || today.equals(f.format(next.getTime()));
     }
 
+    /**
+     * Affichage du QR code Wi-Fi selon « affichage_wifi » de config.txt :
+     * un nombre N = les N premiers jours du séjour (2 par défaut), « tout » = tout le séjour,
+     * « toujours » = en permanence, même sans réservation (pratique pour tester).
+     */
+    static boolean isWifiDay(Stay s, String setting) {
+        String v = setting == null ? "" : setting.trim().toLowerCase(Locale.ROOT);
+        if (v.matches("toujours|always|test")) return true;
+        if (s == null || s.start == null) return false;
+        if (v.matches("tout|all|sejour|séjour|tout le sejour|tout le séjour")) return true;
+        int days = 2;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(v);
+        if (m.find()) days = Math.max(1, Integer.parseInt(m.group(1)));
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        try {
+            Calendar last = Calendar.getInstance();
+            last.setTime(f.parse(s.start));
+            last.add(Calendar.DAY_OF_MONTH, days - 1);
+            String today = f.format(new java.util.Date());
+            return today.compareTo(s.start) >= 0 && today.compareTo(f.format(last.getTime())) <= 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static boolean isTechnicalKey(String k) {
         switch (k) {
             case "startDate": case "endDate": case "status": case "ID": case "villaId":

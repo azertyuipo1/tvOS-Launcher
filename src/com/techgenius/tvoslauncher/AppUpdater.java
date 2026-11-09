@@ -614,10 +614,17 @@ public final class AppUpdater {
                 // Nouveau boîtier : ce droit n'est pas encore donné, on se l'accorde via l'ADB local.
                 grantInstallPermission(appCtx);
                 // Installation silencieuse demandée : ADB d'abord (aucun clic), l'installateur Android en secours.
-                if (autoSilent && LocalAdb.isAdbPortCurrentlyOpen() && LocalAdb.installApkViaAdb(appCtx, apkFile)) {
-                    downloading = false;
-                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                    return;
+                if (autoSilent && LocalAdb.isAdbPortCurrentlyOpen()) {
+                    MAIN.post(() -> Toast.makeText(appCtx, "Installation de v" + version + "…", Toast.LENGTH_LONG).show());
+                    if (LocalAdb.installApkViaAdb(appCtx, apkFile)) {
+                        downloading = false;
+                        if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                        return;
+                    }
+                    // Échec : on affiche la raison donnée par Android, puis l'installateur standard prend le relais.
+                    final String why = LocalAdb.lastInstallOutput;
+                    MAIN.post(() -> Toast.makeText(appCtx, "Installation silencieuse impossible"
+                            + (why.isEmpty() ? "" : " : " + why) + " — ouverture de l'installateur…", Toast.LENGTH_LONG).show());
                 }
                 if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
                     downloading = false;

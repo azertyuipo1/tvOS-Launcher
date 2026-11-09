@@ -3705,14 +3705,16 @@ public class MainActivity extends Activity {
     };
 
     /** Applis de l'accueil, dans l'ordre : ligne « applis: » de config.txt, sinon les 6 par défaut. */
-    static volatile String[][] VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6);
+    static volatile String[][] VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 5);
+    /** Au-delà, les icônes sortent du cadre de l'accueil. */
+    static final int MAX_VILLA_APPS = 6;
 
     static void refreshVillaApps(Context c) {
         // Format préféré : une ligne par appli (« Netflix: oui »), dans l'ordre ; sinon ligne « applis: a, b, c ».
         List<String> names = VillaFolder.appLines(c);
         if (names.isEmpty()) {
             String line = VillaFolder.get(c, VillaFolder.K_APPS);
-            if (line.isEmpty()) { VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6); return; }
+            if (line.isEmpty()) { VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 5); return; }
             names = java.util.Arrays.asList(line.split("[,;|]"));
         }
         List<String[]> out = new ArrayList<>();
@@ -3733,6 +3735,7 @@ public class MainActivity extends Activity {
             boolean dup = false;
             for (String[] o : out) if (o == hit || o[0].equals(hit[0])) dup = true;
             if (!dup) out.add(hit);
+            if (out.size() >= MAX_VILLA_APPS) break;
         }
         if (!out.isEmpty()) VILLA_APPS = out.toArray(new String[0][]);
     }
@@ -3871,7 +3874,8 @@ public class MainActivity extends Activity {
         if (wifiCard == null) return;
         String ssid = VillaFolder.get(this, VillaFolder.K_WIFI_SSID);
         String pass = VillaFolder.get(this, VillaFolder.K_WIFI_PASS);
-        boolean show = !ssid.isEmpty() && !scenes && RentalReset.isWelcomeDays(stay);
+        boolean show = !ssid.isEmpty() && !scenes
+                && RentalReset.isWifiDay(stay, VillaFolder.get(this, VillaFolder.K_WIFI_SHOW));
         if (show) {
             String payload = QrCode.wifiPayload(ssid, pass);
             if (!payload.equals(wifiPayloadShown)) {

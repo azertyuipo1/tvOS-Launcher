@@ -33,6 +33,7 @@ final class VillaFolder {
     static final String K_WIFI_PASS = "mot_de_passe";  // « Mot de passe: … »
     static final String K_APPS = "applis";             // « applis: ITVSTREAM, Netflix, … » (ordre de l'accueil)
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
+    static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
     private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cHM6Ly93d3cuc2JoLWhvc3QuZnIv", 0), StandardCharsets.UTF_8);
@@ -73,7 +74,16 @@ final class VillaFolder {
 
     static String getBase(Context c) {
         migrate(c);
-        return prefs(c).getString(P_BASE, "");
+        String b = prefs(c).getString(P_BASE, "");
+        if (b.isEmpty()) {
+            // Profil de 3 lettres (ex. « CLO ») : c'est aussi le nom du dossier, pas besoin de le ressaisir.
+            String n = Profiles.current(c).name;
+            if (n != null && n.trim().matches("[A-Za-z0-9]{3}")) {
+                b = n.trim().toLowerCase(Locale.ROOT);
+                prefs(c).edit().putString(P_BASE, b).apply();
+            }
+        }
+        return b;
     }
 
     static boolean isConfigured(Context c) { return !getBase(c).isEmpty(); }
@@ -147,6 +157,7 @@ final class VillaFolder {
             case "wifi_mdp": case "mdp": case "mot_de_passe_wifi": case "wifi_mot_de_passe": return K_WIFI_PASS;
             case "apps": case "applications": return K_APPS;
             case "mise_a_jour_auto": case "maj": return K_UPDATE;
+            case "wifi_affichage": case "qr_wifi": case "affichage_qr": case "qr_code_wifi": return K_WIFI_SHOW;
             default: return s;
         }
     }
@@ -159,7 +170,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
