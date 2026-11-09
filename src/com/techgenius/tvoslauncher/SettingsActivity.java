@@ -1252,6 +1252,23 @@ public class SettingsActivity extends Activity {
 
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
+        section("RÉSUMÉ");
+        infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
+        infoRowDynamic("Dossier", () -> VillaFolder.isConfigured(this)
+                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configuré", null);
+        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Prochain départ", () -> {
+            List<String> d = RentalReset.upcomingDepartures(this, 1);
+            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
+        }, null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+        infoRowDynamic("Fuseau horaire",
+                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("timezone_status", "en attente…"), null);
+        infoRowDynamic("Langue de la TV",
+                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
+        infoRowDynamic("Verrouillage invités", () -> GuestLock.isEnabled(this) ? "✓ activé" : "✗ désactivé", null);
+
         section("DOSSIER DE LA VILLA");
         row("Adresse du dossier",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configuré") + "  ›",
@@ -1329,14 +1346,6 @@ public class SettingsActivity extends Activity {
                     : "Liste par défaut. Pour la changer, ajoutez une ligne « applis: » dans config.txt.");
         }
         section("MODE LOCATION");
-        {
-            String pb = getSharedPreferences("villa", MODE_PRIVATE).getString("pairing_blocked", "");
-            if (!pb.isEmpty()) infoRowDynamic("Écran d'appairage fermé", () -> pb, null);
-            String pd = getSharedPreferences("villa", MODE_PRIVATE).getString("pairing_disabled", "");
-            if (!pd.isEmpty()) infoRowDynamic("Appli d'appairage désactivée", () -> pd, null);
-            String ls = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "");
-            if (!ls.isEmpty()) infoNote("Derniers écrans affichés :\n" + ls);
-        }
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
@@ -1372,8 +1381,6 @@ public class SettingsActivity extends Activity {
                 });
         infoRowDynamic("Dernier départ traité",
                 () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
-        infoRowDynamic("Dernière déconnexion",
-                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         row("Simuler un départ au prochain allumage",
                 () -> RentalReset.isDepartureSimulated(this) ? "Prévu ✓" : "›",
                 () -> {
@@ -1390,10 +1397,6 @@ public class SettingsActivity extends Activity {
                 }
             });
         });
-        infoRowDynamic("Langue de la TV",
-                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
-        infoRowDynamic("Fuseau horaire",
-                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("timezone_status", "en attente…"), null);
         row("Clavier à l'écran (ajouter le français AZERTY)", () -> "›", () -> {
             try {
                 startActivity(new Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
@@ -1445,6 +1448,15 @@ public class SettingsActivity extends Activity {
                 + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
                 + "Nécessite le mode ADB persistant.");
 
+        section("DIAGNOSTIC");
+        {
+            android.content.SharedPreferences vp = getSharedPreferences("villa", MODE_PRIVATE);
+            infoRowDynamic("ADB local", () -> LocalAdb.isPaired(this) ? "✓ autorisé" : "✗ non autorisé", null);
+            infoRowDynamic("Appli d'appairage", () -> vp.getString("pairing_disabled", "—"), null);
+            infoRowDynamic("Appairage bloqué", () -> vp.getString("pairing_blocked", "—"), null);
+            String ls = vp.getString("last_screens", "");
+            if (!ls.isEmpty()) infoNote("Derniers écrans affichés :\n" + ls);
+        }
     }
 
     private void promptRenamePerson(Profiles.Profile p, int rowIdx) {
@@ -5094,7 +5106,13 @@ public class SettingsActivity extends Activity {
         v.setTextColor(0x9EFFFFFF);
         v.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(v, 12.5f);
-        r.addView(v);
+        // La valeur reste dans sa colonne (retour à la ligne si besoin) : le libellé n'est jamais écrasé.
+        v.setMaxWidth((int) (getResources().getDisplayMetrics().widthPixels * 0.40f));
+        v.setGravity(Gravity.END);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        vlp.leftMargin = u(12);
+        r.addView(v, vlp);
 
         Runnable refresh = () -> {
             try {

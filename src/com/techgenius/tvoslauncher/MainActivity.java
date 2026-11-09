@@ -3919,17 +3919,36 @@ public class MainActivity extends Activity {
      * et le chevaucherait, la carte descend sous ce bloc : rien ne se superpose.
      */
     void positionWifiCard() {
-        if (wifiCard == null || clockColView == null || wifiCard.getVisibility() != View.VISIBLE) return;
+        if (wifiCard == null || clockColView == null || titleBoxView == null) return;
+        FrameLayout.LayoutParams t = (FrameLayout.LayoutParams) titleBoxView.getLayoutParams();
+        int baseTitleTop = (int) (screenH * 0.24f);
+        if (wifiCard.getVisibility() != View.VISIBLE) {
+            if (t.topMargin != baseTitleTop) { t.topMargin = baseTitleTop; titleBoxView.setLayoutParams(t); }
+            return;
+        }
         FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
         FrameLayout.LayoutParams w = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
         int gap = dp(16);
-        int top = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
+        int minTop = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
+        int titleH = titleBoxView.getHeight();
+        int top, titleTop = baseTitleTop;
+        boolean titleShown = titleBoxView.getVisibility() == View.VISIBLE && titleH > 0;
         int cardLeft = screenW - k.rightMargin - w.width;
-        if (titleBoxView != null && titleBoxView.getVisibility() == View.VISIBLE && titleBoxView.getWidth() > 0) {
-            int titleRight = titleBoxView.getLeft() + titleBoxView.getWidth();
-            boolean sameRows = top < titleBoxView.getBottom() && top + w.height > titleBoxView.getTop();
-            if (titleRight + gap > cardLeft && sameRows) top = titleBoxView.getBottom() + gap;
+        int titleRight = titleBoxView.getLeft() + titleBoxView.getWidth();
+        if (titleShown && titleRight + gap <= cardLeft) {
+            // Bas du nom des clients aligné sur le bas de la carte ; si la carte toucherait l'heure,
+            // c'est le bloc de gauche qui descend un peu.
+            top = baseTitleTop + titleH - w.height;
+            if (top < minTop) {
+                titleTop = baseTitleTop + (minTop - top);
+                top = minTop;
+            }
+        } else if (titleShown) {
+            top = Math.max(minTop, baseTitleTop + titleH + gap); // nom trop long : la carte passe dessous
+        } else {
+            top = minTop;
         }
+        if (t.topMargin != titleTop) { t.topMargin = titleTop; titleBoxView.setLayoutParams(t); }
         if (w.topMargin != top || w.rightMargin != k.rightMargin) {
             w.topMargin = top;
             w.rightMargin = k.rightMargin;
