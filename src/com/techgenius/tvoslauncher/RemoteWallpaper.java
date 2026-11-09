@@ -15,13 +15,12 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Arrière-plan de l'accueil téléchargé depuis une adresse web (par défaut sur sbh-host.fr).
+ * Arrière-plan de l'accueil : background.jpg dans le dossier de la villa (voir VillaFolder).
  * Il est revérifié à chaque allumage et toutes les 30 minutes : si la photo change sur le serveur,
  * l'accueil l'affiche. Sans réseau, la dernière photo téléchargée reste affichée.
  */
 final class RemoteWallpaper {
     static final String WALL_KEY = "villa:remote";
-    static final String DEFAULT_URL = "https://www.sbh-host.fr/clo/tv/background.jpg";
     private static final String PREFS = "villa";
     private static volatile boolean running = false;
 
@@ -31,17 +30,12 @@ final class RemoteWallpaper {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    static String getUrl(Context c) {
-        String u = prefs(c).getString("bg_url", "");
-        return u.isEmpty() ? DEFAULT_URL : u;
-    }
+    static String getUrl(Context c) { return VillaFolder.fileUrl(c, VillaFolder.BACKGROUND_FILE); }
 
-    static void setUrl(Context c, String url) {
-        prefs(c).edit().putString("bg_url", url == null ? "" : url.trim())
-                .remove("bg_etag").remove("bg_lastmod").apply();
+    static String getStatus(Context c) {
+        if (getUrl(c).isEmpty()) return "aucun dossier";
+        return prefs(c).getString("bg_status", "pas encore téléchargé");
     }
-
-    static String getStatus(Context c) { return prefs(c).getString("bg_status", "pas encore téléchargé"); }
 
     static File file(Context c) { return new File(c.getFilesDir(), "villa_background.jpg"); }
 
@@ -61,7 +55,7 @@ final class RemoteWallpaper {
 
     /** Vérifie la photo sur le serveur en arrière-plan ; onChanged (fil principal) si elle a changé. */
     static void refresh(Context ctx, Runnable onChanged) {
-        if (running) return;
+        if (running || getUrl(ctx).isEmpty()) return;
         running = true;
         final Context c = ctx.getApplicationContext();
         new Thread(() -> {

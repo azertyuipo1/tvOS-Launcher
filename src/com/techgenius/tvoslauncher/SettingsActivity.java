@@ -941,27 +941,36 @@ public class SettingsActivity extends Activity {
         pageHouse();
     }
 
-    private void promptBackgroundUrl() {
+    private void promptFolderUrl() {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
-        in.setHint(RemoteWallpaper.DEFAULT_URL);
-        in.setText(RemoteWallpaper.getUrl(this));
+        in.setHint("clo   ou   https://www.exemple.fr/villa/tv");
+        in.setText(VillaFolder.getBase(this));
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
-        AlertDialog dlg = dialog("Adresse de l'image d'arrière-plan")
+        AlertDialog dlg = dialog("Adresse du dossier de la villa")
+                .setMessage("Tapez juste le nom du dossier (ex. « clo » → " + VillaFolder.SHORT_PREFIX + "clo"
+                        + VillaFolder.SHORT_SUFFIX + "), ou une adresse complète commençant par https://")
                 .setView(box)
                 .setPositiveButton("Enregistrer", (d, w) -> {
-                    RemoteWallpaper.setUrl(this, in.getText().toString());
-                    Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-                    RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
-                    refreshAll();
+                    VillaFolder.setBase(this, in.getText().toString());
+                    checkFolderNow();
                 })
                 .setNegativeButton("Annuler", null)
                 .show();
         Ui.setupDialogEditText(in, dlg);
         in.requestFocus();
+    }
+
+    /** Relit config.txt, le calendrier et background.jpg, puis rafraîchit la page. */
+    private void checkFolderNow() {
+        showStatusMsg("Lecture du dossier de la villa…");
+        Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+        RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
+        RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+        refreshAll();
     }
 
     void pageApps() {
@@ -1255,35 +1264,46 @@ public class SettingsActivity extends Activity {
             row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
         }
 
-        section("ARRIÈRE-PLAN");
-        row("Adresse de l'image", () -> RemoteWallpaper.getUrl(this) + "  ›", this::promptBackgroundUrl);
-        infoRowDynamic("État", () -> RemoteWallpaper.getStatus(this), null);
-        row("Vérifier maintenant", () -> "›", () -> {
-            showStatusMsg("Vérification de l'image…");
-            Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-            RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
-            list.postDelayed(() -> { if (!isFinishing()) refreshAll(); }, 4000);
-        });
-        infoNote("Remplace l'image sur le serveur pour changer le fond : la TV la récupère à l'allumage "
-                + "et toutes les 30 minutes. Format conseillé : 1920 × 1080 (16:9). "
-                + "Une image d'un autre format est recadrée, jamais déformée.");
-        section("SAUVEGARDE EN LIGNE");
-        row("Sauvegarder sur sbh-host.fr", () -> "›", () -> {
-            showStatusMsg("Sauvegarde en cours…");
-            CloudBackup.upload(this, m -> { if (!isFinishing()) { refreshAll(); showStatusMsg(m); } });
-        });
-        infoRowDynamic("Dernière sauvegarde", () -> CloudBackup.getStatus(this), null);
-        row("Restaurer depuis sbh-host.fr", () -> "›", () -> CloudBackup.restore(this));
-        infoNote("Une sauvegarde automatique est aussi faite une fois par jour. Les sauvegardes sont rangées "
-                + "par villa (nom du profil) et aucune n'en écrase une autre.");
+        if (VillaFolder.isForced(this, VillaFolder.K_NAME)) {
+            infoNote("Nom affiché à l'accueil : « " + VillaFolder.villaName(this) + " » (imposé par config.txt).");
+        }
+
+        section("DOSSIER DE LA VILLA");
+        row("Adresse du dossier",
+                () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configuré") + "  ›",
+                this::promptFolderUrl);
+        infoRowDynamic("config.txt", () -> VillaFolder.getStatus(this), null);
+        infoRowDynamic("background.jpg", () -> RemoteWallpaper.getStatus(this), null);
+        row("Relire le dossier maintenant", () -> "›", this::checkFolderNow);
+        infoNote("Déposez dans ce dossier :\n"
+                + "• background.jpg : l'image d'arrière-plan (idéalement 1920 × 1080).\n"
+                + "• config.txt : les réglages de la villa, une ligne par réglage. "
+                + "Ne rien modifier à gauche des « : ». Une valeur laissée vide utilise le réglage de la TV.\n\n"
+                + "nom_villa: Villa l'Enclos\n"
+                + "heure_checkout: 12\n"
+                + "calendrier: https://…\n\n"
+                + "Le calendrier peut être :\n"
+                + "• un calendrier personnalisé (JSON), qui affiche le nom des clients. Format attendu : "
+                + "{\"data\":[{\"nom\":\"Mr. & Mrs. Walston\",\"startDate\":\"2026-11-08\",\"endDate\":\"2026-11-15\"}]} "
+                + "— une entrée par réservation, dates AAAA-MM-JJ, endDate = jour du départ ;\n"
+                + "• un calendrier ICS (SBH Calendar : https://sbhcalendar.com/open/by-villa/ics-feed/…). "
+                + "Les départs sont détectés, mais le nom des clients n'est pas affiché.\n\n"
+                + "La TV relit le dossier à l'allumage et toutes les 30 minutes.");
         section("MODE LOCATION");
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
         }
-        row("Calendrier des réservations (JSON)",
-                () -> RentalReset.isEnabled(this) ? "Configuré ›" : "Non configuré ›",
-                this::promptRentalUrl);
+        row("Calendrier des réservations",
+                () -> VillaFolder.isForced(this, VillaFolder.K_CALENDAR) ? "config.txt"
+                        : !RentalReset.getTvUrl(this).isEmpty() ? "Saisi sur la TV ›" : "Non configuré ›",
+                () -> {
+                    if (VillaFolder.isForced(this, VillaFolder.K_CALENDAR)) {
+                        showStatusMsg("Le calendrier est imposé par config.txt : modifiez-le dans le dossier de la villa.");
+                    } else {
+                        promptRentalUrl();
+                    }
+                });
         infoRowDynamic("État du calendrier", () -> RentalReset.getFetchStatus(this), null);
         infoRowDynamic("Prochains départs",
                 () -> {
@@ -1292,9 +1312,14 @@ public class SettingsActivity extends Activity {
                     return d.isEmpty() ? "Aucun départ à venir" : android.text.TextUtils.join("  ·  ", d);
                 }, null);
         row("Heure de check-out",
-                () -> RentalReset.getCheckoutHour(this) + "h",
+                () -> RentalReset.getCheckoutHour(this) + "h"
+                        + (VillaFolder.isForced(this, VillaFolder.K_CHECKOUT) ? " (config.txt)" : ""),
                 () -> {
-                    int h = RentalReset.getCheckoutHour(this) + 1;
+                    if (VillaFolder.isForced(this, VillaFolder.K_CHECKOUT)) {
+                        showStatusMsg("L'heure de check-out est imposée par config.txt.");
+                        return;
+                    }
+                    int h = RentalReset.getTvCheckoutHour(this) + 1;
                     RentalReset.setCheckoutHour(this, h > 15 ? 10 : h);
                     refreshAll();
                 });
@@ -1394,12 +1419,12 @@ public class SettingsActivity extends Activity {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
         in.setHint("https://…");
-        in.setText(RentalReset.getUrl(this));
+        in.setText(RentalReset.getTvUrl(this));
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
-        AlertDialog dlg = dialog("Lien du calendrier (JSON)")
+        AlertDialog dlg = dialog("Lien du calendrier (JSON ou ICS)")
                 .setView(box)
                 .setPositiveButton("Enregistrer", (d, w) -> {
                     RentalReset.setUrl(this, in.getText().toString());

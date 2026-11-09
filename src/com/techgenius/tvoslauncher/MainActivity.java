@@ -3763,7 +3763,6 @@ public class MainActivity extends Activity {
             if (++villaTicks % 90 == 0) {
                 RentalReset.check(MainActivity.this);
                 refreshRemoteWallpaper();
-                CloudBackup.autoDaily(MainActivity.this);
             }
             handler.postDelayed(this, 20_000L);
         }
@@ -3802,19 +3801,21 @@ public class MainActivity extends Activity {
     void refreshProfileTitle() {
         if (profileTitle == null) return;
         boolean scenes = Scenes.isScenesLook(this);
-        String villa = Profiles.current(this).name;
-        if (villa == null) villa = "";
+        String villa = VillaFolder.villaName(this);
         RentalReset.Stay stay = RentalReset.currentStay(this);
         boolean guest = stay != null && !stay.name.isEmpty();
+        // Calendrier ICS (sans nom) : salutation au-dessus du nom de la villa.
+        boolean anonStay = stay != null && !guest && !villa.isEmpty();
         if (guest) {
             eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
             welcomeLine.setText(RentalReset.greeting(this, stay));
             profileTitle.setText(stay.name.replaceAll("\\.+$", ""));
         } else {
+            if (anonStay) welcomeLine.setText(RentalReset.greeting(this, stay));
             profileTitle.setText(villa);
         }
         eyebrow.setVisibility(guest && !villa.isEmpty() && !scenes ? View.VISIBLE : View.GONE);
-        welcomeLine.setVisibility(guest && !scenes ? View.VISIBLE : View.GONE);
+        welcomeLine.setVisibility((guest || anonStay) && !scenes ? View.VISIBLE : View.GONE);
         profileTitle.setVisibility(profileTitle.length() == 0 || scenes ? View.GONE : View.VISIBLE);
         if (bigClock != null) {
             java.util.Date now = new java.util.Date();

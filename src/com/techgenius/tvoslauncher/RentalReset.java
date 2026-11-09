@@ -27,7 +27,9 @@ import java.util.Locale;
  * check-out) est passé. S'il est plus récent que le dernier départ traité, on lance `pm clear` sur
  * les applis via l'ADB local, puis on mémorise ce départ. Les allumages suivants ne refont rien.
  *
- * Le calendrier est un JSON {"data":[{"endDate":"yyyy-MM-dd", ...}]} (rapport Zoho Creator).
+ * Le calendrier est soit un JSON {"data":[{"nom":"…","startDate":"yyyy-MM-dd","endDate":"yyyy-MM-dd"}]},
+ * soit un lien ICS (converti au même format, sans nom). Son adresse vient de config.txt (dossier de
+ * la villa) ou, à défaut, du réglage fait sur la TV.
  * Une copie est gardée pour fonctionner sans internet.
  */
 final class RentalReset {
@@ -61,13 +63,20 @@ final class RentalReset {
         return c.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Calendrier de la villa CLO par défaut (rapport Zoho tv_calendar : prénoms et dates de séjour). */
-    static final String DEFAULT_URL = "https://creator.zoho.com/publishapi/v2/sbhassets/villa-clo/report/tv_calendar"
+    /** Ancien calendrier intégré (villa CLO), conservé seulement pour les TV mises à jour. */
+    private static final String LEGACY_URL = "https://creator.zoho.com/publishapi/v2/sbhassets/villa-clo/report/tv_calendar"
             + "?privatelink=h2uWZ05PA2EdDE7ROnGqtbHzN5jR8Rrv07JTGHAGjntp9OPqxzkBU4hArwWOXkbCAmZBwFB4pPBBRepggGR2SvZSBWCxX1SErAtY";
 
+    /** Adresse du calendrier : config.txt si elle y est, sinon celle saisie sur la TV. */
     static String getUrl(Context c) {
-        String u = prefs(c).getString(K_URL, "");
-        return u.isEmpty() ? DEFAULT_URL : u;
+        String f = VillaFolder.get(c, VillaFolder.K_CALENDAR);
+        return f.isEmpty() ? getTvUrl(c) : f;
+    }
+
+    static String getTvUrl(Context c) { return prefs(c).getString(K_URL, ""); }
+
+    static void keepLegacyCalendar(Context c) {
+        if (getTvUrl(c).isEmpty()) prefs(c).edit().putString(K_URL, LEGACY_URL).putString("cal_src", LEGACY_URL).apply();
     }
 
     static void setUrl(Context c, String url) {
@@ -75,9 +84,20 @@ final class RentalReset {
                 .remove(K_CACHE).remove(K_LAST_END).apply();
     }
 
-    static boolean isEnabled(Context c) { return !getUrl(c).isEmpty(); }
+    static boolean isEnabled(Context c) { return !getUrl(c).isEmpty() || VillaFolder.isConfigured(c); }
 
-    static int getCheckoutHour(Context c) { return prefs(c).getInt(K_HOUR, 12); }
+    /** Heure de check-out : config.txt si elle y est (« 12 », « 12h », « 12:00 »), sinon celle de la TV. */
+    static int getCheckoutHour(Context c) {
+        String f = VillaFolder.get(c, VillaFolder.K_CHECKOUT);
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\d{1,2})").matcher(f);
+        if (m.find()) {
+            int h = Integer.parseInt(m.group(1));
+            if (h >= 0 && h <= 23) return h;
+        }
+        return getTvCheckoutHour(c);
+    }
+
+    static int getTvCheckoutHour(Context c) { return prefs(c).getInt(K_HOUR, 12); }
 
     static void setCheckoutHour(Context c, int h) { prefs(c).edit().putInt(K_HOUR, h).apply(); }
 
@@ -169,7 +189,7 @@ final class RentalReset {
                 JSONObject r = data.optJSONObject(i);
                 if (r == null) continue;
                 String s = r.optString("startDate", ""), e = r.optString("endDate", "");
-                if (s.length() < 10 || e.length() < 10) continue;
+                if (s.length() < 10 || e.length() < 10 || "CANCELLED".equals(r.optString("status"))) continue;
                 s = s.substring(0, 10);
                 e = e.substring(0, 10);
                 boolean current = s.compareTo(today) <= 0
@@ -182,8 +202,9 @@ final class RentalReset {
                 }
             }
             if (stay == null) return null;
+            stay.name = best.optString("nom", "").trim();
             java.util.Iterator<String> keys = best.keys();
-            if (keys.hasNext()) {
+            if (stay.name.isEmpty() && !best.has("nom") && keys.hasNext()) {
                 String k = keys.next();
                 Object v = best.opt(k);
                 if (v instanceof String && !isTechnicalKey(k)) stay.name = ((String) v).trim();
@@ -222,7 +243,7 @@ final class RentalReset {
     private static boolean isTechnicalKey(String k) {
         switch (k) {
             case "startDate": case "endDate": case "status": case "ID": case "villaId":
-            case "agencyId": case "bedrooms": return true;
+            case "agencyId": case "bedrooms": case "uid": return true;
             default: return false;
         }
     }
@@ -267,7 +288,17 @@ final class RentalReset {
 
     /** Date (yyyy-MM-dd) du départ le plus récent dont l'heure de check-out est passée, ou null. */
     static String latestDueDeparture(Context c) {
-        String json = fetch(getUrl(c));
+        VillaFolder.refreshBlocking(c);
+        String url = getUrl(c);
+        if (!url.equals(prefs(c).getString("cal_src", ""))) {
+            // Nouveau calendrier : on repart d'une référence neuve (le prochain départ passé ne déclenche rien).
+            prefs(c).edit().putString("cal_src", url).remove(K_CACHE).remove(K_LAST_END).apply();
+        }
+        if (url.isEmpty()) {
+            prefs(c).edit().putString(K_FETCH_STATUS, "aucun calendrier").apply();
+            return null;
+        }
+        String json = fetch(url);
         String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
         if (json != null) {
             int n = 0;
@@ -338,9 +369,10 @@ final class RentalReset {
             try (BufferedReader br = new BufferedReader(
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = br.readLine()) != null) sb.append(line);
+                while ((line = br.readLine()) != null) sb.append(line).append('\n');
             }
             String s = sb.toString();
+            if (s.trim().startsWith("BEGIN:VCALENDAR")) return icsToJson(s);
             new JSONObject(s); // valide avant de remplacer le cache
             return s;
         } catch (org.json.JSONException j) {
@@ -352,6 +384,46 @@ final class RentalReset {
         } finally {
             if (conn != null) conn.disconnect();
         }
+    }
+
+    /** Convertit un calendrier ICS en {"data":[{"startDate","endDate"}]} (DTSTART = arrivée, DTEND = départ). */
+    static String icsToJson(String ics) throws org.json.JSONException {
+        String unfolded = ics.replace("\r\n", "\n").replace("\r", "\n").replaceAll("\n[ \t]", "");
+        JSONArray data = new JSONArray();
+        String start = null, end = null, status = "";
+        boolean in = false;
+        for (String line : unfolded.split("\n")) {
+            String l = line.trim();
+            if (l.equals("BEGIN:VEVENT")) { in = true; start = end = null; status = ""; continue; }
+            if (l.equals("END:VEVENT")) {
+                in = false;
+                if (start != null && !status.equalsIgnoreCase("CANCELLED")) {
+                    if (end == null) end = start;
+                    JSONObject o = new JSONObject();
+                    o.put("startDate", start);
+                    o.put("endDate", end);
+                    data.put(o);
+                }
+                continue;
+            }
+            if (!in) continue;
+            int colon = l.indexOf(':');
+            if (colon < 0) continue;
+            String name = l.substring(0, colon).split(";")[0].toUpperCase(Locale.ROOT);
+            String val = l.substring(colon + 1).trim();
+            if (name.equals("DTSTART")) start = icsDate(val);
+            else if (name.equals("DTEND")) end = icsDate(val);
+            else if (name.equals("STATUS")) status = val;
+        }
+        JSONObject root = new JSONObject();
+        root.put("data", data);
+        return root.toString();
+    }
+
+    private static String icsDate(String v) {
+        String d = v.replaceAll("[^0-9]", "");
+        if (d.length() < 8) return null;
+        return d.substring(0, 4) + "-" + d.substring(4, 6) + "-" + d.substring(6, 8);
     }
 
     /** Paquets jamais déconnectés, quoi qu'il arrive (ITVSTREAM / Next). */
