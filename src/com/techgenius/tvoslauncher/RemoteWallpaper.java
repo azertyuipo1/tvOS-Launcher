@@ -33,7 +33,7 @@ final class RemoteWallpaper {
     static String getUrl(Context c) { return VillaFolder.fileUrl(c, VillaFolder.BACKGROUND_FILE); }
 
     static String getStatus(Context c) {
-        if (getUrl(c).isEmpty()) return "aucun dossier";
+        if (!VillaFolder.isConfigured(c)) return "aucun dossier";
         return prefs(c).getString("bg_status", "pas encore téléchargé");
     }
 
@@ -55,7 +55,7 @@ final class RemoteWallpaper {
 
     /** Vérifie la photo sur le serveur en arrière-plan ; onChanged (fil principal) si elle a changé. */
     static void refresh(Context ctx, Runnable onChanged) {
-        if (running || getUrl(ctx).isEmpty()) return;
+        if (running || !VillaFolder.isConfigured(ctx)) return;
         running = true;
         final Context c = ctx.getApplicationContext();
         new Thread(() -> {
@@ -65,7 +65,12 @@ final class RemoteWallpaper {
             try {
                 SharedPreferences p = prefs(c);
                 boolean haveFile = file(c).exists();
+                if (getUrl(c).isEmpty()) VillaFolder.refreshBlocking(c); // dossier saisi par son nom : le trouver
                 String target = getUrl(c);
+                if (target.isEmpty()) {
+                    p.edit().putString("bg_status", "✗ dossier introuvable — " + when).apply();
+                    return;
+                }
                 int code = 0;
                 for (int hop = 0; hop < 6; hop++) {
                     conn = (HttpURLConnection) new URL(target).openConnection();

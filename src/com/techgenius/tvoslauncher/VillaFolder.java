@@ -30,8 +30,9 @@ final class VillaFolder {
     static final String K_CHECKOUT = "heure_checkout";
     static final String K_CALENDAR = "calendrier";
 
-    static final String SHORT_PREFIX = "https://www.sbh-host.fr/";
-    static final String SHORT_SUFFIX = "/tv";
+    /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
+    private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cHM6Ly93d3cuc2JoLWhvc3QuZnIv", 0), StandardCharsets.UTF_8);
+    private static final String P_RESOLVED = "folder_resolved";
     private static final String PREFS = "villa";
     private static final String P_BASE = "folder_url";
     private static final String P_CONFIG = "folder_config";
@@ -54,9 +55,12 @@ final class VillaFolder {
         SharedPreferences.Editor e = p.edit().putBoolean(P_MIGRATED, true);
         if (p.contains("bg_status") && p.getString(P_BASE, "").isEmpty()) {
             String old = p.getString("bg_url", "");
-            if (old.isEmpty()) old = "https://www.sbh-host.fr/clo/tv/background.jpg";
+            if (old.isEmpty()) old = SHORT_HOST + "clo/tv/" + BACKGROUND_FILE;
             if (old.endsWith("/" + BACKGROUND_FILE)) {
-                e.putString(P_BASE, old.substring(0, old.length() - BACKGROUND_FILE.length() - 1));
+                String b = old.substring(0, old.length() - BACKGROUND_FILE.length() - 1);
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("^" + java.util.regex.Pattern.quote(SHORT_HOST) + "(?:villas/)?([a-z0-9_-]+)/tv$").matcher(b);
+                e.putString(P_BASE, m.matches() ? m.group(1) : b);
             }
             RentalReset.keepLegacyCalendar(c);
         }
@@ -70,18 +74,41 @@ final class VillaFolder {
 
     static boolean isConfigured(Context c) { return !getBase(c).isEmpty(); }
 
+    /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
+    static boolean isShortName(String b) { return b.matches("[a-z0-9_-]+"); }
+
+    /**
+     * Saisie : soit un simple nom (« clo »), cherché dans villas/clo/tv puis clo/tv sur l'hébergement
+     * par défaut, soit une adresse complète https://…
+     */
     static void setBase(Context c, String url) {
         String u = url == null ? "" : url.trim();
         while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
-        // Raccourci : un simple nom (ex. « clo ») donne https://www.sbh-host.fr/clo/tv
-        if (!u.isEmpty() && u.matches("[A-Za-z0-9_-]+")) u = SHORT_PREFIX + u.toLowerCase(Locale.ROOT) + SHORT_SUFFIX;
-        if (!u.isEmpty() && !u.matches("(?i)^https?://.*")) u = "https://" + u;
-        prefs(c).edit().putString(P_BASE, u).remove(P_CONFIG).remove(P_STATUS)
+        if (u.matches("[A-Za-z0-9_-]+")) u = u.toLowerCase(Locale.ROOT);
+        else if (!u.isEmpty() && !u.matches("(?i)^https?://.*")) u = "https://" + u;
+        prefs(c).edit().putString(P_BASE, u).remove(P_CONFIG).remove(P_STATUS).remove(P_RESOLVED)
                 .remove("bg_etag").remove("bg_lastmod").apply();
     }
 
+    /** Dossiers possibles, dans l'ordre d'essai (le dernier trouvé en premier). */
+    private static java.util.List<String> candidates(Context c) {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        String b = getBase(c);
+        if (b.isEmpty()) return l;
+        if (!isShortName(b)) { l.add(b); return l; }
+        String r = prefs(c).getString(P_RESOLVED, "");
+        if (!r.isEmpty()) l.add(r);
+        for (String x : new String[]{ SHORT_HOST + "villas/" + b + "/tv", SHORT_HOST + b + "/tv" }) {
+            if (!l.contains(x)) l.add(x);
+        }
+        return l;
+    }
+
+    /** Adresse d'un fichier du dossier ; "" tant qu'un dossier saisi par son nom n'a pas été trouvé. */
     static String fileUrl(Context c, String name) {
         String b = getBase(c);
+        if (b.isEmpty()) return "";
+        if (isShortName(b)) b = prefs(c).getString(P_RESOLVED, "");
         return b.isEmpty() ? "" : b + "/" + name;
     }
 
@@ -125,9 +152,40 @@ final class VillaFolder {
 
     /** Relit config.txt (à appeler hors du fil principal). Sans réseau, la dernière lecture est gardée. */
     static void refreshBlocking(Context c) {
-        String url = fileUrl(c, CONFIG_FILE);
-        if (url.isEmpty()) return;
+        java.util.List<String> cands = candidates(c);
+        if (cands.isEmpty()) return;
         String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
+        try {
+            for (String base : cands) {
+                Object[] r = get(base + "/" + CONFIG_FILE);
+                int code = (Integer) r[0];
+                if (code == 200) {
+                    String txt = (String) r[1];
+                    int n = 0;
+                    for (String v : parse(txt).values()) if (!v.isEmpty()) n++;
+                    prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
+                            .putString(P_STATUS, "✓ lu le " + when + " (" + n + " réglage" + (n > 1 ? "s" : "") + " imposé" + (n > 1 ? "s" : "") + ")")
+                            .apply();
+                    return;
+                }
+                if (code == 404 && (Integer) get(base + "/" + BACKGROUND_FILE)[0] == 200) {
+                    prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, "")
+                            .putString(P_STATUS, "config.txt absent — réglages de la TV utilisés (" + when + ")").apply();
+                    return;
+                }
+                if (code != 404) {
+                    prefs(c).edit().putString(P_STATUS, "✗ config.txt : erreur HTTP " + code + " — " + when).apply();
+                    return;
+                }
+            }
+            prefs(c).edit().putString(P_STATUS, "✗ dossier introuvable — " + when).apply();
+        } catch (Throwable t) {
+            prefs(c).edit().putString(P_STATUS, "✗ dossier injoignable (" + t.getClass().getSimpleName() + ") — " + when).apply();
+        }
+    }
+
+    /** {code HTTP, texte} ; suit les redirections. */
+    private static Object[] get(String url) throws Exception {
         HttpURLConnection conn = null;
         try {
             String target = url;
@@ -146,28 +204,13 @@ final class VillaFolder {
                 if (loc == null || loc.isEmpty()) break;
                 target = new URL(new URL(target), loc).toString();
             }
-            if (code == 404) {
-                prefs(c).edit().putString(P_CONFIG, "")
-                        .putString(P_STATUS, "config.txt absent — réglages de la TV utilisés (" + when + ")").apply();
-                return;
-            }
-            if (conn == null || code != 200) {
-                prefs(c).edit().putString(P_STATUS, "✗ config.txt : erreur HTTP " + code + " — " + when).apply();
-                return;
-            }
+            if (conn == null || code != 200) return new Object[]{ code, "" };
             StringBuilder sb = new StringBuilder();
             try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = br.readLine()) != null && sb.length() < 64_000) sb.append(line).append('\n');
             }
-            String txt = sb.toString();
-            int n = 0;
-            for (String v : parse(txt).values()) if (!v.isEmpty()) n++;
-            prefs(c).edit().putString(P_CONFIG, txt)
-                    .putString(P_STATUS, "✓ config.txt lu le " + when + " (" + n + " réglage" + (n > 1 ? "s" : "") + " forcé" + (n > 1 ? "s" : "") + ")")
-                    .apply();
-        } catch (Throwable t) {
-            prefs(c).edit().putString(P_STATUS, "✗ dossier injoignable (" + t.getClass().getSimpleName() + ") — " + when).apply();
+            return new Object[]{ code, sb.toString() };
         } finally {
             if (conn != null) conn.disconnect();
         }

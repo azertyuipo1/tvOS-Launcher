@@ -388,16 +388,20 @@ final class RentalReset {
 
     /** Convertit un calendrier ICS en {"data":[{"startDate","endDate"}]} (DTSTART = arrivée, DTEND = départ). */
     static String icsToJson(String ics) throws org.json.JSONException {
-        String unfolded = ics.replace("\r\n", "\n").replace("\r", "\n").replaceAll("\n[ \t]", "");
+        String unfolded = ics.replace("\r\n", "\n").replace("\r", "\n").replaceAll("\n[ \t]", "")
+                // Flux sans retours à la ligne (certains exports) : on recoupe avant chaque propriété utile.
+                .replaceAll("[ \t]+(?=(BEGIN|END|DTSTART|DTEND|STATUS|SUMMARY|UID|DESCRIPTION)[;:])", "\n");
         JSONArray data = new JSONArray();
-        String start = null, end = null, status = "";
+        String start = null, end = null, status = "", summary = "";
         boolean in = false;
         for (String line : unfolded.split("\n")) {
             String l = line.trim();
-            if (l.equals("BEGIN:VEVENT")) { in = true; start = end = null; status = ""; continue; }
+            if (l.equals("BEGIN:VEVENT")) { in = true; start = end = null; status = ""; summary = ""; continue; }
             if (l.equals("END:VEVENT")) {
                 in = false;
-                if (start != null && !status.equalsIgnoreCase("CANCELLED")) {
+                // Les options (non confirmées) et les séjours annulés ne comptent pas.
+                if (start != null && !status.equalsIgnoreCase("CANCELLED")
+                        && !summary.toLowerCase(Locale.ROOT).startsWith("option")) {
                     if (end == null) end = start;
                     JSONObject o = new JSONObject();
                     o.put("startDate", start);
@@ -414,6 +418,7 @@ final class RentalReset {
             if (name.equals("DTSTART")) start = icsDate(val);
             else if (name.equals("DTEND")) end = icsDate(val);
             else if (name.equals("STATUS")) status = val;
+            else if (name.equals("SUMMARY")) summary = val;
         }
         JSONObject root = new JSONObject();
         root.put("data", data);

@@ -951,8 +951,7 @@ public class SettingsActivity extends Activity {
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog("Adresse du dossier de la villa")
-                .setMessage("Tapez juste le nom du dossier (ex. « clo » → " + VillaFolder.SHORT_PREFIX + "clo"
-                        + VillaFolder.SHORT_SUFFIX + "), ou une adresse complète commençant par https://")
+                .setMessage("Tapez juste le nom de la villa (ex. « clo »), ou une adresse complète commençant par https://")
                 .setView(box)
                 .setPositiveButton("Enregistrer", (d, w) -> {
                     VillaFolder.setBase(this, in.getText().toString());
@@ -1284,7 +1283,7 @@ public class SettingsActivity extends Activity {
                 + "calendrier: https://…\n\n"
                 + "Le calendrier peut être :\n"
                 + "• un calendrier personnalisé (JSON), qui affiche le nom des clients. Format attendu : "
-                + "{\"data\":[{\"nom\":\"Mr. & Mrs. Walston\",\"startDate\":\"2026-11-08\",\"endDate\":\"2026-11-15\"}]} "
+                + "{\"data\":[{\"nom\":\"Mr. & Mrs. Smith\",\"startDate\":\"2026-11-08\",\"endDate\":\"2026-11-15\"}]} "
                 + "— une entrée par réservation, dates AAAA-MM-JJ, endDate = jour du départ ;\n"
                 + "• un calendrier ICS (SBH Calendar : https://sbhcalendar.com/open/by-villa/ics-feed/…). "
                 + "Les départs sont détectés, mais le nom des clients n'est pas affiché.\n\n"
