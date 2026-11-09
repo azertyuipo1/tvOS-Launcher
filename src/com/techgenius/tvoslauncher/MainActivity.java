@@ -3835,7 +3835,7 @@ public class MainActivity extends Activity {
     String wifiPayloadShown = "";
 
     /** Carte Wi-Fi sous l'heure : QR code + réseau + mot de passe (jour d'arrivée et lendemain). */
-    /** Carte Wi-Fi : calque indépendant en haut à droite, largeur fixe (proportionnelle à l'écran). */
+    /** Carte WiFi : calque indépendant en haut à droite ; sa taille suit le texte, lui-même proportionnel à l'écran (jamais tronqué). */
     private void buildWifiCard(FrameLayout col) {
         wifiCard = new LinearLayout(this);
         wifiCard.setOrientation(LinearLayout.HORIZONTAL);
@@ -3858,10 +3858,10 @@ public class MainActivity extends Activity {
         wifiCard.addView(wifiQr, new LinearLayout.LayoutParams(qs, qs));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         tlp.leftMargin = pad + pad / 3;
-        TextView t1 = wifiText("WI-FI", "semibold", 10, 0xCCFFFFFF);
-        t1.setLetterSpacing(0.08f);
+        TextView t1 = wifiText("WiFi", "semibold", 10, 0xCCFFFFFF);
         wifiSsidTv = wifiText("", "display", 14, Color.WHITE);
         TextView t3 = wifiText("Password", "regular", 10, 0xBFFFFFFF);
         wifiPassTv = wifiText("", "semibold", 13, Color.WHITE);
@@ -3877,7 +3877,7 @@ public class MainActivity extends Activity {
         txt.addView(t5);
         wifiCard.addView(txt, tlp);
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
-                Math.round(screenW * 0.25f), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         clp.rightMargin = (int) (screenW * 0.065f);
         clp.topMargin = (int) (screenH * 0.2f);
         wifiCard.setVisibility(View.GONE);
@@ -3895,7 +3895,7 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams w = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
         int gap = dp(16);
         int top = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
-        int cardLeft = screenW - k.rightMargin - w.width;
+        int cardLeft = screenW - k.rightMargin - wifiCard.getWidth();
         if (titleBoxView != null && titleBoxView.getVisibility() == View.VISIBLE && titleBoxView.getWidth() > 0) {
             int titleRight = titleBoxView.getLeft() + titleBoxView.getWidth();
             boolean sameRows = top < titleBoxView.getBottom() && top + wifiCard.getHeight() > titleBoxView.getTop();
@@ -3916,7 +3916,6 @@ public class MainActivity extends Activity {
         t.setTextColor(color);
         t.setIncludeFontPadding(false);
         t.setSingleLine(true);
-        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         return t;
     }
 
