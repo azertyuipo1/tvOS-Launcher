@@ -1328,6 +1328,10 @@ public class SettingsActivity extends Activity {
                     : "Liste par défaut. Pour la changer, ajoutez une ligne « applis: » dans config.txt.");
         }
         section("MODE LOCATION");
+        {
+            String pb = getSharedPreferences("villa", MODE_PRIVATE).getString("pairing_blocked", "");
+            if (!pb.isEmpty()) infoRowDynamic("Écran d'appairage fermé", () -> pb, null);
+        }
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });

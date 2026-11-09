@@ -885,12 +885,28 @@ public class PowerService extends AccessibilityService {
         if (instance != null) next(instance);
     }
 
+    static boolean isRemotePairingScreen(String pkg, String cls) {
+        String s = (pkg + "/" + cls).toLowerCase(java.util.Locale.ROOT);
+        if (s.startsWith("com.techgenius.")) return false;
+        return s.matches(".*(remote.?pair|pair.?remote|rcu.?pair|pair.?rcu|remotecontrol.?pair|btremote|bt_remote"
+                + "|remote.?setup|pairing.?activity|accessorypair|pairaccessor|addaccessor).*");
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e != null && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getPackageName() != null) {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
             if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)) {
+                GuestLock.bounceHome(this);
+            }
+            // Boîtiers (Mecool…) : l'écran « appairer la télécommande » revient quand on utilise la
+            // télécommande de la TV (HDMI-CEC). En mode verrouillé, on le ferme ; en mode admin, on le laisse.
+            String fgCls = e.getClassName() == null ? "" : e.getClassName().toString();
+            if (GuestLock.isLocked(this) && isRemotePairingScreen(fgPkg, fgCls)) {
+                getSharedPreferences("villa", MODE_PRIVATE).edit().putString("pairing_blocked",
+                        fgPkg + "/" + fgCls + " — " + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE)
+                                .format(new java.util.Date())).apply();
                 GuestLock.bounceHome(this);
             }
             MediaWatchService.pollActiveSessionsAsync(this);

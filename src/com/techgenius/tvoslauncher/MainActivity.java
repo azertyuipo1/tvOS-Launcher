@@ -930,6 +930,19 @@ public class MainActivity extends Activity {
         clockCol.addView(bigDate, bdlp);
         buildWifiCard(clockCol);
         clockColView = clockCol;
+        // Numéro de version en haut à gauche, visible seulement en mode admin.
+        versionTag = new TextView(this);
+        versionTag.setText("v" + AppUpdater.getCurrentVersion(this));
+        versionTag.setTypeface(Ui.font(this, "medium"));
+        Ui.textSize(versionTag, 11);
+        versionTag.setTextColor(0xCCFFFFFF);
+        versionTag.setShadowLayer(dp(6), 0, dp(1), 0x99000000);
+        FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
+        vlp.leftMargin = (int) (screenW * 0.065f);
+        vlp.topMargin = dp(36);
+        versionTag.setVisibility(View.GONE);
+        root.addView(versionTag, vlp);
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         cclp.rightMargin = (int) (screenW * 0.065f);
@@ -3805,6 +3818,7 @@ public class MainActivity extends Activity {
 
     TextView welcomeLine, eyebrow, bigClock, bigDate;
     LinearLayout wifiCard;
+    TextView versionTag;
     android.widget.ImageView wifiQr;
     TextView wifiSsidTv, wifiPassTv;
     String wifiPayloadShown = "";
@@ -3965,6 +3979,7 @@ public class MainActivity extends Activity {
             bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
             boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
             clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
+            if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
         }
     }
@@ -5739,6 +5754,7 @@ public class MainActivity extends Activity {
     void applyStatusMode() {
         if (clockBox == null || Scenes.isScenesLook(this)) return;
         boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
+        if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
         int m = getStatusMode(this);
         clockBox.setVisibility(admin || m < 2 ? View.VISIBLE : View.GONE);
         if (timeChipView != null) timeChipView.setVisibility(m < 2 ? View.VISIBLE : View.GONE);
