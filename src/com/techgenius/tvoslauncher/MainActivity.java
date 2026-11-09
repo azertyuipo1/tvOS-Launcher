@@ -3828,61 +3828,90 @@ public class MainActivity extends Activity {
     TextView profileTitle;
 
     TextView welcomeLine, eyebrow, bigClock, bigDate;
-    LinearLayout wifiCard;
+    android.widget.ImageView wifiCard;
     TextView versionTag;
-    android.widget.ImageView wifiQr;
-    TextView wifiSsidTv, wifiPassTv;
-    String wifiPayloadShown = "";
+    String wifiCardKey = "";
 
-    /** Carte Wi-Fi sous l'heure : QR code + réseau + mot de passe (jour d'arrivée et lendemain). */
-    /** Carte WiFi : calque indépendant en haut à droite ; sa taille suit le texte, lui-même proportionnel à l'écran (jamais tronqué). */
+    /** Carte WiFi : calque indépendant en haut à droite, dessinée d'un bloc (taille calculée sur le texte). */
     private void buildWifiCard(FrameLayout col) {
-        wifiCard = new LinearLayout(this);
-        wifiCard.setOrientation(LinearLayout.HORIZONTAL);
-        wifiCard.setGravity(Gravity.CENTER_VERTICAL);
-        int pad = Math.round(screenW * 0.0115f);
-        wifiCard.setPadding(pad, pad, pad + pad / 2, pad);
-        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setCornerRadius(screenW * 0.0156f);
-        bg.setColor(0x73202020);
-        bg.setStroke(Math.max(1, dp(1)), 0x46FFFFFF);
-        wifiCard.setBackground(bg);
-        wifiQr = new android.widget.ImageView(this);
-        int qs = Math.round(screenW * 0.078f);
-        android.graphics.drawable.GradientDrawable qbg = new android.graphics.drawable.GradientDrawable();
-        qbg.setCornerRadius(qs * 0.09f);
-        qbg.setColor(Color.WHITE);
-        wifiQr.setBackground(qbg);
-        wifiQr.setClipToOutline(true);
-        wifiQr.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
-        wifiCard.addView(wifiQr, new LinearLayout.LayoutParams(qs, qs));
-        LinearLayout txt = new LinearLayout(this);
-        txt.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tlp.leftMargin = pad + pad / 3;
-        TextView t1 = wifiText("WiFi", "semibold", 10, 0xCCFFFFFF);
-        wifiSsidTv = wifiText("", "display", 14, Color.WHITE);
-        TextView t3 = wifiText("Password", "regular", 10, 0xBFFFFFFF);
-        wifiPassTv = wifiText("", "semibold", 13, Color.WHITE);
-        TextView t5 = wifiText("Scan with your phone camera", "regular", 9, 0xB3FFFFFF);
-        txt.addView(t1);
-        txt.addView(wifiSsidTv);
-        View gap = new View(this);
-        txt.addView(gap, new LinearLayout.LayoutParams(1, dp(6)));
-        txt.addView(t3);
-        txt.addView(wifiPassTv);
-        View gap2 = new View(this);
-        txt.addView(gap2, new LinearLayout.LayoutParams(1, dp(4)));
-        txt.addView(t5);
-        wifiCard.addView(txt, tlp);
-        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        wifiCard = new android.widget.ImageView(this);
+        wifiCard.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.END);
         clp.rightMargin = (int) (screenW * 0.065f);
         clp.topMargin = (int) (screenH * 0.2f);
         wifiCard.setVisibility(View.GONE);
         col.addView(wifiCard, clp);
         col.getViewTreeObserver().addOnGlobalLayoutListener(this::positionWifiCard);
+    }
+
+    /**
+     * Dessine la carte : QR code à gauche, « WiFi / réseau / Password / mot de passe / Scan… » à droite.
+     * Toutes les tailles sont proportionnelles à l'écran ; la largeur est celle du texte le plus long.
+     */
+    private Bitmap drawWifiCard(QrCode q, String ssid, String pass) {
+        float u = Ui.unit(this);
+        float pad = 11 * u, gap = 14 * u, qs = 75 * u, radius = 15 * u;
+        Paint lab = new Paint(Paint.ANTI_ALIAS_FLAG);
+        lab.setTypeface(Ui.font(this, "semibold"));
+        lab.setTextSize(10 * u);
+        lab.setColor(0xCCFFFFFF);
+        Paint big = new Paint(Paint.ANTI_ALIAS_FLAG);
+        big.setTypeface(Ui.font(this, "display"));
+        big.setTextSize(14 * u);
+        big.setColor(Color.WHITE);
+        Paint small = new Paint(Paint.ANTI_ALIAS_FLAG);
+        small.setTypeface(Ui.font(this, "regular"));
+        small.setTextSize(10 * u);
+        small.setColor(0xBFFFFFFF);
+        Paint pw = new Paint(Paint.ANTI_ALIAS_FLAG);
+        pw.setTypeface(Ui.font(this, "semibold"));
+        pw.setTextSize(13 * u);
+        pw.setColor(Color.WHITE);
+        Paint hint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        hint.setTypeface(Ui.font(this, "regular"));
+        hint.setTextSize(9 * u);
+        hint.setColor(0xB3FFFFFF);
+        String p2 = pass.isEmpty() ? "—" : pass;
+        String[] lines = {"WiFi", ssid, "Password", p2, "Scan with your phone camera"};
+        Paint[] paints = {lab, big, small, pw, hint};
+        float[] before = {0, 2 * u, 7 * u, 2 * u, 6 * u};
+        float textW = 0, textH = 0;
+        for (int k = 0; k < lines.length; k++) {
+            textW = Math.max(textW, paints[k].measureText(lines[k]));
+            Paint.FontMetrics fm = paints[k].getFontMetrics();
+            textH += before[k] + (fm.descent - fm.ascent);
+        }
+        int w = Math.round(pad + qs + gap + textW + pad * 1.4f);
+        int h = Math.round(pad * 2 + Math.max(qs, textH));
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas cv = new Canvas(out);
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bg.setColor(0x73202020);
+        float sw = Math.max(1f, u);
+        RectF r = new RectF(sw / 2, sw / 2, w - sw / 2, h - sw / 2);
+        cv.drawRoundRect(r, radius, radius, bg);
+        bg.setStyle(Paint.Style.STROKE);
+        bg.setStrokeWidth(sw);
+        bg.setColor(0x46FFFFFF);
+        cv.drawRoundRect(r, radius, radius, bg);
+        float qy = (h - qs) / 2f;
+        Paint white = new Paint(Paint.ANTI_ALIAS_FLAG);
+        white.setColor(Color.WHITE);
+        cv.drawRoundRect(new RectF(pad, qy, pad + qs, qy + qs), qs * 0.09f, qs * 0.09f, white);
+        Bitmap qb = q.toBitmap(Math.round(qs));
+        Paint fp = new Paint();
+        fp.setFilterBitmap(false);
+        float inset = qs * 0.04f;
+        cv.drawBitmap(qb, null, new RectF(pad + inset, qy + inset, pad + qs - inset, qy + qs - inset), fp);
+        float x = pad + qs + gap;
+        float y = (h - textH) / 2f;
+        for (int k = 0; k < lines.length; k++) {
+            Paint.FontMetrics fm = paints[k].getFontMetrics();
+            y += before[k];
+            cv.drawText(lines[k], x, y - fm.ascent, paints[k]);
+            y += fm.descent - fm.ascent;
+        }
+        return out;
     }
 
     /**
@@ -3895,10 +3924,10 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams w = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
         int gap = dp(16);
         int top = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
-        int cardLeft = screenW - k.rightMargin - wifiCard.getWidth();
+        int cardLeft = screenW - k.rightMargin - w.width;
         if (titleBoxView != null && titleBoxView.getVisibility() == View.VISIBLE && titleBoxView.getWidth() > 0) {
             int titleRight = titleBoxView.getLeft() + titleBoxView.getWidth();
-            boolean sameRows = top < titleBoxView.getBottom() && top + wifiCard.getHeight() > titleBoxView.getTop();
+            boolean sameRows = top < titleBoxView.getBottom() && top + w.height > titleBoxView.getTop();
             if (titleRight + gap > cardLeft && sameRows) top = titleBoxView.getBottom() + gap;
         }
         if (w.topMargin != top || w.rightMargin != k.rightMargin) {
@@ -3906,17 +3935,6 @@ public class MainActivity extends Activity {
             w.rightMargin = k.rightMargin;
             wifiCard.setLayoutParams(w);
         }
-    }
-
-    private TextView wifiText(String s, String font, int size, int color) {
-        TextView t = new TextView(this);
-        t.setText(s);
-        t.setTypeface(Ui.font(this, font));
-        Ui.textSize(t, size);
-        t.setTextColor(color);
-        t.setIncludeFontPadding(false);
-        t.setSingleLine(true);
-        return t;
     }
 
     private void updateWifiCard(RentalReset.Stay stay, boolean scenes) {
@@ -3927,17 +3945,20 @@ public class MainActivity extends Activity {
         boolean show = !ssid.isEmpty() && !scenes && !admin
                 && RentalReset.isWifiDay(stay, VillaFolder.get(this, VillaFolder.K_WIFI_SHOW));
         if (show) {
-            String payload = QrCode.wifiPayload(ssid, pass);
-            if (!payload.equals(wifiPayloadShown)) {
-                QrCode q = QrCode.encode(payload);
+            String key = ssid + "\n" + pass + "\n" + screenW;
+            if (!key.equals(wifiCardKey)) {
+                QrCode q = QrCode.encode(QrCode.wifiPayload(ssid, pass));
                 if (q == null) show = false;
                 else {
-                    wifiQr.setImageBitmap(q.toBitmap(Math.round(screenW * 0.078f)));
-                    wifiPayloadShown = payload;
+                    Bitmap card = drawWifiCard(q, ssid, pass);
+                    wifiCard.setImageBitmap(card);
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
+                    lp.width = card.getWidth();
+                    lp.height = card.getHeight();
+                    wifiCard.setLayoutParams(lp);
+                    wifiCardKey = key;
                 }
             }
-            wifiSsidTv.setText(ssid);
-            wifiPassTv.setText(pass.isEmpty() ? "—" : pass);
         }
         wifiCard.setVisibility(show ? View.VISIBLE : View.GONE);
     }
