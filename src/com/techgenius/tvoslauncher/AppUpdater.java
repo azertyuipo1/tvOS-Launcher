@@ -613,6 +613,8 @@ public final class AppUpdater {
 
                 // Installateur standard d'Android en priorité (fiable sur les TV Sony) ; l'ADB ne sert
                 // qu'en secours, si l'appli n'a pas le droit d'installer des applis inconnues.
+                // Nouveau boîtier : ce droit n'est pas encore donné, on se l'accorde via l'ADB local.
+                grantInstallPermission(appCtx);
                 if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
                     downloading = false;
                     if (onUiRefresh != null) MAIN.post(onUiRefresh);
@@ -653,6 +655,15 @@ public final class AppUpdater {
                 if (conn != null) conn.disconnect();
             }
         }, "github-apk-download").start();
+    }
+
+    /** Accorde au launcher « Installer des applis inconnues » via l'ADB local (sans effet si déjà accordé). */
+    static void grantInstallPermission(Context c) {
+        try {
+            if (Build.VERSION.SDK_INT < 26 || c.getPackageManager().canRequestPackageInstalls()) return;
+            LocalAdb.execShellOutput(c, "appops set " + c.getPackageName() + " REQUEST_INSTALL_PACKAGES allow");
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void copyFile(File src, File dst) throws Exception {

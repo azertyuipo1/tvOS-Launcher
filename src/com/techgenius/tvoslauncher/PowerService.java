@@ -241,6 +241,7 @@ public class PowerService extends AccessibilityService {
                 LocalAdb.execShellOutput(c, "settings put system screen_off_timeout 2147483647");
             } catch (Throwable ignored) {
             }
+            AppUpdater.grantInstallPermission(c); // mises à jour par la pastille, même sur un boîtier neuf
             applyEnglishApps(c);
         }, "villa-no-sleep").start();
     }
