@@ -3708,10 +3708,15 @@ public class MainActivity extends Activity {
     static volatile String[][] VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6);
 
     static void refreshVillaApps(Context c) {
-        String line = VillaFolder.get(c, VillaFolder.K_APPS);
-        if (line.isEmpty()) { VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6); return; }
+        // Format préféré : une ligne par appli (« Netflix: oui »), dans l'ordre ; sinon ligne « applis: a, b, c ».
+        List<String> names = VillaFolder.appLines(c);
+        if (names.isEmpty()) {
+            String line = VillaFolder.get(c, VillaFolder.K_APPS);
+            if (line.isEmpty()) { VILLA_APPS = java.util.Arrays.copyOf(VILLA_CATALOG, 6); return; }
+            names = java.util.Arrays.asList(line.split("[,;|]"));
+        }
         List<String[]> out = new ArrayList<>();
-        for (String raw : line.split("[,;|]")) {
+        for (String raw : names) {
             String t = raw.trim();
             if (t.isEmpty()) continue;
             String n = t.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9+.]+", " ").trim();

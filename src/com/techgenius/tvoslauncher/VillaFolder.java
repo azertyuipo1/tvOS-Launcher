@@ -151,6 +151,33 @@ final class VillaFolder {
         }
     }
 
+    /**
+     * Applis de l'accueil écrites une par ligne (« Netflix: oui », « YouTube: non »), dans l'ordre du fichier.
+     * Renvoie les noms marqués oui ; liste vide si le fichier n'utilise pas ce format.
+     */
+    static java.util.List<String> appLines(String txt) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (txt == null) return out;
+        java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE));
+        for (String line : txt.split("\\r?\\n")) {
+            String l = line.replace("\uFEFF", "").trim();
+            if (l.isEmpty() || l.startsWith("#")) continue;
+            int i = l.indexOf(':');
+            if (i <= 0) continue;
+            String name = l.substring(0, i).trim();
+            String v = l.substring(i + 1).trim().toLowerCase(Locale.ROOT);
+            if (settings.contains(normKey(name)) || !v.matches("oui|non|yes|no|1|0|on|off")) continue;
+            if (v.matches("oui|yes|1|on")) out.add(name);
+        }
+        return out;
+    }
+
+    static java.util.List<String> appLines(Context c) {
+        migrate(c);
+        return appLines(prefs(c).getString(P_CONFIG, ""));
+    }
+
     static Map<String, String> parse(String txt) {
         Map<String, String> m = new HashMap<>();
         if (txt == null) return m;
@@ -183,8 +210,8 @@ final class VillaFolder {
                     Map<String, String> cfg = parse(txt);
                     String name = cfg.get(K_NAME);
                     if (name != null && !name.isEmpty()) syncProfileName(c, name);
-                    String oldApps = get(c, K_APPS);
-                    String newApps = cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS);
+                    String oldApps = get(c, K_APPS) + appLines(c);
+                    String newApps = (cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS)) + appLines(txt);
                     String upd = cfg.get(K_UPDATE) == null ? "" : cfg.get(K_UPDATE).toLowerCase(Locale.ROOT);
                     if (upd.matches("oui|yes|true|1|on")) AppUpdater.autoFromConfig();
                     if (!oldApps.equals(newApps)) {

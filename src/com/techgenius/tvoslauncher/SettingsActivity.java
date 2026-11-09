@@ -1283,10 +1283,11 @@ public class SettingsActivity extends Activity {
                 + "calendrier: https://…\n"
                 + "Réseau WiFi: Villa-LEnclos\n"
                 + "Mot de passe: Bienvenue2026\n"
-                + "applis: ITVSTREAM, Netflix, Prime Video, HBO Max, Disney+, YouTube\n"
+                + "ITVSTREAM: oui\nNetflix: oui\nPrime Video: oui\nHBO Max: oui\nDisney+: oui\nYouTube: oui\n"
                 + "mise_a_jour: non\n\n"
                 + "• Réseau WiFi / Mot de passe : affichés avec un QR code sur l'accueil, le jour d'arrivée et le lendemain.\n"
-                + "• applis : les applis de l'accueil, dans cet ordre (nom ou nom de paquet Android).\n"
+                + "• Une ligne par appli (oui = affichée, non = masquée), dans l'ordre de l'accueil. "
+                + "Nom de l'appli ou nom de paquet Android (ex. com.spotify.tv.android: oui).\n"
                 + "• mise_a_jour: oui : toutes les TV installent seules la nouvelle version, sans aucun clic.\n\n"
                 + "Le calendrier peut être :\n"
                 + "• un calendrier personnalisé (JSON), qui affiche le nom des clients. Format attendu : "
@@ -1314,8 +1315,8 @@ public class SettingsActivity extends Activity {
                     }
                 });
             }
-            infoNote(VillaFolder.isForced(this, VillaFolder.K_APPS)
-                    ? "Liste et ordre définis par la ligne « applis: » de config.txt."
+            infoNote(VillaFolder.isForced(this, VillaFolder.K_APPS) || !VillaFolder.appLines(this).isEmpty()
+                    ? "Liste et ordre définis par config.txt."
                     : "Liste par défaut. Pour la changer, ajoutez une ligne « applis: » dans config.txt.");
         }
         section("MODE LOCATION");
