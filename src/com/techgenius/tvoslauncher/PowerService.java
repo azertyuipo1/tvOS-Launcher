@@ -243,6 +243,7 @@ public class PowerService extends AccessibilityService {
             }
             AppUpdater.grantInstallPermission(c); // mises à jour par la pastille, même sur un boîtier neuf
             applyEnglishApps(c);
+            applyVillaTimeZone(c);
         }, "villa-no-sleep").start();
     }
 
@@ -251,6 +252,27 @@ public class PowerService extends AccessibilityService {
      * du shell, via app_process sur la classe LocaleSetter de cet APK. Rien n'est fait si la TV est
      * déjà en anglais. Le launcher garde sa propre langue.
      */
+    /** Fuseau horaire imposé (config.txt « fuseau_horaire: », sinon America/La_Paz = GMT-4), quel que soit le réglage de la TV. */
+    static void applyVillaTimeZone(Context c) {
+        String status;
+        try {
+            String tz = VillaFolder.get(c, VillaFolder.K_TZ);
+            if (tz.isEmpty()) tz = "America/La_Paz";
+            if (tz.equals(java.util.TimeZone.getDefault().getID())) {
+                status = "✓ " + tz;
+            } else {
+                String apk = c.getApplicationInfo().sourceDir;
+                String out = LocalAdb.execShellOutput(c, "settings put global auto_time_zone 0; CLASSPATH=" + apk
+                        + " app_process /system/bin com.techgenius.tvoslauncher.TimeZoneSetter " + tz);
+                status = out != null && out.contains("TZ_OK") ? "✓ réglé sur " + tz
+                        : "erreur : " + (out == null ? "pas de réponse" : out.trim());
+            }
+        } catch (Throwable t) {
+            status = "erreur : " + t.getMessage();
+        }
+        c.getSharedPreferences("villa", Context.MODE_PRIVATE).edit().putString("timezone_status", status).apply();
+    }
+
     static void applyEnglishApps(Context c) {
         String status;
         try {

@@ -3856,6 +3856,7 @@ public class MainActivity extends Activity {
         wifiCard.addView(wifiQr, new LinearLayout.LayoutParams(qs, qs));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
+        txt.setMinimumWidth(Math.round(screenW * 0.135f)); // le texte garde toujours sa place à côté du QR code
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         tlp.leftMargin = pad + pad / 3;

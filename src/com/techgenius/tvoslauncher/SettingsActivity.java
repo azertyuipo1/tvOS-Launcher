@@ -1267,7 +1267,8 @@ public class SettingsActivity extends Activity {
                 + "# Wi-Fi\n- Réseau WiFi: Villa-LEnclos\n- Mot de passe: Bienvenue2026\n"
                 + "- affichage_wifi: 2\n"
                 + "# Applis (6 au maximum)\n- ITVSTREAM: oui\n- Netflix: oui\n- Prime Video: oui\n- HBO Max: oui\n- Disney+: oui\n- YouTube: non\n"
-                + "# Mises à jour\n- mise_a_jour: non\n\n"
+                + "# Mises à jour\n- mise_a_jour: non\n"
+                + "# Fuseau horaire (GMT-4 par défaut)\n- fuseau_horaire: America/La_Paz\n\n"
                 + "Les lignes commençant par # sont des commentaires ; le tiret en début de ligne est facultatif.\n"
                 + "• Réseau WiFi / Mot de passe : affichés avec un QR code sur l'accueil.\n"
                 + "• affichage_wifi : 2 = les 2 premiers jours (par défaut), un autre nombre de jours, "
@@ -1393,6 +1394,16 @@ public class SettingsActivity extends Activity {
         });
         infoRowDynamic("Langue de la TV",
                 () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
+        infoRowDynamic("Fuseau horaire",
+                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("timezone_status", "en attente…"), null);
+        row("Clavier à l'écran (ajouter le français AZERTY)", () -> "›", () -> {
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (Throwable t) {
+                showStatusMsg("Réglages du clavier introuvables.");
+            }
+        });
         row("Boutons en haut à droite de l'accueil",
                 () -> {
                     int m = MainActivity.getStatusMode(this);

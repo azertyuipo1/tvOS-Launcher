@@ -34,6 +34,7 @@ final class VillaFolder {
     static final String K_APPS = "applis";             // « applis: ITVSTREAM, Netflix, … » (ordre de l'accueil)
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
+    static final String K_TZ = "fuseau_horaire";        // « fuseau_horaire: America/La_Paz » (GMT-4 par défaut)
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
     private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cHM6Ly93d3cuc2JoLWhvc3QuZnIv", 0), StandardCharsets.UTF_8);
@@ -157,6 +158,7 @@ final class VillaFolder {
             case "wifi_mdp": case "mdp": case "mot_de_passe_wifi": case "wifi_mot_de_passe": return K_WIFI_PASS;
             case "apps": case "applications": return K_APPS;
             case "mise_a_jour_auto": case "maj": return K_UPDATE;
+            case "fuseau": case "timezone": return K_TZ;
             case "wifi_affichage": case "qr_wifi": case "affichage_qr": case "qr_code_wifi": return K_WIFI_SHOW;
             default: return s;
         }
@@ -170,7 +172,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
