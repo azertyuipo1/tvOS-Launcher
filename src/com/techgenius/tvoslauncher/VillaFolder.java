@@ -161,7 +161,8 @@ final class VillaFolder {
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
                 K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE));
         for (String line : txt.split("\\r?\\n")) {
-            String l = line.replace("\uFEFF", "").trim();
+            // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
+            String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
             if (l.isEmpty() || l.startsWith("#")) continue;
             int i = l.indexOf(':');
             if (i <= 0) continue;
@@ -182,7 +183,8 @@ final class VillaFolder {
         Map<String, String> m = new HashMap<>();
         if (txt == null) return m;
         for (String line : txt.split("\\r?\\n")) {
-            String l = line.replace("﻿", "").trim();
+            // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
+            String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
             if (l.isEmpty() || l.startsWith("#")) continue;
             int i = l.indexOf(':');
             if (i <= 0) continue;
