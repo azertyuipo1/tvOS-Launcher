@@ -141,6 +141,23 @@ final class VillaFolder {
 
     static boolean isForced(Context c, String key) { return !get(c, key).isEmpty(); }
 
+    /** Fuseau de la villa (config.txt, sinon America/La_Paz = GMT-4). */
+    static String timeZoneId(Context c) {
+        String tz = get(c, K_TZ);
+        return tz.isEmpty() ? "America/La_Paz" : tz;
+    }
+
+    /**
+     * Le launcher calcule et affiche toujours l'heure dans le fuseau de la villa, même si la TV n'a pas
+     * (encore) accepté le changement de fuseau.
+     */
+    static void applyProcessTimeZone(Context c) {
+        try {
+            java.util.TimeZone tz = java.util.TimeZone.getTimeZone(timeZoneId(c));
+            if (!tz.getID().equals(java.util.TimeZone.getDefault().getID())) java.util.TimeZone.setDefault(tz);
+        } catch (Throwable ignored) { }
+    }
+
     /** Nom affiché : config.txt, sinon le nom saisi sur la TV (profil). */
     static String villaName(Context c) {
         String n = get(c, K_NAME);
@@ -223,9 +240,12 @@ final class VillaFolder {
                     int n = 0;
                     for (String v : parse(txt).values()) if (!v.isEmpty()) n++;
                     Map<String, String> cfg = parse(txt);
+                    String oldApps = get(c, K_APPS) + appLines(c);
+                    prefs(c).edit().putString(P_CONFIG, txt).apply();
+                    applyProcessTimeZone(c);
+                    PowerService.applyVillaTimeZone(c);
                     String name = cfg.get(K_NAME);
                     if (name != null && !name.isEmpty()) syncProfileName(c, name);
-                    String oldApps = get(c, K_APPS) + appLines(c);
                     String newApps = (cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS)) + appLines(txt);
                     String upd = cfg.get(K_UPDATE) == null ? "" : cfg.get(K_UPDATE).toLowerCase(Locale.ROOT);
                     if (upd.matches("oui|yes|true|1|on")) AppUpdater.autoFromConfig();

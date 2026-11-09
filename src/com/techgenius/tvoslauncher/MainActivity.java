@@ -241,6 +241,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle b) {
+        VillaFolder.applyProcessTimeZone(this);
         super.onCreate(b);
         activeInstance = this;
         // The wallpaper/artwork always covers the screen: skip the window's own full-screen fill
@@ -930,7 +931,7 @@ public class MainActivity extends Activity {
         bdlp.gravity = Gravity.END;
         bdlp.topMargin = -dp(2);
         clockCol.addView(bigDate, bdlp);
-        buildWifiCard(clockCol);
+        buildWifiCard(root);
         clockColView = clockCol;
         // Numéro de version en haut à gauche, visible seulement en mode admin.
         versionTag = new TextView(this);
@@ -3834,7 +3835,8 @@ public class MainActivity extends Activity {
     String wifiPayloadShown = "";
 
     /** Carte Wi-Fi sous l'heure : QR code + réseau + mot de passe (jour d'arrivée et lendemain). */
-    private void buildWifiCard(LinearLayout col) {
+    /** Carte Wi-Fi : calque indépendant en haut à droite, largeur fixe (proportionnelle à l'écran). */
+    private void buildWifiCard(FrameLayout col) {
         wifiCard = new LinearLayout(this);
         wifiCard.setOrientation(LinearLayout.HORIZONTAL);
         wifiCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -3856,9 +3858,7 @@ public class MainActivity extends Activity {
         wifiCard.addView(wifiQr, new LinearLayout.LayoutParams(qs, qs));
         LinearLayout txt = new LinearLayout(this);
         txt.setOrientation(LinearLayout.VERTICAL);
-        txt.setMinimumWidth(Math.round(screenW * 0.135f)); // le texte garde toujours sa place à côté du QR code
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         tlp.leftMargin = pad + pad / 3;
         TextView t1 = wifiText("WI-FI", "semibold", 10, 0xCCFFFFFF);
         t1.setLetterSpacing(0.08f);
@@ -3876,12 +3876,36 @@ public class MainActivity extends Activity {
         txt.addView(gap2, new LinearLayout.LayoutParams(1, dp(4)));
         txt.addView(t5);
         wifiCard.addView(txt, tlp);
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.gravity = Gravity.END;
-        clp.topMargin = dp(16);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
+                Math.round(screenW * 0.25f), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        clp.rightMargin = (int) (screenW * 0.065f);
+        clp.topMargin = (int) (screenH * 0.2f);
         wifiCard.setVisibility(View.GONE);
         col.addView(wifiCard, clp);
+        col.getViewTreeObserver().addOnGlobalLayoutListener(this::positionWifiCard);
+    }
+
+    /**
+     * Sous l'heure, aligné à droite comme elle. Si le bloc de gauche (nom des clients) arrive à sa hauteur
+     * et le chevaucherait, la carte descend sous ce bloc : rien ne se superpose.
+     */
+    void positionWifiCard() {
+        if (wifiCard == null || clockColView == null || wifiCard.getVisibility() != View.VISIBLE) return;
+        FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
+        FrameLayout.LayoutParams w = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
+        int gap = dp(16);
+        int top = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
+        int cardLeft = screenW - k.rightMargin - w.width;
+        if (titleBoxView != null && titleBoxView.getVisibility() == View.VISIBLE && titleBoxView.getWidth() > 0) {
+            int titleRight = titleBoxView.getLeft() + titleBoxView.getWidth();
+            boolean sameRows = top < titleBoxView.getBottom() && top + wifiCard.getHeight() > titleBoxView.getTop();
+            if (titleRight + gap > cardLeft && sameRows) top = titleBoxView.getBottom() + gap;
+        }
+        if (w.topMargin != top || w.rightMargin != k.rightMargin) {
+            w.topMargin = top;
+            w.rightMargin = k.rightMargin;
+            wifiCard.setLayoutParams(w);
+        }
     }
 
     private TextView wifiText(String s, String font, int size, int color) {
@@ -3892,6 +3916,7 @@ public class MainActivity extends Activity {
         t.setTextColor(color);
         t.setIncludeFontPadding(false);
         t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         return t;
     }
 
@@ -3899,7 +3924,8 @@ public class MainActivity extends Activity {
         if (wifiCard == null) return;
         String ssid = VillaFolder.get(this, VillaFolder.K_WIFI_SSID);
         String pass = VillaFolder.get(this, VillaFolder.K_WIFI_PASS);
-        boolean show = !ssid.isEmpty() && !scenes
+        boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
+        boolean show = !ssid.isEmpty() && !scenes && !admin
                 && RentalReset.isWifiDay(stay, VillaFolder.get(this, VillaFolder.K_WIFI_SHOW));
         if (show) {
             String payload = QrCode.wifiPayload(ssid, pass);
@@ -5779,6 +5805,10 @@ public class MainActivity extends Activity {
         if (clockBox == null || Scenes.isScenesLook(this)) return;
         boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
         if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
+        if (wifiCard != null) {
+            if (admin) wifiCard.setVisibility(View.GONE);
+            else refreshProfileTitle();
+        }
         int m = getStatusMode(this);
         clockBox.setVisibility(admin || m < 2 ? View.VISIBLE : View.GONE);
         if (timeChipView != null) timeChipView.setVisibility(m < 2 ? View.VISIBLE : View.GONE);

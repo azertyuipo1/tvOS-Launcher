@@ -256,8 +256,8 @@ public class PowerService extends AccessibilityService {
     static void applyVillaTimeZone(Context c) {
         String status;
         try {
-            String tz = VillaFolder.get(c, VillaFolder.K_TZ);
-            if (tz.isEmpty()) tz = "America/La_Paz";
+            String tz = VillaFolder.timeZoneId(c);
+            VillaFolder.applyProcessTimeZone(c);
             if (tz.equals(java.util.TimeZone.getDefault().getID())) {
                 status = "✓ " + tz;
             } else {
@@ -907,6 +907,19 @@ public class PowerService extends AccessibilityService {
         if (instance != null) next(instance);
     }
 
+    /** Appli d'appairage du fabricant (ex. com.mft.rcupair sur Mecool) : on la désactive pour qu'elle ne revienne plus. */
+    private void disablePairingApp(String pkg) {
+        if (!pkg.toLowerCase(java.util.Locale.ROOT).matches(".*(rcupair|remotepair|rcpair|btremote|remotecontrolpair).*")) return;
+        final android.content.Context c = getApplicationContext();
+        new Thread(() -> {
+            try {
+                String out = LocalAdb.execShellOutput(c, "pm disable-user --user 0 " + pkg);
+                c.getSharedPreferences("villa", MODE_PRIVATE).edit().putString("pairing_disabled",
+                        pkg + " : " + (out == null ? "?" : out.trim())).apply();
+            } catch (Throwable ignored) { }
+        }, "disable-pairing").start();
+    }
+
     static boolean isRemotePairingScreen(String pkg, String cls) {
         String s = (pkg + "/" + cls).toLowerCase(java.util.Locale.ROOT);
         if (s.startsWith("com.techgenius.")) return false;
@@ -945,6 +958,7 @@ public class PowerService extends AccessibilityService {
                         fgPkg + "/" + fgCls + " — " + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE)
                                 .format(new java.util.Date())).apply();
                 GuestLock.bounceHome(this);
+                disablePairingApp(fgPkg);
             }
             MediaWatchService.pollActiveSessionsAsync(this);
 

@@ -1332,10 +1332,8 @@ public class SettingsActivity extends Activity {
         {
             String pb = getSharedPreferences("villa", MODE_PRIVATE).getString("pairing_blocked", "");
             if (!pb.isEmpty()) infoRowDynamic("Écran d'appairage fermé", () -> pb, null);
-            row("Ne plus proposer d'appairer une télécommande", () -> "›", () ->
-                    CleanYourTv.executeDebloatPackages(this, "Appairage télécommande",
-                            new ArrayList<>(Collections.singletonList("com.google.android.tungsten.setupwraith")),
-                            () -> showStatusMsg("Assistant Google désactivé : l'écran d'appairage ne s'affichera plus.")));
+            String pd = getSharedPreferences("villa", MODE_PRIVATE).getString("pairing_disabled", "");
+            if (!pd.isEmpty()) infoRowDynamic("Appli d'appairage désactivée", () -> pd, null);
             String ls = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "");
             if (!ls.isEmpty()) infoNote("Derniers écrans affichés :\n" + ls);
         }
