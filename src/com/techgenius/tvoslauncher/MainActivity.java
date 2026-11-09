@@ -746,11 +746,13 @@ public class MainActivity extends Activity {
                 () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
         adminPills.add(makeAdminPill("sliders", "Réglages Launcher", btn,
                 () -> startActivity(new Intent(this, SettingsActivity.class))));
-        View updatePill = makeAdminPill("update", "Mettre à jour", btn,
-                () -> AppUpdater.manualCheckAndPrompt(this, null));
+        View updatePill = makeAdminPill("update", "Mettre à jour", btn, () -> {
+            reloadVillaFolder();
+            AppUpdater.manualCheckAndPrompt(this, null);
+        });
         // Appui long : réinstalle la dernière version même si elle est déjà installée.
         updatePill.setLongClickable(true);
-        updatePill.setOnLongClickListener(v -> { AppUpdater.forceUpdate(this); return true; });
+        updatePill.setOnLongClickListener(v -> { reloadVillaFolder(); AppUpdater.forceUpdate(this); return true; });
         adminPills.add(updatePill);
 
         // Refresh: reloads every part of the carousel (recommendations, news, Continue Watching) and weather.
@@ -3948,6 +3950,19 @@ public class MainActivity extends Activity {
             String ws = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
             if (RemoteWallpaper.WALL_KEY.equals(ws)) setWallpaper(ws);
         });
+    }
+
+    /** Relit config.txt, le calendrier et background.jpg du dossier de la villa, puis met l'accueil à jour. */
+    void reloadVillaFolder() {
+        if (!VillaFolder.isConfigured(this)) return;
+        Toast.makeText(this, "Relecture du dossier de la villa…", Toast.LENGTH_SHORT).show();
+        RentalReset.refreshCalendar(this, () -> {
+            if (isFinishing()) return;
+            reload(null);
+            refreshProfileTitle();
+            Toast.makeText(this, "config.txt : " + VillaFolder.getStatus(this), Toast.LENGTH_LONG).show();
+        });
+        refreshRemoteWallpaper();
     }
 
     void refreshProfileTitle() {
