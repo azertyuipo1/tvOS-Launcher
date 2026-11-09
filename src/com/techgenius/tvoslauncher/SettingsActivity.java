@@ -960,6 +960,13 @@ public class SettingsActivity extends Activity {
                 .setNegativeButton("Annuler", null)
                 .show();
         Ui.setupDialogEditText(in, dlg);
+        // « OK / Terminé » du clavier enregistre directement.
+        in.setOnEditorActionListener((v, actionId, ev) -> {
+            VillaFolder.setBase(this, in.getText().toString());
+            dlg.dismiss();
+            checkFolderNow();
+            return true;
+        });
         in.requestFocus();
     }
 
@@ -1245,28 +1252,6 @@ public class SettingsActivity extends Activity {
 
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
-        section("PROFIL");
-        List<Profiles.Profile> ps = Profiles.list(this);
-        String curId = Profiles.current(this).id;
-        for (int i = 0; i < ps.size(); i++) {
-            final Profiles.Profile p = ps.get(i);
-            boolean isActive = p.id.equals(curId);
-            choiceRow(
-                    I18n.profileName(this, p.name),
-                    isActive ? tr("Watching now · OK to switch or rename", "Şu an izliyor · Değiştirmek veya yeniden adlandırmak için OK")
-                             : tr("OK to switch or edit", "Geçiş yapmak veya düzenlemek için OK"),
-                    isActive,
-                    () -> openSubMenu("profile_actions:" + p.id));
-        }
-        // Villa : un seul profil (le nom de la villa) ; pas d'ajout ni d'options multi-profils.
-        if (ps.isEmpty() && Profiles.canAdd(this)) {
-            row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
-        }
-
-        if (VillaFolder.isForced(this, VillaFolder.K_NAME)) {
-            infoNote("Nom affiché à l'accueil : « " + VillaFolder.villaName(this) + " » (imposé par config.txt).");
-        }
-
         section("DOSSIER DE LA VILLA");
         row("Adresse du dossier",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configuré") + "  ›",
@@ -1294,6 +1279,28 @@ public class SettingsActivity extends Activity {
                 + "• un calendrier ICS (SBH Calendar : https://sbhcalendar.com/open/by-villa/ics-feed/…). "
                 + "Les départs sont détectés, mais le nom des clients n'est pas affiché.\n\n"
                 + "La TV relit le dossier à l'allumage et toutes les 30 minutes.");
+        section("NOM DE LA VILLA (si absent de config.txt)");
+        List<Profiles.Profile> ps = Profiles.list(this);
+        String curId = Profiles.current(this).id;
+        for (int i = 0; i < ps.size(); i++) {
+            final Profiles.Profile p = ps.get(i);
+            boolean isActive = p.id.equals(curId);
+            choiceRow(
+                    I18n.profileName(this, p.name),
+                    isActive ? tr("Watching now · OK to switch or rename", "Şu an izliyor · Değiştirmek veya yeniden adlandırmak için OK")
+                             : tr("OK to switch or edit", "Geçiş yapmak veya düzenlemek için OK"),
+                    isActive,
+                    () -> openSubMenu("profile_actions:" + p.id));
+        }
+        // Villa : un seul profil (le nom de la villa) ; pas d'ajout ni d'options multi-profils.
+        if (ps.isEmpty() && Profiles.canAdd(this)) {
+            row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
+        }
+
+        if (VillaFolder.isForced(this, VillaFolder.K_NAME)) {
+            infoNote("Nom affiché à l'accueil : « " + VillaFolder.villaName(this) + " » (imposé par config.txt).");
+        }
+
         section("APPLIS DE L'ACCUEIL");
         {
             List<String[]> missing = MainActivity.villaMissing(this);
