@@ -3457,6 +3457,14 @@ public class MainActivity extends Activity {
                     continue;
                 }
             }
+            if (ItvTile.PKG.equals(e.pkg)) {
+                // Tuile forcée : logo Next + « Live TV » (rechargée dès qu'elle est prête).
+                Bitmap itv = ItvTile.get(this, () -> { if (!isFinishing()) reload(null); });
+                if (itv != null) {
+                    e.banner = new BitmapDrawable(getResources(), itv);
+                    continue;
+                }
+            }
             if (e.banner == null || TVOS_CARD_PKGS.contains(e.pkg)) {
                 e.banner = new BitmapDrawable(getResources(), tvosCard(e));
             }
