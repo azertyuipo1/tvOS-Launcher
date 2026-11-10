@@ -947,23 +947,76 @@ public class SettingsActivity extends Activity {
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
         AlertDialog dlg = dialog("Adresse du dossier de la villa")
-                .setMessage("Tapez juste le nom de la villa (ex. « clo »), ou une adresse complète commençant par https://")
+                .setMessage("Tapez juste le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé. "
+                        + "Ou une adresse complète commençant par https://")
                 .setView(box)
-                .setPositiveButton("Enregistrer", (d, w) -> {
-                    VillaFolder.setBase(this, in.getText().toString());
-                    checkFolderNow();
-                })
+                .setPositiveButton("Suivant", (d, w) -> folderEntered(in.getText().toString()))
                 .setNegativeButton("Annuler", null)
                 .show();
         Ui.setupDialogEditText(in, dlg);
-        // « OK / Terminé » du clavier enregistre directement.
+        // « OK / Terminé » du clavier valide directement.
         in.setOnEditorActionListener((v, actionId, ev) -> {
-            VillaFolder.setBase(this, in.getText().toString());
             dlg.dismiss();
-            checkFolderNow();
+            folderEntered(in.getText().toString());
             return true;
         });
         in.requestFocus();
+    }
+
+    /** Nom court → code de la villa demandé ; adresse complète ou même villa → enregistré tel quel. */
+    private void folderEntered(String input) {
+        String v = input == null ? "" : input.trim();
+        boolean same = v.equalsIgnoreCase(VillaFolder.getBase(this));
+        if (v.isEmpty() || same || !VillaFolder.isShortInput(v)) {
+            VillaFolder.setBase(this, v);
+            checkFolderNow();
+            return;
+        }
+        promptVillaCode(v, null);
+    }
+
+    private void promptVillaCode(String shortName, String error) {
+        android.widget.EditText in = new android.widget.EditText(this);
+        in.setSingleLine(true);
+        in.setHint("123456");
+        in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        in.setFilters(new android.text.InputFilter[]{ new android.text.InputFilter.LengthFilter(6) });
+        int pad = u(14);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(pad, pad / 2, pad, 0);
+        box.addView(in);
+        String msg = (error == null ? "" : "✗ " + error + "\n\n")
+                + "Le code à 6 chiffres est affiché en haut de la page reglages.php de la villa (section « Associer une TV »).";
+        AlertDialog dlg = dialog("Code de la villa « " + shortName.toUpperCase(java.util.Locale.ROOT) + " »")
+                .setMessage(msg)
+                .setView(box)
+                .setPositiveButton("Valider", (d, w) -> checkVillaCode(shortName, in.getText().toString()))
+                .setNegativeButton("Annuler", null)
+                .show();
+        Ui.setupDialogEditText(in, dlg);
+        in.setOnEditorActionListener((v, actionId, ev) -> {
+            dlg.dismiss();
+            checkVillaCode(shortName, in.getText().toString());
+            return true;
+        });
+        in.requestFocus();
+    }
+
+    private void checkVillaCode(String shortName, String code) {
+        String c = code == null ? "" : code.replaceAll("\\D", "");
+        if (c.length() != 6) { promptVillaCode(shortName, "Le code comporte 6 chiffres."); return; }
+        showStatusMsg("Vérification du code…");
+        new Thread(() -> {
+            VillaSetup.Check r = VillaSetup.verifyCode(shortName, c);
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                if (r.base == null) { promptVillaCode(shortName, r.message()); return; }
+                VillaFolder.setBase(this, shortName);
+                android.widget.Toast.makeText(this, "✓ Villa configurée : " + VillaFolder.getBase(this),
+                        android.widget.Toast.LENGTH_LONG).show();
+                checkFolderNow();
+            });
+        }, "villa-code").start();
     }
 
     /** Relit config.txt, le calendrier et background.jpg, puis rafraîchit la page. */

@@ -96,6 +96,13 @@ final class VillaFolder {
     /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
     static boolean isShortName(String b) { return b.matches("[a-z0-9_-]+"); }
 
+    /** Saisie d'un nom court (« clo », « ADS »), quelle que soit la casse. */
+    static boolean isShortInput(String in) {
+        String u = in == null ? "" : in.trim();
+        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
+        return u.matches("[A-Za-z0-9_-]+");
+    }
+
     /**
      * Saisie : soit un simple nom (« clo »), cherché dans villas/clo/tv puis clo/tv sur l'hébergement
      * par défaut, soit une adresse complète https://…
