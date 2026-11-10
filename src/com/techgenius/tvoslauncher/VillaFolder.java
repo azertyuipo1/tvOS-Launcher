@@ -174,8 +174,8 @@ final class VillaFolder {
         }
     }
 
-    /** Emplacement unique des villas saisies par leur nom court : …/villas-tv/<nom>. */
-    static String shortUrl(String name) { return SHORT_HOST + "villas-tv/" + name; }
+    /** Emplacement unique des villas saisies par leur nom court : …/sbhassets/villas-tv/<nom>. */
+    static String shortUrl(String name) { return SHORT_HOST + "sbhassets/villas-tv/" + name; }
 
     /** Dossiers possibles, dans l'ordre d'essai (le dernier trouvé en premier). */
     private static java.util.List<String> candidates(Context c) {
