@@ -90,6 +90,9 @@ final class VillaFolder {
 
     static boolean isConfigured(Context c) { return !getBase(c).isEmpty(); }
 
+    /** Fichier d'association déposé par reglages.php (« Associer une TV ») pour le code affiché sur la TV. */
+    static String pairUrl(String code) { return SHORT_HOST + "tv-pair/" + code + ".json"; }
+
     /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
     static boolean isShortName(String b) { return b.matches("[a-z0-9_-]+"); }
 
