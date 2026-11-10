@@ -54,10 +54,16 @@ final class RemoteWallpaper {
     }
 
     /** Vérifie la photo sur le serveur en arrière-plan ; onChanged (fil principal) si elle a changé. */
-    static void refresh(Context ctx, Runnable onChanged) {
+    static void refresh(Context ctx, Runnable onChanged) { refresh(ctx, false, onChanged); }
+
+    /** manual : demandé par quelqu'un ; sinon au plus une vérification par quart d'heure, aucune si le serveur est muet. */
+    static void refresh(Context ctx, boolean manual, Runnable onChanged) {
         if (running || !VillaFolder.isConfigured(ctx)) return;
-        running = true;
         final Context c = ctx.getApplicationContext();
+        if (!manual && (VillaFolder.serverPaused(c) || System.currentTimeMillis() < prefs(c).getLong("bg_next", 0L))) return;
+        running = true;
+        prefs(c).edit().putLong("bg_next", System.currentTimeMillis() + 15 * 60_000L).apply();
+        VillaFolder.initUserAgent(c);
         new Thread(() -> {
             boolean changed = false;
             String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
@@ -65,7 +71,7 @@ final class RemoteWallpaper {
             try {
                 SharedPreferences p = prefs(c);
                 boolean haveFile = file(c).exists();
-                if (getUrl(c).isEmpty()) VillaFolder.refreshBlocking(c); // dossier saisi par son nom : le trouver
+                if (getUrl(c).isEmpty()) VillaFolder.refreshBlocking(c, manual); // dossier saisi par son nom : le trouver
                 String target = getUrl(c);
                 if (target.isEmpty()) {
                     p.edit().putString("bg_status", "✗ dossier introuvable — " + when).apply();
@@ -77,6 +83,7 @@ final class RemoteWallpaper {
                     conn.setInstanceFollowRedirects(false);
                     conn.setConnectTimeout(10_000);
                     conn.setReadTimeout(30_000);
+                    conn.setRequestProperty("User-Agent", VillaFolder.userAgent);
                     if (haveFile) {
                         String etag = p.getString("bg_etag", ""), lm = p.getString("bg_lastmod", "");
                         if (!etag.isEmpty()) conn.setRequestProperty("If-None-Match", etag);

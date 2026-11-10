@@ -4100,7 +4100,11 @@ public class MainActivity extends Activity {
             refreshProfileTitle();
             Toast.makeText(this, "config.txt : " + VillaFolder.getStatus(this), Toast.LENGTH_LONG).show();
         });
-        refreshRemoteWallpaper();
+        RemoteWallpaper.refresh(this, true, () -> {
+            if (isFinishing()) return;
+            String ws = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
+            if (RemoteWallpaper.WALL_KEY.equals(ws)) setWallpaper(ws);
+        });
     }
 
     void refreshProfileTitle() {

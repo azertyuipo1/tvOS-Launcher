@@ -91,7 +91,6 @@ final class VillaFolder {
     static boolean isConfigured(Context c) { return !getBase(c).isEmpty(); }
 
     /** Fichier d'association déposé par reglages.php (« Associer une TV ») pour le code affiché sur la TV. */
-    static String pairUrl(String code) { return SHORT_HOST + "tv-pair/" + code + ".json"; }
 
     /** Nom du serveur du dossier de la villa (pour le diagnostic). */
     static String serverHost(Context c) {
@@ -101,6 +100,38 @@ final class VillaFolder {
             if (b.isEmpty()) b = SHORT_HOST;
             return new URL(b).getHost();
         } catch (Throwable t) { return ""; }
+    }
+
+    // ---- Discrétion réseau : peu de requêtes, jamais d'insistance quand le serveur ne répond pas.
+    static volatile String userAgent = "VillaTV-Launcher";
+    private static final long MIN_GAP_MS = 15 * 60_000L;          // au plus une relecture auto par quart d'heure
+    private static final long BACKOFF_MS = 30 * 60_000L;          // serveur muet : 30 min, 1 h, puis 2 h
+    private static final long BACKOFF_MAX_MS = 2 * 60 * 60_000L;
+
+    static void initUserAgent(Context c) {
+        try { userAgent = "VillaTV-Launcher/" + AppUpdater.getCurrentVersion(c); } catch (Throwable ignored) { }
+    }
+
+    /** Le serveur n'a pas répondu récemment : on attend avant de le recontacter automatiquement. */
+    static boolean serverPaused(Context c) {
+        return prefs(c).getInt("net_fails", 0) > 0 && System.currentTimeMillis() < prefs(c).getLong("net_next", 0L);
+    }
+
+    /** Note un échec de connexion ; renvoie le délai avant le prochain essai automatique. */
+    static long noteFailure(Context c) {
+        int fails = Math.min(prefs(c).getInt("net_fails", 0) + 1, 10);
+        long wait = Math.min(BACKOFF_MS << Math.min(fails - 1, 4), BACKOFF_MAX_MS);
+        prefs(c).edit().putInt("net_fails", fails).putLong("net_next", System.currentTimeMillis() + wait).apply();
+        return wait;
+    }
+
+    static void noteSuccess(Context c) {
+        prefs(c).edit().putInt("net_fails", 0).putLong("net_next", System.currentTimeMillis() + MIN_GAP_MS).apply();
+    }
+
+    /** Dossier trouvé lors de la vérification du code : inutile de le rechercher ensuite. */
+    static void setResolved(Context c, String base) {
+        if (base != null && !base.isEmpty()) prefs(c).edit().putString(P_RESOLVED, base).apply();
     }
 
     /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
@@ -123,8 +154,13 @@ final class VillaFolder {
         if (u.matches("[A-Za-z0-9_-]+")) u = u.toLowerCase(Locale.ROOT);
         else if (!u.isEmpty() && !u.matches("(?i)^https?://.*")) u = "https://" + u;
         String old = prefs(c).getString(P_BASE, "");
+        if (u.equals(old) && !u.isEmpty()) {
+            // Même villa ressaisie : on garde le dossier trouvé et les derniers réglages lus.
+            prefs(c).edit().remove("net_fails").remove("net_next").remove("bg_next").apply();
+            return;
+        }
         prefs(c).edit().putString(P_BASE, u).remove(P_CONFIG).remove(P_STATUS).remove(P_RESOLVED)
-                .remove("bg_etag").remove("bg_lastmod").apply();
+                .remove("bg_etag").remove("bg_lastmod").remove("net_fails").remove("net_next").remove("bg_next").apply();
         if (!u.equals(old)) {
             // Nouvelle villa : rien ne doit rester de l'ancienne (clients, calendrier, photo, nom).
             RentalReset.forgetVilla(c);
@@ -145,7 +181,8 @@ final class VillaFolder {
         if (b.isEmpty()) return l;
         if (!isShortName(b)) { l.add(b); return l; }
         String r = prefs(c).getString(P_RESOLVED, "");
-        if (!r.isEmpty()) l.add(r);
+        // Dossier déjà trouvé : on n'interroge que lui (pas d'essais sur les autres adresses possibles).
+        if (!r.isEmpty()) { l.add(r); return l; }
         // « clo » → …/clo/tv ; autre code (ex. « ads ») → …/villas/tv/ads (variante …/villas/ads/tv acceptée).
         for (String x : new String[]{ SHORT_HOST + "villas/tv/" + b, SHORT_HOST + "villas/" + b + "/tv", SHORT_HOST + b + "/tv" }) {
             if (!l.contains(x)) l.add(x);
@@ -285,21 +322,27 @@ final class VillaFolder {
     }
 
     /** Relit config.txt (à appeler hors du fil principal). Sans réseau, la dernière lecture est gardée. */
-    static void refreshBlocking(Context c) {
+    static void refreshBlocking(Context c) { refreshBlocking(c, false); }
+
+    /** manual : demandé par quelqu'un (bouton, saisie) ; sinon lecture automatique, espacée et patiente. */
+    static void refreshBlocking(Context c, boolean manual) {
         java.util.List<String> cands = candidates(c);
         if (cands.isEmpty()) return;
+        initUserAgent(c);
+        if (!manual && System.currentTimeMillis() < prefs(c).getLong("net_next", 0L)) return;
         String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
         Throwable failure = null;
         try {
             for (String base : cands) {
                 Object[] r;
                 try {
-                    r = getRetry(base + "/" + CONFIG_FILE);
+                    r = manual ? getRetry(base + "/" + CONFIG_FILE) : get(base + "/" + CONFIG_FILE);
                 } catch (Throwable t) {
                     failure = t; // ce dossier ne répond pas : on essaie le suivant
                     continue;
                 }
                 int code = (Integer) r[0];
+                noteSuccess(c); // le serveur a répondu
                 if (code == 200) {
                     String txt = (String) r[1];
                     int n = 0;
@@ -326,7 +369,7 @@ final class VillaFolder {
                             .apply();
                     return;
                 }
-                if (code == 404 && (Integer) getRetry(base + "/" + BACKGROUND_FILE)[0] == 200) {
+                if (code == 404 && (Integer) get(base + "/" + BACKGROUND_FILE)[0] == 200) {
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, "")
                             .putString(P_STATUS, "config.txt absent — réglages de la TV utilisés (" + when + ")").apply();
                     return;
@@ -341,8 +384,10 @@ final class VillaFolder {
         } catch (Throwable t) {
             // Les derniers réglages lus restent appliqués.
             boolean kept = !prefs(c).getString(P_CONFIG, "").isEmpty();
+            long wait = noteFailure(c) / 60_000L;
             prefs(c).edit().putString(P_STATUS, "✗ serveur injoignable (" + t.getClass().getSimpleName() + ") — " + when
-                    + (kept ? " · réglages précédents gardés" : "")).apply();
+                    + (kept ? " · réglages précédents gardés" : "")
+                    + " · prochain essai dans " + (wait >= 60 ? (wait / 60) + " h" : wait + " min")).apply();
         }
     }
 
@@ -383,6 +428,7 @@ final class VillaFolder {
                 conn.setConnectTimeout(15_000);
                 conn.setReadTimeout(20_000);
                 conn.setUseCaches(false);
+                conn.setRequestProperty("User-Agent", userAgent);
                 code = conn.getResponseCode();
                 if (code < 300 || code >= 400) break;
                 String loc = conn.getHeaderField("Location");

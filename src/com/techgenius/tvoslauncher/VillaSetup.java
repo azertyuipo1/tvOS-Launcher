@@ -236,6 +236,7 @@ final class VillaSetup {
                     c.setRequestMethod("POST");
                     c.setDoOutput(true);
                     c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    c.setRequestProperty("User-Agent", VillaFolder.userAgent);
                     try (OutputStream o = c.getOutputStream()) { o.write(data); }
                     int status = c.getResponseCode();
                     if (status >= 300 && status < 400) {
@@ -318,60 +319,4 @@ final class VillaSetup {
         out.flush();
     }
 
-    // ------------------------------------------------------------------ C : code d'association (reglages.php)
-
-    static void showPairCode(Activity a, Runnable onDone) {
-        final String code = String.format(java.util.Locale.ROOT, "%06d", RND.nextInt(1_000_000));
-        final boolean[] open = {true};
-        final AlertDialog[] dlg = new AlertDialog[1];
-        dlg[0] = showCard(a, "Associer cette TV", null, code.substring(0, 3) + " " + code.substring(3),
-                "Ouvrez la page reglages.php de la villa sur un téléphone ou un ordinateur,\n"
-                        + "puis « Associer une TV » et saisissez ce code.\nLe code est valable 10 minutes.",
-                () -> open[0] = false);
-        final String url = VillaFolder.pairUrl(code);
-        final long until = System.currentTimeMillis() + 10 * 60_000L;
-        new Thread(() -> {
-            while (open[0] && System.currentTimeMillis() < until) {
-                try {
-                    Thread.sleep(3000);
-                    String base = fetchPair(url);
-                    if (base != null && !base.isEmpty()) {
-                        main().post(() -> { if (open[0]) applied(a, dlg[0], base, onDone); });
-                        return;
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-            main().post(() -> { if (dlg[0] != null && dlg[0].isShowing()) dlg[0].dismiss(); });
-        }, "villa-pair").start();
-    }
-
-    private static String fetchPair(String url) throws Exception {
-        String target = url;
-        for (int hop = 0; hop < 5; hop++) {
-            HttpURLConnection c = (HttpURLConnection) new URL(target).openConnection();
-            c.setInstanceFollowRedirects(false);
-            c.setUseCaches(false);
-            c.setConnectTimeout(8000);
-            c.setReadTimeout(8000);
-            int code = c.getResponseCode();
-            if (code >= 300 && code < 400) {
-                String loc = c.getHeaderField("Location");
-                c.disconnect();
-                if (loc == null) return null;
-                target = new URL(new URL(target), loc).toString();
-                continue;
-            }
-            if (code != 200) { c.disconnect(); return null; }
-            StringBuilder sb = new StringBuilder();
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
-                String l;
-                while ((l = br.readLine()) != null && sb.length() < 4096) sb.append(l);
-            } finally {
-                c.disconnect();
-            }
-            return new org.json.JSONObject(sb.toString()).optString("base", "");
-        }
-        return null;
-    }
 }

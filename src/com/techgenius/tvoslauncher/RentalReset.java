@@ -306,10 +306,13 @@ final class RentalReset {
     static String getFetchStatus(Context c) { return prefs(c).getString(K_FETCH_STATUS, "pas encore lu"); }
 
     /** Relit le calendrier en arrière-plan (sans rien déconnecter), puis onDone sur le fil principal. */
-    static void refreshCalendar(Context ctx, Runnable onDone) {
+    static void refreshCalendar(Context ctx, Runnable onDone) { refreshCalendar(ctx, true, onDone); }
+
+    /** manual : relecture demandée (bouton) ; sinon relecture automatique, espacée. */
+    static void refreshCalendar(Context ctx, boolean manual, Runnable onDone) {
         final Context c = ctx.getApplicationContext();
         new Thread(() -> {
-            latestDueDeparture(c);
+            latestDueDeparture(c, manual);
             if (onDone != null) new android.os.Handler(android.os.Looper.getMainLooper()).post(onDone);
         }, "rental-calendar").start();
     }
@@ -342,8 +345,10 @@ final class RentalReset {
     }
 
     /** Date (yyyy-MM-dd) du départ le plus récent dont l'heure de check-out est passée, ou null. */
-    static String latestDueDeparture(Context c) {
-        VillaFolder.refreshBlocking(c);
+    static String latestDueDeparture(Context c) { return latestDueDeparture(c, false); }
+
+    static String latestDueDeparture(Context c, boolean manual) {
+        VillaFolder.refreshBlocking(c, manual);
         String url = getUrl(c);
         if (!url.equals(prefs(c).getString("cal_src", ""))) {
             // Nouveau calendrier : on repart d'une référence neuve (le prochain départ passé ne déclenche rien).

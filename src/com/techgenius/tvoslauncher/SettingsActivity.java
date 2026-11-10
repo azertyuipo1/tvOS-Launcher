@@ -1042,6 +1042,7 @@ public class SettingsActivity extends Activity {
                     return;
                 }
                 VillaFolder.setBase(this, shortName);
+                VillaFolder.setResolved(this, r.base);
                 android.widget.Toast.makeText(this, "✓ Villa configurée : " + VillaFolder.getBase(this),
                         android.widget.Toast.LENGTH_LONG).show();
                 checkFolderNow();
@@ -1053,8 +1054,8 @@ public class SettingsActivity extends Activity {
     private void checkFolderNow() {
         showStatusMsg("Lecture du dossier de la villa…");
         Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-        RemoteWallpaper.refresh(this, () -> { if (!isFinishing()) refreshAll(); });
-        RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+        RemoteWallpaper.refresh(this, true, () -> { if (!isFinishing()) refreshAll(); });
+        RentalReset.refreshCalendar(this, true, () -> { if (!isFinishing()) refreshAll(); });
         refreshAll();
     }
 
@@ -1368,7 +1369,7 @@ public class SettingsActivity extends Activity {
         }
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
-            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+            RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
         }
     }
 
@@ -1893,7 +1894,7 @@ public class SettingsActivity extends Activity {
                 () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
-            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+            RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
         }
     }
 

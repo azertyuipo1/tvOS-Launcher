@@ -445,10 +445,10 @@ public class SetupActivity extends Activity {
                         VillaFolder.setBase(this, in.getText().toString());
                         Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
                         new Thread(() -> {
-                            VillaFolder.refreshBlocking(this);
+                            VillaFolder.refreshBlocking(this, true);
                             runOnUiThread(() -> {
                                 if (isFinishing()) return;
-                                RemoteWallpaper.refresh(this, null);
+                                RemoteWallpaper.refresh(this, true, null);
                                 RentalReset.forceCheckSoon(this, null);
                                 show(index, 0);
                                 android.widget.Toast.makeText(this, VillaFolder.getStatus(this), android.widget.Toast.LENGTH_LONG).show();
