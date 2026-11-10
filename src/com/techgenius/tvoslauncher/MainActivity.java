@@ -443,6 +443,10 @@ public class MainActivity extends Activity {
         resumed = true;
         activeInstance = this;
         clearLaunchDim();
+        // Certaines applis (Netflix) passent par un écran intermédiaire qui ramène l'accueil une fraction de
+        // seconde avant de s'ouvrir : juste après un lancement, on garde l'écran noir au lieu d'afficher l'accueil.
+        if (android.os.SystemClock.uptimeMillis() - lastLaunchAt < 3000) showBounceCover();
+        else hideBounceCover();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
             String ws = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
@@ -550,6 +554,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        handler.removeCallbacks(hideBounce); // l'appli a repris la main : l'écran noir reste derrière elle
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
         }
@@ -2875,6 +2880,34 @@ public class MainActivity extends Activity {
         prepareForAppLaunch();
     }
 
+    long lastLaunchAt = 0;
+    View bounceCover;
+    final Runnable hideBounce = this::hideBounceCover;
+
+    void showBounceCover() {
+        if (root == null) return;
+        if (bounceCover == null) {
+            bounceCover = new View(this);
+            bounceCover.setBackgroundColor(Color.BLACK);
+            bounceCover.setClickable(true);
+            root.addView(bounceCover, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        bounceCover.animate().cancel();
+        bounceCover.setAlpha(1f);
+        bounceCover.setVisibility(View.VISIBLE);
+        bounceCover.bringToFront();
+        handler.removeCallbacks(hideBounce);
+        // Si l'appli ne reprend pas la main (vrai retour à l'accueil), l'accueil réapparaît en fondu.
+        handler.postDelayed(hideBounce, 1500);
+    }
+
+    void hideBounceCover() {
+        handler.removeCallbacks(hideBounce);
+        if (bounceCover == null || bounceCover.getVisibility() != View.VISIBLE) return;
+        bounceCover.animate().alpha(0f).setDuration(220).withEndAction(() -> bounceCover.setVisibility(View.GONE)).start();
+    }
+
     void clearLaunchDim() {
         if (root != null) {
             root.animate().cancel();
@@ -2899,6 +2932,7 @@ public class MainActivity extends Activity {
         if (a == null || a.launch == null) return;
         try {
             prepareForAppLaunch();
+            lastLaunchAt = android.os.SystemClock.uptimeMillis();
             startActivity(a.launch);
             overridePendingTransition(R.anim.app_open_enter, R.anim.app_open_exit);
             final String pkg = a.pkg;
@@ -2917,6 +2951,7 @@ public class MainActivity extends Activity {
         launchTile = null;
         if (ov == null) return;
         handler.removeCallbacksAndMessages(null);
+        if (bounceCover != null && bounceCover.getVisibility() == View.VISIBLE) handler.postDelayed(hideBounce, 1500);
 
         scroll.setScaleX(1.06f);
         scroll.setScaleY(1.06f);
