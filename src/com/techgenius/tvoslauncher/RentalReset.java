@@ -235,7 +235,16 @@ final class RentalReset {
      * Salutation selon le moment du séjour : « Welcome, » le jour d'arrivée et le lendemain,
      * « Thank you for staying with us, » le jour du départ, sinon bonjour selon l'heure.
      */
+    /** Salutation selon l'heure seule (aucune réservation en cours) : « Good morning », etc. */
+    static String timeGreeting() {
+        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (h >= 5 && h < 12) return "Good morning";
+        if (h >= 12 && h < 18) return "Good afternoon";
+        return "Good evening";
+    }
+
     static String greeting(Context c, Stay s) {
+        if (s == null) return timeGreeting() + ",";
         Calendar now = Calendar.getInstance();
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         String today = f.format(now.getTime());

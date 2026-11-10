@@ -4109,14 +4109,15 @@ public class MainActivity extends Activity {
         String villa = VillaFolder.villaName(this);
         RentalReset.Stay stay = RentalReset.currentStay(this);
         boolean guest = stay != null && !stay.name.isEmpty();
-        // Calendrier ICS (sans nom) : salutation au-dessus du nom de la villa.
-        boolean anonStay = stay != null && !guest && !villa.isEmpty();
+        // Sans nom de client (pas de calendrier, pas de séjour, ou calendrier ICS) : salutation sans virgule
+        // au-dessus du nom de la villa — « Good evening » / « Villa l'Enclos ».
+        boolean anonStay = !guest && !villa.isEmpty();
         if (guest) {
             eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
             welcomeLine.setText(RentalReset.greeting(this, stay));
             profileTitle.setText(stay.name.replaceAll("\\.+$", ""));
         } else {
-            if (anonStay) welcomeLine.setText(RentalReset.greeting(this, stay));
+            if (anonStay) welcomeLine.setText(RentalReset.greeting(this, stay).replaceAll(",\\s*$", ""));
             profileTitle.setText(villa);
         }
         eyebrow.setVisibility(guest && !villa.isEmpty() && !scenes ? View.VISIBLE : View.GONE);
