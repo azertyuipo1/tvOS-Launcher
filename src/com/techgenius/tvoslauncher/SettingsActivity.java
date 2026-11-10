@@ -1721,8 +1721,32 @@ public class SettingsActivity extends Activity {
                 .show();
     }
 
+    /** Connexion de la TV : Ethernet, ou Wi-Fi avec force du signal, bande (2,4 / 5 / 6 GHz) et débit de liaison. */
+    private String networkSummary() {
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            android.net.NetworkCapabilities nc = cm.getNetworkCapabilities(cm.getActiveNetwork());
+            if (nc == null) return "✗ hors ligne";
+            if (nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)) return "✓ câble Ethernet";
+            if (!nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)) return "connecté";
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
+            android.net.wifi.WifiInfo wi = wm.getConnectionInfo();
+            int rssi = wi.getRssi();
+            int pct = Math.max(0, Math.min(100, 2 * (rssi + 100)));
+            String qual = rssi >= -60 ? "bon" : rssi >= -70 ? "moyen" : "faible";
+            int f = wi.getFrequency();
+            String band = f >= 5925 ? "6 GHz" : f >= 4900 ? "5 GHz" : f > 0 ? "2,4 GHz" : "?";
+            String warn = (rssi < -70 || (f > 0 && f < 4900)) ? "⚠ " : "✓ ";
+            return warn + "Wi-Fi " + band + " — signal " + qual + " (" + pct + " %, " + rssi + " dBm) — "
+                    + wi.getLinkSpeed() + " Mb/s";
+        } catch (Throwable t) {
+            return "inconnu";
+        }
+    }
+
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
+        infoRowDynamic("Réseau", this::networkSummary, null);
         infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
         infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
