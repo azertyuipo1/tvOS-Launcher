@@ -872,9 +872,9 @@ public class MainActivity extends Activity {
         eyebrow.setSingleLine(true);
         welcomeLine = new TextView(this);
         welcomeLine.setTypeface(Ui.font(this, "regular"));
-        Ui.textSize(welcomeLine, 24);
+        Ui.textSize(welcomeLine, 22);
         welcomeLine.setIncludeFontPadding(false);
-        welcomeLine.setTextColor(Color.WHITE);
+        welcomeLine.setTextColor(0xD9FFFFFF); // un ton en dessous du nom des clients
         welcomeLine.setShadowLayer(dp(12), 0, dp(2), 0x99000000);
         welcomeLine.setSingleLine(true);
         profileTitle = new TextView(this);
@@ -902,6 +902,30 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
         ptlp.leftMargin = (int) (screenW * 0.065f);
         ptlp.topMargin = (int) (screenH * 0.24f);
+        // Voiles sombres très doux derrière le texte (haut gauche / haut droite) : lisible sur toute photo.
+        View scrim = new View(this) {
+            final Paint sp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            @Override
+            protected void onDraw(Canvas cv) {
+                int w = getWidth(), h = getHeight();
+                // Les voiles s'arrêtent avant le dock (≈ 62 % de la hauteur).
+                drawVeil(cv, w * 0.0f, h * 0.33f, w * 0.57f, h * 0.29f, 0xAA000000);
+                drawVeil(cv, w * 1.0f, h * 0.27f, w * 0.47f, h * 0.30f, 0xA0000000);
+            }
+            private void drawVeil(Canvas cv, float cx, float cy, float rx, float ry, int color) {
+                cv.save();
+                cv.scale(1f, ry / rx, cx, cy);
+                sp.setShader(new android.graphics.RadialGradient(cx, cy, rx,
+                        new int[]{color, (color & 0x00FFFFFF) | 0x55000000, 0x00000000},
+                        new float[]{0f, 0.45f, 1f}, android.graphics.Shader.TileMode.CLAMP));
+                cv.drawCircle(cx, cy, rx, sp);
+                cv.restore();
+            }
+        };
+        scrim.setFocusable(false);
+        scrimView = scrim;
+        root.addView(scrim, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(titleBox, ptlp);
 
         // Horloge fine en haut à droite, avec la date (en anglais, format 12 h).
@@ -1047,7 +1071,7 @@ public class MainActivity extends Activity {
         int focusGrowY = Math.round(tileH * (FOCUS_SCALE - 1f) / 2f);
         int focusedRimMargin = dp(11);
         int dockPadH = focusGrowX + focusedRimMargin;
-        int dockPadVScaled = focusGrowY + focusedRimMargin;
+        int dockPadVScaled = focusGrowY + dp(6); // villa : dock un peu plus fin en hauteur
         currentDockCols = COLS;
 
         effectiveOtherApps.addAll(otherApps);
@@ -3159,7 +3183,7 @@ public class MainActivity extends Activity {
      */
     void scrollToRow(int row) {
         int focusGrowY = Math.round(tileH * (FOCUS_SCALE - 1f) / 2f);
-        int dockPadVScaled = focusGrowY + dp(11);
+        int dockPadVScaled = focusGrowY + dp(6);
         int rowH = tileH + labelH + gap / 2;
         int rowTop = !hasDock() ? shelfH + row * rowH
                 : row == 0 ? shelfH
@@ -3830,6 +3854,7 @@ public class MainActivity extends Activity {
     TextView welcomeLine, eyebrow, bigClock, bigDate;
     android.widget.ImageView wifiCard;
     TextView versionTag;
+    View scrimView;
     String wifiCardKey = "";
 
     /** Carte WiFi : calque indépendant en haut à droite, dessinée d'un bloc (taille calculée sur le texte). */
@@ -3853,16 +3878,18 @@ public class MainActivity extends Activity {
         float pad = 11 * u, gap = 14 * u, qs = 75 * u, radius = 15 * u;
         Paint lab = new Paint(Paint.ANTI_ALIAS_FLAG);
         lab.setTypeface(Ui.font(this, "semibold"));
-        lab.setTextSize(10 * u);
-        lab.setColor(0xCCFFFFFF);
+        lab.setTextSize(9 * u);
+        lab.setColor(0xC8FFFFFF);
+        lab.setLetterSpacing(0.24f);
         Paint big = new Paint(Paint.ANTI_ALIAS_FLAG);
         big.setTypeface(Ui.font(this, "display"));
         big.setTextSize(14 * u);
         big.setColor(Color.WHITE);
         Paint small = new Paint(Paint.ANTI_ALIAS_FLAG);
-        small.setTypeface(Ui.font(this, "regular"));
-        small.setTextSize(10 * u);
-        small.setColor(0xBFFFFFFF);
+        small.setTypeface(Ui.font(this, "semibold"));
+        small.setTextSize(9 * u);
+        small.setColor(0xB4FFFFFF);
+        small.setLetterSpacing(0.24f);
         Paint pw = new Paint(Paint.ANTI_ALIAS_FLAG);
         pw.setTypeface(Ui.font(this, "semibold"));
         pw.setTextSize(13 * u);
@@ -3872,9 +3899,9 @@ public class MainActivity extends Activity {
         hint.setTextSize(9 * u);
         hint.setColor(0xB3FFFFFF);
         String p2 = pass.isEmpty() ? "—" : pass;
-        String[] lines = {"WiFi", ssid, "Password", p2, "Scan with your phone camera"};
+        String[] lines = {"WIFI", ssid, "PASSWORD", p2, "Scan with your phone camera"};
         Paint[] paints = {lab, big, small, pw, hint};
-        float[] before = {0, 2 * u, 7 * u, 2 * u, 6 * u};
+        float[] before = {0, 3 * u, 8 * u, 3 * u, 7 * u};
         float textW = 0, textH = 0;
         for (int k = 0; k < lines.length; k++) {
             textW = Math.max(textW, paints[k].measureText(lines[k]));
@@ -3886,7 +3913,7 @@ public class MainActivity extends Activity {
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
         Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bg.setColor(0x73202020);
+        bg.setColor(0x8C161618);
         float sw = Math.max(1f, u);
         RectF r = new RectF(sw / 2, sw / 2, w - sw / 2, h - sw / 2);
         cv.drawRoundRect(r, radius, radius, bg);
