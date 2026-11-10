@@ -85,13 +85,14 @@ public final class Ui {
         if (src == null || src.isRecycled()) return null;
         android.graphics.Bitmap out = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
         android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix();
-        cm.setSaturation(1.6f);
+        // Villa : verre moins givré — couleurs presque naturelles, très léger éclaircissement.
+        cm.setSaturation(1.15f);
         cm.postConcat(new android.graphics.ColorMatrix(new float[]{
-                1.05f, 0, 0, 0, 14, 0, 1.05f, 0, 0, 14, 0, 0, 1.05f, 0, 14, 0, 0, 0, 1, 0}));
+                1.02f, 0, 0, 0, 4, 0, 1.02f, 0, 0, 4, 0, 0, 1.02f, 0, 4, 0, 0, 0, 1, 0}));
         android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
         p.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
         new android.graphics.Canvas(out).drawBitmap(src, null, new android.graphics.Rect(0, 0, w, h), p);
-        blurInPlace(out, w, h, 3, 3);
+        blurInPlace(out, w, h, 2, 2); // flou plus léger (moins « givré »)
         return out;
     }
 

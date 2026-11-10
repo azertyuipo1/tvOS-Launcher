@@ -1051,7 +1051,7 @@ public class MainActivity extends Activity {
         }
         if (scenes && sceneHome != null) {
             Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
-            if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
+            if (bg != null) glassBg = Ui.glassBackdrop(bg, 384, 216);
             sceneHome.focusDock(sceneHome.focusedDockIdx);
         } else {
             focusIndex(focusedIndex);
@@ -1234,7 +1234,7 @@ public class MainActivity extends Activity {
         wallView.setImageBitmap(wp);
         if (oldWp != null && oldWp != wp && !oldWp.isRecycled()) oldWp.recycle();
         Bitmap oldBlur = wallBlur;
-        wallBlur = Ui.glassBackdrop(wp, 192, 108);
+        wallBlur = Ui.glassBackdrop(wp, 384, 216);
         if (!heroShown || heroBlur == null) glassBg = wallBlur;
         if (oldBlur != null && oldBlur != wallBlur && !oldBlur.isRecycled()) oldBlur.recycle();
         invalidateGlass();
@@ -1564,7 +1564,7 @@ public class MainActivity extends Activity {
 
     /** Frosted glass dock (tvOS): lush rounded corner radius, translucent fill, sheen and rim. */
     /** Verre fumé de la villa : même teinte fixe pour le dock et la carte WiFi (ne dépend pas de la photo). */
-    static final int VILLA_GLASS_TINT = 0x22000000; // plus transparent, comme le dock de l'Apple TV
+    static final int VILLA_GLASS_TINT = 0x14000000; // très transparent, comme le dock de l'Apple TV
 
     Drawable dockBackground() {
         // Coins du dock concentriques aux tuiles : rayon de la tuile + marge intérieure du dock.
