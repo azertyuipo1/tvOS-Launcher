@@ -99,7 +99,7 @@ public class MainActivity extends Activity {
 
     static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
     /** tvOS focused icon is ~1.2x its resting size (303x183 vs 248x148 px in Apple's reference). */
-    static final float FOCUS_SCALE = 1.2f;
+    static final float FOCUS_SCALE = 1.12f; // villa : grossissement plus discret (proche Apple TV)
     /** Focus lift with a slight spring, like tvOS. */
     static final android.view.animation.OvershootInterpolator LIFT =
             new android.view.animation.OvershootInterpolator(1.3f);
@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
         tileW = (screenW - 2 * side - (COLS - 1) * gap) / COLS;
         tileH = tileW * 3 / 5;
         labelH = dp(30);
-        radius = Math.round(tileW * 0.16f);
+        radius = Math.round(tileW * 0.09f); // coins plus fins, proportions Apple TV
         shelfH = (int) (screenH * 0.72f);
         dockPadV = dp(19);
 
@@ -1069,7 +1069,7 @@ public class MainActivity extends Activity {
         // last dock cards have symmetrical left/right and top/bottom margins inside the dock rim.
         int focusGrowX = Math.round(tileW * (FOCUS_SCALE - 1f) / 2f);
         int focusGrowY = Math.round(tileH * (FOCUS_SCALE - 1f) / 2f);
-        int focusedRimMargin = dp(11);
+        int focusedRimMargin = dp(8);
         int dockPadH = focusGrowX + focusedRimMargin;
         int dockPadVScaled = focusGrowY + dp(6); // villa : dock un peu plus fin en hauteur
         currentDockCols = COLS;
@@ -1564,10 +1564,11 @@ public class MainActivity extends Activity {
 
     /** Frosted glass dock (tvOS): lush rounded corner radius, translucent fill, sheen and rim. */
     /** Verre fumé de la villa : même teinte fixe pour le dock et la carte WiFi (ne dépend pas de la photo). */
-    static final int VILLA_GLASS_TINT = 0x4D000000;
+    static final int VILLA_GLASS_TINT = 0x22000000; // plus transparent, comme le dock de l'Apple TV
 
     Drawable dockBackground() {
-        float dockRad = Math.max(dp(24), radius * 1.65f);
+        // Coins du dock concentriques aux tuiles : rayon de la tuile + marge intérieure du dock.
+        float dockRad = radius + Math.round(tileH * (FOCUS_SCALE - 1f) / 2f) + dp(6);
         LiquidGlass g = new LiquidGlass(dockRad, VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
         g.lens = dp(12);
         g.rimStrength = 0.28f;
@@ -3908,21 +3909,22 @@ public class MainActivity extends Activity {
             Paint.FontMetrics fm = paints[k].getFontMetrics();
             textH += before[k] + (fm.descent - fm.ascent);
         }
-        int w = Math.round(pad + qs + gap + textW + pad);
         int h = Math.round(pad * 2 + Math.max(qs, textH));
+        float side = Math.max(pad, (h - qs) / 2f); // marge du QR identique à gauche, en haut et en bas
+        int w = Math.round(side + qs + gap + textW + side);
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
         // Fond : le même verre que le dock (posé en arrière-plan de la vue), sans bordure.
         float qy = (h - qs) / 2f;
         Paint white = new Paint(Paint.ANTI_ALIAS_FLAG);
         white.setColor(Color.WHITE);
-        cv.drawRoundRect(new RectF(pad, qy, pad + qs, qy + qs), qs * 0.09f, qs * 0.09f, white);
+        cv.drawRoundRect(new RectF(side, qy, side + qs, qy + qs), qs * 0.09f, qs * 0.09f, white);
         Bitmap qb = q.toBitmap(Math.round(qs));
         Paint fp = new Paint();
         fp.setFilterBitmap(false);
         float inset = qs * 0.04f;
-        cv.drawBitmap(qb, null, new RectF(pad + inset, qy + inset, pad + qs - inset, qy + qs - inset), fp);
-        float x = pad + qs + gap;
+        cv.drawBitmap(qb, null, new RectF(side + inset, qy + inset, side + qs - inset, qy + qs - inset), fp);
+        float x = side + qs + gap;
         float y = (h - textH) / 2f;
         for (int k = 0; k < lines.length; k++) {
             Paint.FontMetrics fm = paints[k].getFontMetrics();
