@@ -980,7 +980,8 @@ public class SettingsActivity extends Activity {
             checkFolderNow();
             return;
         }
-        promptVillaCode(v, null);
+        // Petit délai : le relâchement de « OK » ne doit pas arriver dans la fenêtre du code.
+        list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(v, null); }, 450L);
     }
 
     private void promptVillaCode(String shortName, String error) {
@@ -1020,12 +1021,16 @@ public class SettingsActivity extends Activity {
     private void checkVillaCode(String shortName, String code) {
         String c = code == null ? "" : code.replaceAll("\\D", "");
         if (c.length() != 6) { promptVillaCode(shortName, "Le code comporte 6 chiffres."); return; }
-        showStatusMsg("Vérification du code…");
+        AlertDialog wait = dialog("Code de la villa").setMessage("Vérification du code…").setCancelable(false).show();
         new Thread(() -> {
             VillaSetup.Check r = VillaSetup.verifyCode(shortName, c);
             runOnUiThread(() -> {
+                try { wait.dismiss(); } catch (Throwable ignored) { }
                 if (isFinishing()) return;
-                if (r.base == null) { promptVillaCode(shortName, r.message()); return; }
+                if (r.base == null) {
+                    list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(shortName, r.message()); }, 300L);
+                    return;
+                }
                 VillaFolder.setBase(this, shortName);
                 android.widget.Toast.makeText(this, "✓ Villa configurée : " + VillaFolder.getBase(this),
                         android.widget.Toast.LENGTH_LONG).show();
