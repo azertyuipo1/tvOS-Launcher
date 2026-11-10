@@ -1563,12 +1563,14 @@ public class MainActivity extends Activity {
     }
 
     /** Frosted glass dock (tvOS): lush rounded corner radius, translucent fill, sheen and rim. */
+    /** Verre fumé de la villa : même teinte fixe pour le dock et la carte WiFi (ne dépend pas de la photo). */
+    static final int VILLA_GLASS_TINT = 0x4D000000;
+
     Drawable dockBackground() {
         float dockRad = Math.max(dp(24), radius * 1.65f);
-        LiquidGlass g = new LiquidGlass(dockRad, 0x14FFFFFF, glassSource, screenW, screenH, unit);
+        LiquidGlass g = new LiquidGlass(dockRad, VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
         g.lens = dp(12);
         g.rimStrength = 0.28f;
-        g.adaptive().darker(0x40); // villa : verre fumé, un peu plus sombre
         return g;
     }
 
@@ -3992,10 +3994,9 @@ public class MainActivity extends Activity {
                 else {
                     Bitmap card = drawWifiCard(q, ssid, pass);
                     wifiCard.setImageBitmap(card);
-                    LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), 0x14FFFFFF, glassSource, screenW, screenH, unit);
+                    LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
                     g.lens = dp(3);
                     g.rimStrength = 0f;
-                    g.adaptive().darker(0x60); // verre fumé, un cran plus sombre que le dock (texte)
                     wifiCard.setBackground(g);
                     FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
                     lp.width = card.getWidth();
