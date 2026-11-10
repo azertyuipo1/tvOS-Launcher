@@ -175,15 +175,65 @@ final class VillaSetup {
         }
         if ("POST".equals(method)) {
             String v = param(body, "dossier").trim();
-            if (v.isEmpty()) {
-                send(out, form(pin, "Saisissez le code ou l'adresse de la villa."));
+            String pw = param(body, "mdp");
+            if (v.isEmpty() || pw.isEmpty()) {
+                send(out, form(pin, "Saisissez le code de la villa et son mot de passe."));
+                return null;
+            }
+            // Le mot de passe est vérifié par le reglages.php de la villa : sans lui, impossible de configurer la TV.
+            String base = verify(v, pw);
+            if (base == null) {
+                send(out, form(pin, "Code de villa ou mot de passe incorrect."));
                 return null;
             }
             send(out, page("✓ TV configurée", "<p>La TV charge maintenant les réglages de <b>" + esc(v)
                     + "</b>. Vous pouvez fermer cette page.</p>"));
-            return v;
+            return v.matches("[A-Za-z0-9_-]+") ? v : base; // on garde le code court (« clo ») s'il a été saisi
         }
         send(out, form(pin, null));
+        return null;
+    }
+
+    /** Interroge reglages.php des dossiers possibles ; renvoie le dossier dont le mot de passe est correct. */
+    private static String verify(String input, String password) {
+        for (String base : VillaFolder.candidatesFor(input)) {
+            try {
+                String target = base + "/reglages.php";
+                byte[] data = ("action=verify&password=" + java.net.URLEncoder.encode(password, "UTF-8"))
+                        .getBytes(StandardCharsets.UTF_8);
+                for (int hop = 0; hop < 4; hop++) {
+                    HttpURLConnection c = (HttpURLConnection) new URL(target).openConnection();
+                    c.setInstanceFollowRedirects(false);
+                    c.setConnectTimeout(8000);
+                    c.setReadTimeout(8000);
+                    c.setRequestMethod("POST");
+                    c.setDoOutput(true);
+                    c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    try (OutputStream o = c.getOutputStream()) { o.write(data); }
+                    int code = c.getResponseCode();
+                    if (code >= 300 && code < 400) {
+                        String loc = c.getHeaderField("Location");
+                        c.disconnect();
+                        if (loc == null) break;
+                        target = new URL(new URL(target), loc).toString();
+                        continue;
+                    }
+                    if (code == 200) {
+                        StringBuilder sb = new StringBuilder();
+                        try (BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8))) {
+                            String l;
+                            while ((l = br.readLine()) != null && sb.length() < 2048) sb.append(l);
+                        }
+                        c.disconnect();
+                        if (sb.toString().trim().startsWith("{") && new org.json.JSONObject(sb.toString()).optBoolean("ok")) return base;
+                    } else {
+                        c.disconnect();
+                    }
+                    break;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
         return null;
     }
 
@@ -208,6 +258,9 @@ final class VillaSetup {
                         + "<label for=d>Code ou adresse de la villa</label>"
                         + "<input id=d name=dossier autocapitalize=none autocomplete=off autofocus placeholder=\"ex. clo\">"
                         + "<p class=h>Un code (ex. clo) ou une adresse complète commençant par https://</p>"
+                        + "<label for=p>Mot de passe de la villa</label>"
+                        + "<input id=p name=mdp type=password autocomplete=current-password>"
+                        + "<p class=h>Celui de la page reglages.php de la villa.</p>"
                         + "<button>Configurer la TV</button></form>");
     }
 

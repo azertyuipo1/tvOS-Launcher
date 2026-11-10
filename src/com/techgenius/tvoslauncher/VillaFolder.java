@@ -136,6 +136,23 @@ final class VillaFolder {
         return l;
     }
 
+    /** Dossiers possibles pour une saisie (code « clo » / « ads » ou adresse complète), sans rien enregistrer. */
+    static java.util.List<String> candidatesFor(String input) {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        String u = input == null ? "" : input.trim();
+        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
+        if (u.isEmpty()) return l;
+        if (u.matches("[A-Za-z0-9_-]+")) {
+            String b = u.toLowerCase(Locale.ROOT);
+            l.add(SHORT_HOST + "villas/tv/" + b);
+            l.add(SHORT_HOST + "villas/" + b + "/tv");
+            l.add(SHORT_HOST + b + "/tv");
+        } else {
+            l.add(u.matches("(?i)^https?://.*") ? u : "https://" + u);
+        }
+        return l;
+    }
+
     /** Adresse d'un fichier du dossier ; "" tant qu'un dossier saisi par son nom n'a pas été trouvé. */
     static String fileUrl(Context c, String name) {
         String b = getBase(c);
