@@ -4400,55 +4400,15 @@ public class MainActivity extends Activity {
     }
 
     void showOptions(int index) {
+        // Villa : aucun menu pour les clients ; en mode admin, seul « Réglages du launcher » est proposé.
+        if (GuestLock.isLocked(this)) return;
         AppEntry a = shown.get(index);
         View tile = tiles.get(index);
         List<String> labels = new ArrayList<>();
         List<Runnable> actions = new ArrayList<>();
-        labels.add(I18n.s(this, "Open", "Aç"));
-        actions.add(() -> launchAnimated(tile, a));
-        if (!FOLDER_KEY.equals(a.key)) {
-            labels.add(I18n.s(this, "Rename", "Yeniden Adlandır"));
-            actions.add(() -> promptRenameApp(a, () -> reload(a.key)));
-            labels.add(I18n.s(this, "Change app icon", "Uygulama simgesini değiştir"));
-            actions.add(() -> promptChangeAppIcon(a, () -> reload(a.key)));
-        }
-        if (folderMode) {
-            labels.add(I18n.s(this, "Show on Home Screen", "Ana Ekranda Göster"));
-            actions.add(() -> setOtherApp(a, false));
-            if (!isSettings(a)) {
-                labels.add(I18n.s(this, "Hide", "Gizle"));
-                actions.add(() -> setHidden(a, true));
-            }
-        } else {
-            labels.add(I18n.s(this, "Move", "Taşı"));
-            actions.add(() -> startMove(index));
-            if (!isSettings(a)) {
-                labels.add(I18n.s(this, "Move to Other Apps", "Diğer Uygulamalara Taşı"));
-                actions.add(() -> setOtherApp(a, true));
-                labels.add(I18n.s(this, "Hide", "Gizle"));
-                actions.add(() -> setHidden(a, true));
-            }
-        }
-        String uninstLabel = I18n.s(this, "Uninstall", "Kaldır");
-        if (!isSettings(a) && !INPUTS_KEY.equals(a.key)) {
-            labels.add(I18n.s(this, "App Info", "Uygulama Bilgileri"));
-            actions.add(() -> startSafe(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:" + a.pkg))));
-            if (!a.system) {
-                labels.add(uninstLabel);
-                actions.add(() -> startSafe(new Intent(Intent.ACTION_DELETE, Uri.parse("package:" + a.pkg))));
-            }
-        }
         labels.add("Réglages du launcher");
         actions.add(() -> startActivity(new Intent(this, SettingsActivity.class)));
-        if (!folderMode) {
-            labels.add(I18n.s(this, "Reset Layout", "Düzeni Sıfırla"));
-            actions.add(() -> {
-                prefs.edit().remove(PREF_ORDER).apply();
-                reload(a.key);
-            });
-        }
-        showMenu(tile, a.label, labels, actions, labels.indexOf(uninstLabel));
+        showMenu(tile, a.label, labels, actions, -1);
     }
 
     // ---------------------------------------------------------------- Control Center

@@ -65,8 +65,7 @@ final class SceneHome {
     private static final String KEY_WEATHER_SHORTCUT = "home_weather_shortcut";
 
     static boolean isWeatherShortcutEnabled(android.content.Context c) {
-        if (c == null) return true;
-        return Profiles.homePrefs(c).getBoolean(KEY_WEATHER_SHORTCUT, true);
+        return false; // villa : raccourci météo de l'accueil toujours désactivé (réglage masqué)
     }
 
     static void setWeatherShortcutEnabled(android.content.Context c, boolean enabled) {

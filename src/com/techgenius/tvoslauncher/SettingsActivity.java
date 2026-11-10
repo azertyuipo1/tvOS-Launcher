@@ -73,12 +73,7 @@ public class SettingsActivity extends Activity {
 
     private static final String[][] SIDEBAR_SECTIONS = {
         {PROFILES, "house"},
-        {APPS, "apps"},
-        {BUTTON_MAPPER, "remote"},
-        {QUICK, "bolt"},
-        {ADVANCED, "shield"},
-        {UPDATES, "update"},
-        {ABOUT, "info"}
+        {ADVANCED, "shield"}
     };
 
     private TextView sideTitleView;
@@ -1263,43 +1258,15 @@ public class SettingsActivity extends Activity {
         }, null);
         infoRowDynamic("Dernière déconnexion",
                 () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
-        infoRowDynamic("Fuseau horaire",
-                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("timezone_status", "en attente…"), null);
-        infoRowDynamic("Langue de la TV",
-                () -> getSharedPreferences("villa", MODE_PRIVATE).getString("english_apps", "en attente…"), null);
-        infoRowDynamic("Verrouillage invités", () -> GuestLock.isEnabled(this) ? "✓ activé" : "✗ désactivé", null);
 
         section("DOSSIER DE LA VILLA");
         row("Adresse du dossier",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configuré") + "  ›",
                 this::promptFolderUrl);
-        infoRowDynamic("config.txt", () -> VillaFolder.getStatus(this), null);
-        infoRowDynamic("background.jpg", () -> RemoteWallpaper.getStatus(this), null);
         row("Relire le dossier maintenant", () -> "›", this::checkFolderNow);
         infoNote("Déposez dans ce dossier :\n"
                 + "• background.jpg : l'image d'arrière-plan (idéalement 1920 × 1080).\n"
-                + "• config.txt : les réglages de la villa, une ligne par réglage. "
-                + "Ne rien modifier à gauche des « : ». Une valeur laissée vide utilise le réglage de la TV.\n\n"
-                + "# Villa\n- nom_villa: Villa l'Enclos\n- heure_checkout: 12\n- calendrier: https://…\n"
-                + "# Wi-Fi\n- Réseau WiFi: Villa-LEnclos\n- Mot de passe: Bienvenue2026\n"
-                + "- affichage_wifi: 2\n"
-                + "# Applis (6 au maximum)\n- ITVSTREAM: oui\n- Netflix: oui\n- Prime Video: oui\n- HBO Max: oui\n- Disney+: oui\n- YouTube: non\n"
-                + "# Mises à jour\n- mise_a_jour: non\n"
-                + "# Fuseau horaire (GMT-4 par défaut)\n- fuseau_horaire: America/La_Paz\n\n"
-                + "Les lignes commençant par # sont des commentaires ; le tiret en début de ligne est facultatif.\n"
-                + "• Réseau WiFi / Mot de passe : affichés avec un QR code sur l'accueil.\n"
-                + "• affichage_wifi : 2 = les 2 premiers jours (par défaut), un autre nombre de jours, "
-                + "tout = tout le séjour, toujours = en permanence (pour tester).\n"
-                + "• Une ligne par appli (oui = affichée, non = masquée), dans l'ordre de l'accueil. "
-                + "Nom de l'appli ou nom de paquet Android (ex. com.spotify.tv.android: oui).\n"
-                + "• mise_a_jour: oui : toutes les TV installent seules la nouvelle version, sans aucun clic.\n\n"
-                + "Le calendrier peut être :\n"
-                + "• un calendrier personnalisé (JSON), qui affiche le nom des clients. Format attendu : "
-                + "{\"data\":[{\"nom\":\"Mr. & Mrs. Smith\",\"startDate\":\"2026-11-08\",\"endDate\":\"2026-11-15\"}]} "
-                + "— une entrée par réservation, dates AAAA-MM-JJ, endDate = jour du départ ;\n"
-                + "• un calendrier ICS (SBH Calendar : https://sbhcalendar.com/open/by-villa/ics-feed/…). "
-                + "Les départs sont détectés, mais le nom des clients n'est pas affiché.\n\n"
-                + "La TV relit le dossier à l'allumage et toutes les 30 minutes.");
+                + "• config.txt : les réglages de la villa, une ligne par réglage.");
         section("NOM DE LA VILLA (si absent de config.txt)");
         List<Profiles.Profile> ps = Profiles.list(this);
         String curId = Profiles.current(this).id;
@@ -1360,13 +1327,6 @@ public class SettingsActivity extends Activity {
                         promptRentalUrl();
                     }
                 });
-        infoRowDynamic("État du calendrier", () -> RentalReset.getFetchStatus(this), null);
-        infoRowDynamic("Prochains départs",
-                () -> {
-                    List<String> d = RentalReset.upcomingDepartures(this, 3);
-                    if (!RentalReset.isEnabled(this)) return "—";
-                    return d.isEmpty() ? "Aucun départ à venir" : android.text.TextUtils.join("  ·  ", d);
-                }, null);
         row("Heure de check-out",
                 () -> RentalReset.getCheckoutHour(this) + "h"
                         + (VillaFolder.isForced(this, VillaFolder.K_CHECKOUT) ? " (config.txt)" : ""),
@@ -1381,13 +1341,6 @@ public class SettingsActivity extends Activity {
                 });
         infoRowDynamic("Dernier départ traité",
                 () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
-        row("Simuler un départ au prochain allumage",
-                () -> RentalReset.isDepartureSimulated(this) ? "Prévu ✓" : "›",
-                () -> {
-                    RentalReset.simulateDepartureOnNextWake(this);
-                    refreshAll();
-                    showStatusMsg("Mets la TV en veille puis rallume-la : les comptes seront déconnectés.");
-                });
         row("Déconnecter les comptes maintenant", () -> "›", () -> {
             showStatusMsg("Déconnexion en cours…");
             RentalReset.forceNow(this, () -> {
@@ -1397,23 +1350,6 @@ public class SettingsActivity extends Activity {
                 }
             });
         });
-        row("Clavier à l'écran (ajouter le français AZERTY)", () -> "›", () -> {
-            try {
-                startActivity(new Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            } catch (Throwable t) {
-                showStatusMsg("Réglages du clavier introuvables.");
-            }
-        });
-        row("Boutons en haut à droite de l'accueil",
-                () -> {
-                    int m = MainActivity.getStatusMode(this);
-                    return m == 0 ? "Tout afficher" : m == 1 ? "Heure seule" : "Masqués";
-                },
-                () -> {
-                    MainActivity.setStatusMode(this, (MainActivity.getStatusMode(this) + 1) % 3);
-                    refreshAll();
-                });
         row("Installer les applis manquantes",
                 () -> {
                     List<String[]> m = MainActivity.villaMissing(this);
@@ -1435,28 +1371,6 @@ public class SettingsActivity extends Activity {
                         showStatusMsg("Play Store introuvable.");
                     }
                 });
-        row("Verrouillage invités (appui long 7 s sur OK depuis l'accueil)",
-                () -> GuestLock.isEnabled(this) ? "Activé" : "Désactivé",
-                () -> {
-                    boolean on = !GuestLock.isEnabled(this);
-                    GuestLock.setEnabled(this, on);
-                    refreshAll();
-                    showStatusMsg(on ? "Verrouillage activé (dans 10 minutes). Pour le mode admin : appui long 7 secondes sur OK depuis l'accueil."
-                            : "Verrouillage désactivé.");
-                });
-        infoNote("Au premier allumage après chaque départ (date de départ + heure de check-out), "
-                + "Netflix, Prime Video, Disney+ et HBO Max sont réinitialisés une seule fois. "
-                + "Nécessite le mode ADB persistant.");
-
-        section("DIAGNOSTIC");
-        {
-            android.content.SharedPreferences vp = getSharedPreferences("villa", MODE_PRIVATE);
-            infoRowDynamic("ADB local", () -> LocalAdb.isPaired(this) ? "✓ autorisé" : "✗ non autorisé", null);
-            infoRowDynamic("Appli d'appairage", () -> vp.getString("pairing_disabled", "—"), null);
-            infoRowDynamic("Appairage bloqué", () -> vp.getString("pairing_blocked", "—"), null);
-            String ls = vp.getString("last_screens", "");
-            if (!ls.isEmpty()) infoNote("Derniers écrans affichés :\n" + ls);
-        }
     }
 
     private void promptRenamePerson(Profiles.Profile p, int rowIdx) {
@@ -1732,17 +1646,9 @@ public class SettingsActivity extends Activity {
         row(tr("Pair / Repair ADB connection", "ADB bağlantısını eşleştir / onar"),
                 () -> LocalAdb.isPaired(this) ? tr("Repair", "Onar") : tr("Pair now", "Şimdi eşleştir"),
                 this::pairOrRepairAdb);
-        row(tr("Turn On / Off ADB", "ADB'yi Aç / Kapat"),
-                () -> (LocalAdb.isAdbSettingEnabled(this) || LocalAdb.portReachable)
-                        ? tr("On", "Açık")
-                        : tr("Off", "Kapalı"),
-                this::toggleAdbPort);
         row(tr("Check permissions", "İzinleri kontrol et"),
                 this::permissionsSummaryCount,
                 () -> openSubMenu("check_permissions"));
-        row(tr("Remove / revoke all permissions", "Tüm izinleri kaldır / geri al"),
-                () -> tr("Revoke ›", "Kaldır ›"),
-                this::confirmRevokeAllPermissions);
 
         section(tr("STARTUP & KEEP ALIVE", "BAŞLANGIÇ VE KEEP ALIVE"));
         row(tr("Launch automatically on system boot", "Sistem açılışında otomatik başlat"),
@@ -1761,48 +1667,14 @@ public class SettingsActivity extends Activity {
                 () -> LocalAdb.isKeepAliveEnabled(this) ? tr("On (Default)", "Açık (Varsayılan)") : tr("Off", "Kapalı"),
                 this::toggleKeepAliveWithWarning);
 
-        infoNote(tr("Security Note: Keep Alive is enabled by default. In Secure Mode, tvOS Launcher uses WRITE_SECURE_SETTINGS to restore Accessibility directly in-process without touching ADB (even if ADB is enabled on the TV). In Persistent ADB Mode, Keep Alive can also use Local ADB on port 5555.",
-                "Güvenlik Notu: Keep Alive varsayılan olarak açıktır. Güvenli Mod'da tvOS Launcher, ADB'yi hiç kullanmadan (TV'de ADB açık olsa bile) Erişilebilirliği doğrudan WRITE_SECURE_SETTINGS ile onarır. Kalıcı ADB Modu'nda ise port 5555 üzerinden yerel ADB'yi de kullanabilir."));
 
         section(tr("CLEANYOURTV (BETA)", "CLEANYOURTV (BETA)"));
-        twoLineRow(tr("Choose TV model", "TV modelini seçin"),
-                () -> CleanYourTv.getSelectedModelSummary(this),
-                () -> {
-                    cytAutoContinueToDebloat = false;
-                    openSubMenu("cyt_models");
-                });
-        row(tr("Debloat status", "Debloat durumu"),
-                () -> advDebloatSummary != null ? advDebloatSummary : "…",
-                () -> openSubMenu("cyt_saved"));
-        row(tr("Debloat TV…", "TV Debloat Başlat…"),
-                () -> tr("Start ›", "Başlat ›"),
-                () -> {
-                    if (CleanYourTv.getSelectedModelSlug(this).isEmpty()) {
-                        cytAutoContinueToDebloat = true;
-                        openSubMenu("cyt_models");
-                    } else {
-                        cytChecklistItems = null;
-                        openSubMenu("cyt_debloat");
-                    }
-                });
         row(tr("Disable system launchers…", "Sistem başlatıcılarını devre dışı bırak…"),
                 () -> advLaunchersSummary != null ? advLaunchersSummary : "…",
                 () -> openSubMenu("cyt_launchers"));
-        row(tr("Manual debloat (All system apps)…", "Manuel debloat (Tüm sistem uygulamaları)…"),
-                () -> tr("Advanced ›", "Gelişmiş ›"),
-                this::promptManualDebloatWarning);
-        row(tr("Disabled apps backup", "Devre dışı bırakılan uygulamalar kaydı"),
-                () -> advSavedSummary != null ? advSavedSummary : "…",
-                () -> openSubMenu("cyt_saved"));
         row(tr("Restore debloated apps…", "Debloat edilen uygulamaları geri yükle…"),
                 () -> tr("Restore ›", "Geri Yükle ›"),
                 () -> openSubMenu("cyt_restore"));
-        row(tr("Ad-blocking Private DNS (AdGuard)", "Reklam engelleyici Özel DNS (AdGuard)"),
-                () -> CleanYourTv.isAdguardDnsActive(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> CleanYourTv.toggleAdguardDns(this, this::refreshAll));
-
-        infoNote(tr("CleanYourTV (Beta) runs the CleanYourTV debloat profiles directly on your TV over Local ADB without needing a PC. Choose your TV model (or scan by installed system app packages), disable stock launchers or bloatware, and restore them anytime with one tap.",
-                "CleanYourTV (Beta), bilgisayara ihtiyaç duymadan CleanYourTV debloat profillerini Yerel ADB üzerinden doğrudan TV'nizde çalıştırır. TV modelinizi seçin (veya yüklü sistem uygulaması paketlerine göre tarayın), stok başlatıcıları veya gereksiz uygulamaları devre dışı bırakın ve istediğiniz zaman tek dokunuşla geri yükleyin."));
 
         // Expensive PackageManager scans (launchers, debloat status) run off the UI thread so the
         // page's first frames aren't blocked; rows show "…" until the values arrive.
