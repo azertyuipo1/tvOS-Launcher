@@ -73,7 +73,8 @@ public class SettingsActivity extends Activity {
 
     private static final String[][] SIDEBAR_SECTIONS = {
         {PROFILES, "house"},
-        {ADVANCED, "shield"}
+        {ADVANCED, "shield"},
+        {ABOUT, "info"}
     };
 
     private TextView sideTitleView;
@@ -235,14 +236,14 @@ public class SettingsActivity extends Activity {
             case LOCATION:
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
             case APPS: return tr("Apps", "Uygulamalar");
-            case PROFILES: return "Maison";
+            case PROFILES: return "Villa";
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
             case BUTTON_MAPPER: return tr("Button mapper", "Düğme eşleyici");
             case QUICK: return tr("Quick settings", "Hızlı ayarlar");
             case LANGUAGE: return tr("Language", "Dil");
-            case ADVANCED: return tr("Advanced", "Gelişmiş");
+            case ADVANCED: return "Avancés";
             case UPDATES: return tr("Updates", "Güncellemeler");
-            case ABOUT: return tr("About", "Hakkında");
+            case ABOUT: return "À propos";
             default: return sec;
         }
     }
@@ -1247,47 +1248,14 @@ public class SettingsActivity extends Activity {
 
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
-        section("RÉSUMÉ");
-        infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
-        infoRowDynamic("Dossier", () -> VillaFolder.isConfigured(this)
-                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configuré", null);
-        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
-        infoRowDynamic("Prochain départ", () -> {
-            List<String> d = RentalReset.upcomingDepartures(this, 1);
-            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
-        }, null);
-        infoRowDynamic("Dernière déconnexion",
-                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
-
-        section("DOSSIER DE LA VILLA");
-        row("Adresse du dossier",
-                () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configuré") + "  ›",
+        section("CONFIGURATION EN LIGNE");
+        row("Adresse",
+                () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configurée") + "  ›",
                 this::promptFolderUrl);
-        row("Relire le dossier maintenant", () -> "›", this::checkFolderNow);
-        infoNote("Déposez dans ce dossier :\n"
-                + "• background.jpg : l'image d'arrière-plan (idéalement 1920 × 1080).\n"
-                + "• config.txt : les réglages de la villa, une ligne par réglage.");
-        section("NOM DE LA VILLA (si absent de config.txt)");
-        List<Profiles.Profile> ps = Profiles.list(this);
-        String curId = Profiles.current(this).id;
-        for (int i = 0; i < ps.size(); i++) {
-            final Profiles.Profile p = ps.get(i);
-            boolean isActive = p.id.equals(curId);
-            choiceRow(
-                    I18n.profileName(this, p.name),
-                    isActive ? tr("Watching now · OK to switch or rename", "Şu an izliyor · Değiştirmek veya yeniden adlandırmak için OK")
-                             : tr("OK to switch or edit", "Geçiş yapmak veya düzenlemek için OK"),
-                    isActive,
-                    () -> openSubMenu("profile_actions:" + p.id));
-        }
-        // Villa : un seul profil (le nom de la villa) ; pas d'ajout ni d'options multi-profils.
-        if (ps.isEmpty() && Profiles.canAdd(this)) {
-            row(tr("Add a person…", "Kişi ekle…"), () -> "›", this::promptAddPerson);
-        }
-
-        if (VillaFolder.isForced(this, VillaFolder.K_NAME)) {
-            infoNote("Nom affiché à l'accueil : « " + VillaFolder.villaName(this) + " » (imposé par config.txt).");
-        }
+        row("Recharger la configuration", () -> "›", this::checkFolderNow);
+        infoNote("La TV lit ses réglages dans ce dossier web :\n"
+                + "• config.txt : les réglages de la villa, une ligne par réglage.\n"
+                + "• background.jpg : la photo de l'accueil (idéalement 1920 × 1080).");
 
         section("APPLIS DE L'ACCUEIL");
         {
@@ -1296,7 +1264,7 @@ public class SettingsActivity extends Activity {
             for (int i = 0; i < va.length; i++) {
                 final String[] app = va[i];
                 final boolean miss = missing.contains(app);
-                row((i + 1) + ". " + app[0], () -> miss ? "À installer ›" : "✓ installée", () -> {
+                row((i + 1) + ". " + app[0], () -> miss ? "À installer ›" : "✓ Installée", () -> {
                     if (!miss) return;
                     android.net.Uri uri = app[1].isEmpty()
                             ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
@@ -1308,69 +1276,12 @@ public class SettingsActivity extends Activity {
                     }
                 });
             }
-            infoNote(VillaFolder.isForced(this, VillaFolder.K_APPS) || !VillaFolder.appLines(this).isEmpty()
-                    ? "Liste et ordre définis par config.txt."
-                    : "Liste par défaut. Pour la changer, ajoutez une ligne « applis: » dans config.txt.");
+            infoNote("Liste et ordre définis dans config.txt.");
         }
-        section("MODE LOCATION");
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
         }
-        row("Calendrier des réservations",
-                () -> VillaFolder.isForced(this, VillaFolder.K_CALENDAR) ? "config.txt"
-                        : !RentalReset.getTvUrl(this).isEmpty() ? "Saisi sur la TV ›" : "Non configuré ›",
-                () -> {
-                    if (VillaFolder.isForced(this, VillaFolder.K_CALENDAR)) {
-                        showStatusMsg("Le calendrier est imposé par config.txt : modifiez-le dans le dossier de la villa.");
-                    } else {
-                        promptRentalUrl();
-                    }
-                });
-        row("Heure de check-out",
-                () -> RentalReset.getCheckoutHour(this) + "h"
-                        + (VillaFolder.isForced(this, VillaFolder.K_CHECKOUT) ? " (config.txt)" : ""),
-                () -> {
-                    if (VillaFolder.isForced(this, VillaFolder.K_CHECKOUT)) {
-                        showStatusMsg("L'heure de check-out est imposée par config.txt.");
-                        return;
-                    }
-                    int h = RentalReset.getTvCheckoutHour(this) + 1;
-                    RentalReset.setCheckoutHour(this, h > 15 ? 10 : h);
-                    refreshAll();
-                });
-        infoRowDynamic("Dernier départ traité",
-                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
-        row("Déconnecter les comptes maintenant", () -> "›", () -> {
-            showStatusMsg("Déconnexion en cours…");
-            RentalReset.forceNow(this, () -> {
-                if (!isFinishing()) {
-                    refreshAll();
-                    showStatusMsg(RentalReset.getLastResult(this));
-                }
-            });
-        });
-        row("Installer les applis manquantes",
-                () -> {
-                    List<String[]> m = MainActivity.villaMissing(this);
-                    if (m.isEmpty()) return "Toutes installées";
-                    StringBuilder sb = new StringBuilder();
-                    for (String[] a : m) sb.append(sb.length() > 0 ? ", " : "").append(a[0]);
-                    return sb + " ›";
-                },
-                () -> {
-                    List<String[]> m = MainActivity.villaMissing(this);
-                    if (m.isEmpty()) return;
-                    String[] app = m.get(0);
-                    android.net.Uri uri = app[1].isEmpty()
-                            ? android.net.Uri.parse("market://search?q=" + android.net.Uri.encode(app[0]))
-                            : android.net.Uri.parse("market://details?id=" + app[1]);
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                    } catch (Throwable t) {
-                        showStatusMsg("Play Store introuvable.");
-                    }
-                });
     }
 
     private void promptRenamePerson(Profiles.Profile p, int rowIdx) {
@@ -1636,7 +1547,17 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAdvanced() {
-        section(tr("ADB & SECURITY MODE", "ADB VE GÜVENLİK MODU"));
+        section("COMPTES DES CLIENTS");
+        row("Déconnecter les comptes maintenant", () -> "›", () -> {
+            showStatusMsg("Déconnexion en cours…");
+            RentalReset.forceNow(this, () -> {
+                if (!isFinishing()) {
+                    refreshAll();
+                    showStatusMsg(RentalReset.getLastResult(this));
+                }
+            });
+        });
+        section("ADB ET AUTORISATIONS");
         twoLineRow(tr("ADB operating mode", "ADB çalışma modu"),
                 () -> LocalAdb.getAdbModeLabel(this),
                 this::showAdbModeSelectorDialog);
@@ -1650,7 +1571,7 @@ public class SettingsActivity extends Activity {
                 this::permissionsSummaryCount,
                 () -> openSubMenu("check_permissions"));
 
-        section(tr("STARTUP & KEEP ALIVE", "BAŞLANGIÇ VE KEEP ALIVE"));
+        section("DÉMARRAGE");
         row(tr("Launch automatically on system boot", "Sistem açılışında otomatik başlat"),
                 () -> com.techgenius.tvoslauncher.present.BootReceiver.isLaunchOnBootEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
                 () -> {
@@ -1668,7 +1589,7 @@ public class SettingsActivity extends Activity {
                 this::toggleKeepAliveWithWarning);
 
 
-        section(tr("CLEANYOURTV (BETA)", "CLEANYOURTV (BETA)"));
+        section("ACCUEIL D'ORIGINE DE LA TV");
         row(tr("Disable system launchers…", "Sistem başlatıcılarını devre dışı bırak…"),
                 () -> advLaunchersSummary != null ? advLaunchersSummary : "…",
                 () -> openSubMenu("cyt_launchers"));
@@ -1800,30 +1721,22 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAbout() {
-        section(tr("APPLICATION", "UYGULAMA"));
-        infoRow(tr("Home screen", "Ana ekran"), "tvOS Launcher", null);
-        infoRow(tr("Developer", "Geliştirici"), "techgenius", null);
-        infoRow(tr("Version", "Sürüm"), version(), null);
-        infoRow(tr("Settings kept", "Ayarların saklandığı yer"), tr("On this TV", "Bu TV'de"), null);
-
-        section(tr("BACKUP & RESTORE", "YEDEKLEME VE GERİ YÜKLEME"));
-        row(tr("Backup settings to Download", "Ayarları Download klasörüne yedekle"),
-                () -> "Download/" + CustomMedia.SETTINGS_BACKUP_FILENAME,
-                () -> CustomMedia.backupSettingsToDownload(this, this::refreshAll));
-        row(tr("Restore settings from folder…", "Klasörden ayarları geri yükle…"),
-                () -> tr("Choose folder ›", "Klasör seç ›"),
-                () -> CustomMedia.showRestoreSettingsPicker(this, this::refreshAll));
-
-        section(tr("RESET", "SIFIRLAMA"));
-        row(tr("Reset settings to defaults", "Ayarları varsayılana sıfırla"),
-                () -> "",
-                () -> new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                        .setTitle(tr("Reset settings?", "Ayarlar sıfırlansın mı?"))
-                        .setMessage(tr("This resets look, scenes, clock and language settings back to defaults.",
-                                "Bu işlem görünüm, sahne, saat ve dil ayarlarını varsayılana sıfırlar."))
-                        .setPositiveButton(tr("Reset", "Sıfırla"), (d, w) -> resetAllAppDataAndReturnToSetup())
-                        .setNegativeButton(tr("Cancel", "İptal"), null)
-                        .show());
+        infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
+        infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
+                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
+        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Prochain départ", () -> {
+            List<String> d = RentalReset.upcomingDepartures(this, 1);
+            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
+        }, null);
+        infoRowDynamic("Dernier départ traité",
+                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+        if (!rentalCalendarRefreshed) {
+            rentalCalendarRefreshed = true;
+            RentalReset.refreshCalendar(this, () -> { if (!isFinishing()) refreshAll(); });
+        }
     }
 
     /**

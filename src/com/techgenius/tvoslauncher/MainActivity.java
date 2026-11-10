@@ -1209,10 +1209,7 @@ public class MainActivity extends Activity {
                 launchAnimated(v, a);
             }
         });
-        tile.setOnLongClickListener(v -> {
-            if (moveIndex < 0 && !FOLDER_KEY.equals(a.key)) showOptions(index);
-            return true;
-        });
+        tile.setOnLongClickListener(v -> true); // villa : aucun menu sur les applis
         tiles.add(tile);
         return cell;
     }
@@ -3441,7 +3438,7 @@ public class MainActivity extends Activity {
         if (k == KeyEvent.KEYCODE_MENU) {
             if (!down) {
                 int i = tiles.indexOf(getCurrentFocus());
-                if (i >= 0 && !FOLDER_KEY.equals(shown.get(i).key)) showOptions(i);
+                // villa : touche Menu sans effet sur les applis
             }
             return true;
         }
@@ -3912,15 +3909,7 @@ public class MainActivity extends Activity {
         int h = Math.round(pad * 2 + Math.max(qs, textH));
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
-        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bg.setColor(0x8C161618);
-        float sw = Math.max(1f, u);
-        RectF r = new RectF(sw / 2, sw / 2, w - sw / 2, h - sw / 2);
-        cv.drawRoundRect(r, radius, radius, bg);
-        bg.setStyle(Paint.Style.STROKE);
-        bg.setStrokeWidth(sw);
-        bg.setColor(0x46FFFFFF);
-        cv.drawRoundRect(r, radius, radius, bg);
+        // Fond : le même verre que le dock (posé en arrière-plan de la vue), sans bordure.
         float qy = (h - qs) / 2f;
         Paint white = new Paint(Paint.ANTI_ALIAS_FLAG);
         white.setColor(Color.WHITE);
@@ -3995,13 +3984,17 @@ public class MainActivity extends Activity {
         boolean show = !ssid.isEmpty() && !scenes && !admin
                 && RentalReset.isWifiDay(stay, VillaFolder.get(this, VillaFolder.K_WIFI_SHOW));
         if (show) {
-            String key = ssid + "\n" + pass + "\n" + screenW;
+            String key = ssid + "\n" + pass + "\n" + screenW + "\n" + System.identityHashCode(glassSource);
             if (!key.equals(wifiCardKey)) {
                 QrCode q = QrCode.encode(QrCode.wifiPayload(ssid, pass));
                 if (q == null) show = false;
                 else {
                     Bitmap card = drawWifiCard(q, ssid, pass);
                     wifiCard.setImageBitmap(card);
+                    LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), 0x14FFFFFF, glassSource, screenW, screenH, unit);
+                    g.lens = dp(8);
+                    g.rimStrength = 0f;
+                    wifiCard.setBackground(g);
                     FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
                     lp.width = card.getWidth();
                     lp.height = card.getHeight();
