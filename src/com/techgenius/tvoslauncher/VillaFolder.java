@@ -113,7 +113,8 @@ final class VillaFolder {
         if (!isShortName(b)) { l.add(b); return l; }
         String r = prefs(c).getString(P_RESOLVED, "");
         if (!r.isEmpty()) l.add(r);
-        for (String x : new String[]{ SHORT_HOST + "villas/" + b + "/tv", SHORT_HOST + b + "/tv" }) {
+        // « clo » → …/clo/tv ; autre code (ex. « ads ») → …/villas/tv/ads (variante …/villas/ads/tv acceptée).
+        for (String x : new String[]{ SHORT_HOST + "villas/tv/" + b, SHORT_HOST + "villas/" + b + "/tv", SHORT_HOST + b + "/tv" }) {
             if (!l.contains(x)) l.add(x);
         }
         return l;

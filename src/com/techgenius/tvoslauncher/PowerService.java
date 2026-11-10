@@ -824,11 +824,27 @@ public class PowerService extends AccessibilityService {
         }
     }
 
+    private long backDownAt = 0;
+    private boolean backHomeFired = false;
+
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
         int code = event.getKeyCode();
         if (GuestLock.onAnyKey(this, event)) return true;
+        // Appui long de 2 s sur Retour = Accueil (pratique avec la télécommande de la TV, dont le bouton
+        // Accueil n'arrive pas toujours au boîtier).
+        if (code == KeyEvent.KEYCODE_BACK) {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (event.getRepeatCount() == 0) { backDownAt = now; backHomeFired = false; }
+                else if (!backHomeFired && now - backDownAt >= 2000) { backHomeFired = true; GuestLock.bounceHome(this); return true; }
+                if (backHomeFired) return true;
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                if (backHomeFired) { backHomeFired = false; return true; }
+                if (backDownAt > 0 && now - backDownAt >= 2000) { backDownAt = 0; GuestLock.bounceHome(this); return true; }
+            }
+        }
         if (event.getAction() == KeyEvent.ACTION_DOWN
                 && event.getRepeatCount() == 0
                 && (code == KeyEvent.KEYCODE_BACK
