@@ -4109,19 +4109,22 @@ public class MainActivity extends Activity {
         String villa = VillaFolder.villaName(this);
         RentalReset.Stay stay = RentalReset.currentStay(this);
         boolean guest = stay != null && !stay.name.isEmpty();
-        // Sans nom de client (pas de calendrier, pas de séjour, ou calendrier ICS) : salutation sans virgule
-        // au-dessus du nom de la villa — « Good evening » / « Villa l'Enclos ».
+        // Sans nom de client (pas de calendrier, pas de séjour, ou calendrier ICS) : même style, la salutation
+        // prend la place du nom — « VILLA L'ENCLOS » / « Good evening » ou « Thank you for staying with us. »
         boolean anonStay = !guest && !villa.isEmpty();
+        eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
         if (guest) {
-            eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
             welcomeLine.setText(RentalReset.greeting(this, stay));
             profileTitle.setText(stay.name.replaceAll("\\.+$", ""));
+        } else if (anonStay) {
+            String g = RentalReset.greeting(this, stay).replaceAll(",\\s*$", "");
+            if (g.startsWith("Thank you")) g += ".";
+            profileTitle.setText(g);
         } else {
-            if (anonStay) welcomeLine.setText(RentalReset.greeting(this, stay).replaceAll(",\\s*$", ""));
             profileTitle.setText(villa);
         }
-        eyebrow.setVisibility(guest && !villa.isEmpty() && !scenes ? View.VISIBLE : View.GONE);
-        welcomeLine.setVisibility((guest || anonStay) && !scenes ? View.VISIBLE : View.GONE);
+        eyebrow.setVisibility((guest || anonStay) && !villa.isEmpty() && !scenes ? View.VISIBLE : View.GONE);
+        welcomeLine.setVisibility(guest && !scenes ? View.VISIBLE : View.GONE);
         profileTitle.setVisibility(profileTitle.length() == 0 || scenes ? View.GONE : View.VISIBLE);
         if (bigClock != null) {
             java.util.Date now = new java.util.Date();
@@ -4132,7 +4135,8 @@ public class MainActivity extends Activity {
             bigClock.setText(cs);
             bigDate.setText(new java.text.SimpleDateFormat("EEEE, MMMM d", java.util.Locale.US).format(now));
             boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
-            clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
+            boolean clockOn = !VillaFolder.get(this, VillaFolder.K_CLOCK).toLowerCase(java.util.Locale.ROOT).matches("non|no|0|off");
+            clockColView.setVisibility(scenes || admin || !clockOn ? View.GONE : View.VISIBLE);
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
         }
@@ -5881,7 +5885,10 @@ public class MainActivity extends Activity {
         if (searchButton != null) searchButton.setVisibility(buttons);
         if (ccButton != null) ccButton.setVisibility(buttons);
         for (View v : adminPills) v.setVisibility(admin ? View.VISIBLE : View.GONE);
-        if (clockColView != null) clockColView.setVisibility(admin || Scenes.isScenesLook(this) ? View.GONE : View.VISIBLE);
+        if (clockColView != null) {
+            boolean clockOn = !VillaFolder.get(this, VillaFolder.K_CLOCK).toLowerCase(java.util.Locale.ROOT).matches("non|no|0|off");
+            clockColView.setVisibility(admin || !clockOn || Scenes.isScenesLook(this) ? View.GONE : View.VISIBLE);
+        }
         if (m == 0) refreshAvatar();
         else if (avatarView != null) avatarView.setVisibility(View.GONE);
     }
