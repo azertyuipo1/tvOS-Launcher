@@ -38,7 +38,7 @@ final class VillaFolder {
     static final String K_CLOCK = "affichage_heure";  // « affichage_heure: oui | non » (heure et date de l'accueil)        // « fuseau_horaire: America/La_Paz » (GMT-4 par défaut)
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
-    private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cHM6Ly93d3cuc2JoLWhvc3QuZnIv", 0), StandardCharsets.UTF_8);
+    private static final String SHORT_HOST = new String(android.util.Base64.decode("aHR0cDovL3NiaC1ob3N0LmNvbS8=", 0), StandardCharsets.UTF_8);
     private static final String P_RESOLVED = "folder_resolved";
     private static final String PREFS = "villa";
     private static final String P_BASE = "folder_url";
