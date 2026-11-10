@@ -1896,6 +1896,16 @@ public class SettingsActivity extends Activity {
         infoRowDynamic("Serveur de la villa", () -> serverDiag, null);
         infoRowDynamic("IP publique de la TV", () -> publicIp, null);
         if (!serverDiagRun) { serverDiagRun = true; runServerDiag(); }
+        infoRowDynamic("Derniers écrans", () -> {
+            String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < Math.min(l.length, 3); i++) {
+                if (l[i].isEmpty()) continue;
+                if (sb.length() > 0) sb.append("\n");
+                sb.append(l[i].length() > 60 ? "…" + l[i].substring(l[i].length() - 59) : l[i]);
+            }
+            return sb.length() == 0 ? "—" : sb.toString();
+        }, null);
         infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
         infoRowDynamic("Prochain départ", () -> {
             List<String> d = RentalReset.upcomingDepartures(this, 1);
