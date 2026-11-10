@@ -908,6 +908,9 @@ public class MainActivity extends Activity {
             @Override
             protected void onDraw(Canvas cv) {
                 int w = getWidth(), h = getHeight();
+                // « luminosite_photo » (config.txt, 40 à 100 %) : assombrit la photo si la TV la rend trop claire.
+                int lum = VillaFolder.photoBrightness(getContext());
+                if (lum < 100) cv.drawColor(Math.round((100 - lum) * 2.55f) << 24);
                 // Les voiles s'arrêtent avant le dock (≈ 62 % de la hauteur).
                 drawVeil(cv, w * 0.0f, h * 0.33f, w * 0.57f, h * 0.29f, 0xAA000000);
                 drawVeil(cv, w * 1.0f, h * 0.27f, w * 0.47f, h * 0.30f, 0xA0000000);
@@ -3872,7 +3875,7 @@ public class MainActivity extends Activity {
      */
     private Bitmap drawWifiCard(QrCode q, String ssid, String pass) {
         float u = Ui.unit(this);
-        float pad = 9 * u, gap = 13 * u, qs = 75 * u, radius = 15 * u; // même marge sur les 4 côtés
+        float pad = 7 * u, gap = 12 * u, qs = 75 * u, radius = 14 * u; // même marge sur les 4 côtés
         Paint lab = new Paint(Paint.ANTI_ALIAS_FLAG);
         lab.setTypeface(Ui.font(this, "semibold"));
         lab.setTextSize(9 * u);
@@ -3992,7 +3995,7 @@ public class MainActivity extends Activity {
                     Bitmap card = drawWifiCard(q, ssid, pass);
                     wifiCard.setImageBitmap(card);
                     LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), 0x14FFFFFF, glassSource, screenW, screenH, unit);
-                    g.lens = dp(8);
+                    g.lens = dp(3);
                     g.rimStrength = 0f;
                     g.adaptive().darker(0x48); // verre du dock, mais jamais trop clair : le texte reste lisible
                     wifiCard.setBackground(g);
@@ -4095,6 +4098,7 @@ public class MainActivity extends Activity {
             clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
+            if (scrimView != null) scrimView.invalidate(); // luminosité de la photo (config.txt)
         }
     }
 

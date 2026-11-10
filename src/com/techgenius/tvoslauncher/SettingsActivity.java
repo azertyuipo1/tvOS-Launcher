@@ -1253,6 +1253,7 @@ public class SettingsActivity extends Activity {
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configurée") + "  ›",
                 this::promptFolderUrl);
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
+        infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
         infoNote("La TV lit ses réglages dans ce dossier web :\n"
                 + "• config.txt : les réglages de la villa, une ligne par réglage.\n"
                 + "• background.jpg : la photo de l'accueil (idéalement 1920 × 1080).");
@@ -1547,7 +1548,7 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAdvanced() {
-        section("COMPTES DES CLIENTS");
+        section("COMPTES STREAMING DES CLIENTS");
         row("Déconnecter les comptes maintenant", () -> "›", () -> {
             showStatusMsg("Déconnexion en cours…");
             RentalReset.forceNow(this, () -> {
