@@ -96,7 +96,7 @@ final class VillaFolder {
     static String serverHost(Context c) {
         try {
             String b = getBase(c);
-            if (isShortName(b)) { String r = prefs(c).getString(P_RESOLVED, ""); b = r.isEmpty() ? SHORT_HOST : r; }
+            if (isShortName(b)) b = shortUrl(b);
             if (b.isEmpty()) b = SHORT_HOST;
             return new URL(b).getHost();
         } catch (Throwable t) { return ""; }
@@ -145,7 +145,7 @@ final class VillaFolder {
     }
 
     /**
-     * Saisie : soit un simple nom (« clo »), cherché dans villas/clo/tv puis clo/tv sur l'hébergement
+     * Saisie : soit un simple nom (« clo »), lu dans villas-tv/clo sur l'hébergement
      * par défaut, soit une adresse complète https://…
      */
     static void setBase(Context c, String url) {
@@ -174,19 +174,17 @@ final class VillaFolder {
         }
     }
 
+    /** Emplacement unique des villas saisies par leur nom court : …/villas-tv/<nom>. */
+    static String shortUrl(String name) { return SHORT_HOST + "villas-tv/" + name; }
+
     /** Dossiers possibles, dans l'ordre d'essai (le dernier trouvé en premier). */
     private static java.util.List<String> candidates(Context c) {
         java.util.List<String> l = new java.util.ArrayList<>();
         String b = getBase(c);
         if (b.isEmpty()) return l;
         if (!isShortName(b)) { l.add(b); return l; }
-        String r = prefs(c).getString(P_RESOLVED, "");
-        // Dossier déjà trouvé : on n'interroge que lui (pas d'essais sur les autres adresses possibles).
-        if (!r.isEmpty()) { l.add(r); return l; }
-        // « clo » → …/clo/tv ; autre code (ex. « ads ») → …/villas/tv/ads (variante …/villas/ads/tv acceptée).
-        for (String x : new String[]{ SHORT_HOST + "villas/tv/" + b, SHORT_HOST + "villas/" + b + "/tv", SHORT_HOST + b + "/tv" }) {
-            if (!l.contains(x)) l.add(x);
-        }
+        // Nom court : un seul emplacement, aucune recherche.
+        l.add(shortUrl(b));
         return l;
     }
 
@@ -197,10 +195,7 @@ final class VillaFolder {
         while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
         if (u.isEmpty()) return l;
         if (u.matches("[A-Za-z0-9_-]+")) {
-            String b = u.toLowerCase(Locale.ROOT);
-            l.add(SHORT_HOST + "villas/tv/" + b);
-            l.add(SHORT_HOST + "villas/" + b + "/tv");
-            l.add(SHORT_HOST + b + "/tv");
+            l.add(shortUrl(u.toLowerCase(Locale.ROOT)));
         } else {
             l.add(u.matches("(?i)^https?://.*") ? u : "https://" + u);
         }
@@ -211,7 +206,7 @@ final class VillaFolder {
     static String fileUrl(Context c, String name) {
         String b = getBase(c);
         if (b.isEmpty()) return "";
-        if (isShortName(b)) b = prefs(c).getString(P_RESOLVED, "");
+        if (isShortName(b)) b = shortUrl(b);
         return b.isEmpty() ? "" : b + "/" + name;
     }
 
