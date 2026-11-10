@@ -1307,8 +1307,6 @@ public class SettingsActivity extends Activity {
                 this::promptFolderUrl);
         row("Configurer avec le téléphone (QR code)", () -> "›",
                 () -> VillaSetup.showPhoneSetup(this, this::checkFolderNow));
-        row("Associer depuis reglages.php (code)", () -> "›",
-                () -> VillaSetup.showPairCode(this, this::checkFolderNow));
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
         {
