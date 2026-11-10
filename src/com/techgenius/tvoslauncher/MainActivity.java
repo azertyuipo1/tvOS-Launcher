@@ -3872,7 +3872,7 @@ public class MainActivity extends Activity {
      */
     private Bitmap drawWifiCard(QrCode q, String ssid, String pass) {
         float u = Ui.unit(this);
-        float pad = 11 * u, gap = 14 * u, qs = 75 * u, radius = 15 * u;
+        float pad = 9 * u, gap = 13 * u, qs = 75 * u, radius = 15 * u; // même marge sur les 4 côtés
         Paint lab = new Paint(Paint.ANTI_ALIAS_FLAG);
         lab.setTypeface(Ui.font(this, "semibold"));
         lab.setTextSize(9 * u);
@@ -3905,7 +3905,7 @@ public class MainActivity extends Activity {
             Paint.FontMetrics fm = paints[k].getFontMetrics();
             textH += before[k] + (fm.descent - fm.ascent);
         }
-        int w = Math.round(pad + qs + gap + textW + pad * 1.4f);
+        int w = Math.round(pad + qs + gap + textW + pad);
         int h = Math.round(pad * 2 + Math.max(qs, textH));
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
@@ -3994,6 +3994,7 @@ public class MainActivity extends Activity {
                     LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), 0x14FFFFFF, glassSource, screenW, screenH, unit);
                     g.lens = dp(8);
                     g.rimStrength = 0f;
+                    g.adaptive().darker(0x48); // verre du dock, mais jamais trop clair : le texte reste lisible
                     wifiCard.setBackground(g);
                     FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
                     lp.width = card.getWidth();
