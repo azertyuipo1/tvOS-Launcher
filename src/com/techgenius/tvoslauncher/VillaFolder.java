@@ -101,8 +101,20 @@ final class VillaFolder {
         while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
         if (u.matches("[A-Za-z0-9_-]+")) u = u.toLowerCase(Locale.ROOT);
         else if (!u.isEmpty() && !u.matches("(?i)^https?://.*")) u = "https://" + u;
+        String old = prefs(c).getString(P_BASE, "");
         prefs(c).edit().putString(P_BASE, u).remove(P_CONFIG).remove(P_STATUS).remove(P_RESOLVED)
                 .remove("bg_etag").remove("bg_lastmod").apply();
+        if (!u.equals(old)) {
+            // Nouvelle villa : rien ne doit rester de l'ancienne (clients, calendrier, photo, nom).
+            RentalReset.forgetVilla(c);
+            try { RemoteWallpaper.file(c).delete(); } catch (Throwable ignored) { }
+            prefs(c).edit().remove("bg_status").apply();
+            try {
+                Profiles.Profile p = Profiles.current(c);
+                p.name = isShortName(u) ? u.toUpperCase(Locale.ROOT) : "";
+                Profiles.update(c, p);
+            } catch (Throwable ignored) { }
+        }
     }
 
     /** Dossiers possibles, dans l'ordre d'essai (le dernier trouvé en premier). */
@@ -163,6 +175,12 @@ final class VillaFolder {
     static String villaName(Context c) {
         String n = get(c, K_NAME);
         if (!n.isEmpty()) return n;
+        // Nom repris d'une autre villa (ancien dossier) : on ne l'affiche pas, on affiche le code de la villa.
+        String src = prefs(c).getString("name_src", "");
+        if (!src.isEmpty() && !src.equals(getBase(c))) {
+            String b = getBase(c);
+            return isShortName(b) ? b.toUpperCase(Locale.ROOT) : "";
+        }
         n = Profiles.current(c).name;
         return n == null ? "" : n;
     }
@@ -281,6 +299,7 @@ final class VillaFolder {
     /** Le nom imposé par config.txt remplace le nom du profil saisi sur la TV (partout dans le launcher). */
     private static void syncProfileName(Context c, String name) {
         try {
+            prefs(c).edit().putString("name_src", getBase(c)).apply();
             Profiles.Profile p = Profiles.current(c);
             if (name.equals(p.name)) return;
             p.name = name;

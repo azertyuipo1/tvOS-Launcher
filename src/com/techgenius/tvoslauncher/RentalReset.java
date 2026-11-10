@@ -72,7 +72,15 @@ final class RentalReset {
     /** Adresse du calendrier : config.txt si elle y est, sinon celle saisie sur la TV. */
     static String getUrl(Context c) {
         String f = VillaFolder.get(c, VillaFolder.K_CALENDAR);
+        // Villa configurée par un dossier : seul son config.txt fait foi (pas de calendrier = aucun calendrier,
+        // jamais celui d'une autre villa resté sur la TV).
+        if (VillaFolder.isConfigured(c)) return f;
         return f.isEmpty() ? getTvUrl(c) : f;
+    }
+
+    /** Changement de villa : on oublie le calendrier, les séjours et le dernier départ de l'ancienne. */
+    static void forgetVilla(Context c) {
+        prefs(c).edit().remove(K_CACHE).remove(K_LAST_END).remove("cal_src").remove(K_URL).apply();
     }
 
     static String getTvUrl(Context c) { return prefs(c).getString(K_URL, ""); }
