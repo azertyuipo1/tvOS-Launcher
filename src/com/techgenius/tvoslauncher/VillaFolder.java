@@ -34,7 +34,6 @@ final class VillaFolder {
     static final String K_APPS = "applis";             // « applis: ITVSTREAM, Netflix, … » (ordre de l'accueil)
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
-    static final String K_PHOTO_LUM = "luminosite_photo"; // « luminosite_photo: 85 » (en %)
     static final String K_TZ = "fuseau_horaire";        // « fuseau_horaire: America/La_Paz » (GMT-4 par défaut)
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
@@ -142,13 +141,6 @@ final class VillaFolder {
 
     static boolean isForced(Context c, String key) { return !get(c, key).isEmpty(); }
 
-    /** Luminosité de la photo d'accueil en % (40 à 100, 100 par défaut). */
-    static int photoBrightness(Context c) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{1,3})").matcher(get(c, K_PHOTO_LUM));
-        if (!m.find()) return 100;
-        return Math.max(40, Math.min(100, Integer.parseInt(m.group(1))));
-    }
-
     /** Fuseau de la villa (config.txt, sinon America/La_Paz = GMT-4). */
     static String timeZoneId(Context c) {
         String tz = get(c, K_TZ);
@@ -184,7 +176,6 @@ final class VillaFolder {
             case "apps": case "applications": return K_APPS;
             case "mise_a_jour_auto": case "maj": return K_UPDATE;
             case "fuseau": case "timezone": return K_TZ;
-            case "luminosite": case "luminosite_fond": case "luminosite_image": return K_PHOTO_LUM;
             case "wifi_affichage": case "qr_wifi": case "affichage_qr": case "qr_code_wifi": return K_WIFI_SHOW;
             default: return s;
         }
@@ -198,7 +189,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ, K_PHOTO_LUM));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");

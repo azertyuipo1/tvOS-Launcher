@@ -908,9 +908,6 @@ public class MainActivity extends Activity {
             @Override
             protected void onDraw(Canvas cv) {
                 int w = getWidth(), h = getHeight();
-                // « luminosite_photo » (config.txt, 40 à 100 %) : assombrit la photo si la TV la rend trop claire.
-                int lum = VillaFolder.photoBrightness(getContext());
-                if (lum < 100) cv.drawColor(Math.round((100 - lum) * 2.55f) << 24);
                 // Les voiles s'arrêtent avant le dock (≈ 62 % de la hauteur).
                 drawVeil(cv, w * 0.0f, h * 0.33f, w * 0.57f, h * 0.29f, 0xAA000000);
                 drawVeil(cv, w * 1.0f, h * 0.27f, w * 0.47f, h * 0.30f, 0xA0000000);
@@ -1571,6 +1568,7 @@ public class MainActivity extends Activity {
         LiquidGlass g = new LiquidGlass(dockRad, 0x14FFFFFF, glassSource, screenW, screenH, unit);
         g.lens = dp(12);
         g.rimStrength = 0.28f;
+        g.adaptive().darker(0x40); // villa : verre fumé, un peu plus sombre
         return g;
     }
 
@@ -3997,7 +3995,7 @@ public class MainActivity extends Activity {
                     LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), 0x14FFFFFF, glassSource, screenW, screenH, unit);
                     g.lens = dp(3);
                     g.rimStrength = 0f;
-                    g.adaptive().darker(0x48); // verre du dock, mais jamais trop clair : le texte reste lisible
+                    g.adaptive().darker(0x60); // verre fumé, un cran plus sombre que le dock (texte)
                     wifiCard.setBackground(g);
                     FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
                     lp.width = card.getWidth();
@@ -4098,7 +4096,6 @@ public class MainActivity extends Activity {
             clockColView.setVisibility(scenes || admin ? View.GONE : View.VISIBLE);
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
-            if (scrimView != null) scrimView.invalidate(); // luminosité de la photo (config.txt)
         }
     }
 
