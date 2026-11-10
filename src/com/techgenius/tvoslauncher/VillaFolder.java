@@ -93,6 +93,16 @@ final class VillaFolder {
     /** Fichier d'association déposé par reglages.php (« Associer une TV ») pour le code affiché sur la TV. */
     static String pairUrl(String code) { return SHORT_HOST + "tv-pair/" + code + ".json"; }
 
+    /** Nom du serveur du dossier de la villa (pour le diagnostic). */
+    static String serverHost(Context c) {
+        try {
+            String b = getBase(c);
+            if (isShortName(b)) { String r = prefs(c).getString(P_RESOLVED, ""); b = r.isEmpty() ? SHORT_HOST : r; }
+            if (b.isEmpty()) b = SHORT_HOST;
+            return new URL(b).getHost();
+        } catch (Throwable t) { return ""; }
+    }
+
     /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
     static boolean isShortName(String b) { return b.matches("[a-z0-9_-]+"); }
 

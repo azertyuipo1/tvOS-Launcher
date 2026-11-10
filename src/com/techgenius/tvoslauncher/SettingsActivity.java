@@ -1831,11 +1831,57 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private String serverDiag = "test en cours…", publicIp = "…";
+    private boolean serverDiagRun = false;
+
+    /** Adresse du serveur vue par la TV, et si elle répond (connexion sur le port 443). */
+    private void runServerDiag() {
+        new Thread(() -> {
+            String host = VillaFolder.serverHost(this);
+            String res;
+            try {
+                java.net.InetAddress[] ips = java.net.InetAddress.getAllByName(host);
+                StringBuilder sb = new StringBuilder();
+                for (java.net.InetAddress ip : ips) {
+                    long t0 = System.currentTimeMillis();
+                    String r;
+                    try (java.net.Socket so = new java.net.Socket()) {
+                        so.connect(new java.net.InetSocketAddress(ip, 443), 6000);
+                        r = "✓ " + (System.currentTimeMillis() - t0) + " ms";
+                    } catch (Throwable t) {
+                        r = "✗ pas de réponse";
+                    }
+                    if (sb.length() > 0) sb.append("  ·  ");
+                    sb.append(ip.getHostAddress()).append(" ").append(r);
+                }
+                res = host + " → " + sb;
+            } catch (Throwable t) {
+                res = host + " → ✗ nom introuvable (" + t.getClass().getSimpleName() + ")";
+            }
+            String ipTxt;
+            try {
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL("https://api.ipify.org").openConnection();
+                c.setConnectTimeout(6000);
+                c.setReadTimeout(6000);
+                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(c.getInputStream()))) {
+                    ipTxt = br.readLine();
+                }
+            } catch (Throwable t) {
+                ipTxt = "—";
+            }
+            final String a = res, b = ipTxt == null ? "—" : ipTxt.trim();
+            runOnUiThread(() -> { serverDiag = a; publicIp = b; if (!isFinishing()) refreshAll(); });
+        }, "server-diag").start();
+    }
+
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
         infoRowDynamic("Réseau", this::networkSummary, null);
         infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
+        infoRowDynamic("Serveur de la villa", () -> serverDiag, null);
+        infoRowDynamic("IP publique de la TV", () -> publicIp, null);
+        if (!serverDiagRun) { serverDiagRun = true; runServerDiag(); }
         infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
         infoRowDynamic("Prochain départ", () -> {
             List<String> d = RentalReset.upcomingDepartures(this, 1);
