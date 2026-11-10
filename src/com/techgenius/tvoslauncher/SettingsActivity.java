@@ -946,16 +946,24 @@ public class SettingsActivity extends Activity {
         FrameLayout box = new FrameLayout(this);
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
+        // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
+        final boolean[] done = {false};
         AlertDialog dlg = dialog("Adresse du dossier de la villa")
                 .setMessage("Tapez juste le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé. "
                         + "Ou une adresse complète commençant par https://")
                 .setView(box)
-                .setPositiveButton("Suivant", (d, w) -> folderEntered(in.getText().toString()))
+                .setPositiveButton("Suivant", (d, w) -> {
+                    if (done[0]) return;
+                    done[0] = true;
+                    folderEntered(in.getText().toString());
+                })
                 .setNegativeButton("Annuler", null)
                 .show();
         Ui.setupDialogEditText(in, dlg);
         // « OK / Terminé » du clavier valide directement.
         in.setOnEditorActionListener((v, actionId, ev) -> {
+            if (done[0]) return true;
+            done[0] = true;
             dlg.dismiss();
             folderEntered(in.getText().toString());
             return true;
@@ -987,14 +995,21 @@ public class SettingsActivity extends Activity {
         box.addView(in);
         String msg = (error == null ? "" : "✗ " + error + "\n\n")
                 + "Le code à 6 chiffres est affiché en haut de la page reglages.php de la villa (section « Associer une TV »).";
+        final boolean[] done = {false};
         AlertDialog dlg = dialog("Code de la villa « " + shortName.toUpperCase(java.util.Locale.ROOT) + " »")
                 .setMessage(msg)
                 .setView(box)
-                .setPositiveButton("Valider", (d, w) -> checkVillaCode(shortName, in.getText().toString()))
+                .setPositiveButton("Valider", (d, w) -> {
+                    if (done[0]) return;
+                    done[0] = true;
+                    checkVillaCode(shortName, in.getText().toString());
+                })
                 .setNegativeButton("Annuler", null)
                 .show();
         Ui.setupDialogEditText(in, dlg);
         in.setOnEditorActionListener((v, actionId, ev) -> {
+            if (done[0]) return true;
+            done[0] = true;
             dlg.dismiss();
             checkVillaCode(shortName, in.getText().toString());
             return true;
