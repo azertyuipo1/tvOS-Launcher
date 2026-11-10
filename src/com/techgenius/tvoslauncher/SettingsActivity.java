@@ -940,7 +940,7 @@ public class SettingsActivity extends Activity {
     private void promptFolderUrl() {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
-        in.setHint("clo   ou   https://www.exemple.fr/villa/tv");
+        in.setHint("clo");
         in.setText(VillaFolder.getBase(this));
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
@@ -949,8 +949,7 @@ public class SettingsActivity extends Activity {
         // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
         final boolean[] done = {false};
         AlertDialog dlg = dialog("Adresse du dossier de la villa")
-                .setMessage("Tapez juste le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé. "
-                        + "Ou une adresse complète commençant par https://")
+                .setMessage("Tapez le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé.")
                 .setView(box)
                 .setPositiveButton("Suivant", (d, w) -> {
                     if (done[0]) return;
@@ -976,8 +975,10 @@ public class SettingsActivity extends Activity {
         String v = input == null ? "" : input.trim();
         boolean same = v.equalsIgnoreCase(VillaFolder.getBase(this));
         if (v.isEmpty() || same || !VillaFolder.isShortInput(v)) {
+            String before = VillaFolder.getBase(this);
             VillaFolder.setBase(this, v);
             checkFolderNow();
+            if (!before.equals(VillaFolder.getBase(this)) && VillaFolder.isConfigured(this)) signOutForNewVilla();
             return;
         }
         // Petit délai : le relâchement de « OK » ne doit pas arriver dans la fenêtre du code.
@@ -1041,13 +1042,25 @@ public class SettingsActivity extends Activity {
                     list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(shortName, r.message()); }, 300L);
                     return;
                 }
+                String before = VillaFolder.getBase(this);
                 VillaFolder.setBase(this, shortName);
                 VillaFolder.setResolved(this, r.base);
                 android.widget.Toast.makeText(this, "✓ Villa configurée : " + VillaFolder.getBase(this),
                         android.widget.Toast.LENGTH_LONG).show();
                 checkFolderNow();
+                if (!before.equals(VillaFolder.getBase(this))) signOutForNewVilla();
             });
         }, "villa-code").start();
+    }
+
+    /** Changement de villa : les comptes streaming de l'ancienne villa sont déconnectés (jamais Live TV). */
+    private void signOutForNewVilla() {
+        list.postDelayed(() -> {
+            if (isFinishing()) return;
+            android.widget.Toast.makeText(this, "Nouvelle villa : déconnexion des applis de streaming…",
+                    android.widget.Toast.LENGTH_LONG).show();
+            RentalReset.forceNow(this, () -> { if (!isFinishing()) refreshAll(); });
+        }, 4000L);
     }
 
     /** Relit config.txt, le calendrier et background.jpg, puis rafraîchit la page. */

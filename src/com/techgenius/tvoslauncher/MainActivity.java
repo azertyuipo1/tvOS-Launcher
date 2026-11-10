@@ -195,6 +195,8 @@ public class MainActivity extends Activity {
     boolean heroShown;          // carousel currently forms the background
     int heroVersion = -1;       // Suggestions.version() the items were loaded for
     String wallStyle;
+    /** Date du fichier de la photo de la villa actuellement affichée (pour la réafficher si elle a changé). */
+    private volatile long shownRemoteWallAt = -1L;
     /** What Liquid Glass samples: a blurred copy of the wallpaper or of the carousel artwork. */
     Bitmap wallBlur, heroBlur, glassBg;
     final LiquidGlass.Backdrop glassSource = () -> glassBg;
@@ -451,6 +453,7 @@ public class MainActivity extends Activity {
         if (!Scenes.isScenesLook(this)) {
             String ws = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
             if (!ws.equals(wallStyle) || wallView.getDrawable() == null
+                    || (RemoteWallpaper.WALL_KEY.equals(ws) && RemoteWallpaper.file(this).lastModified() != shownRemoteWallAt)
                     || (wasReturningFromSettings && ("custom".equals(ws) || FOLDER_SHUFFLE_WALL_KEY.equals(ws)))) {
                 wallStyle = ws;
                 setWallpaper(ws);
@@ -1299,6 +1302,7 @@ public class MainActivity extends Activity {
             }
         }
         if (RemoteWallpaper.WALL_KEY.equals(style)) {
+            shownRemoteWallAt = RemoteWallpaper.file(this).lastModified();
             Bitmap rb = RemoteWallpaper.load(this, 1280, 720);
             if (rb == null) rb = Scenes.loadAssetBitmap(this, "backgrounds/villa.jpg", 1280, 720);
             if (rb != null) {
@@ -4098,6 +4102,8 @@ public class MainActivity extends Activity {
             if (isFinishing()) return;
             reload(null);
             refreshProfileTitle();
+            String ws0 = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
+            if (RemoteWallpaper.WALL_KEY.equals(ws0) && RemoteWallpaper.file(this).lastModified() != shownRemoteWallAt) setWallpaper(ws0);
             Toast.makeText(this, "config.txt : " + VillaFolder.getStatus(this), Toast.LENGTH_LONG).show();
         });
         RemoteWallpaper.refresh(this, true, () -> {
