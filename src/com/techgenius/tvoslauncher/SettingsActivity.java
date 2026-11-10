@@ -1021,12 +1021,22 @@ public class SettingsActivity extends Activity {
     private void checkVillaCode(String shortName, String code) {
         String c = code == null ? "" : code.replaceAll("\\D", "");
         if (c.length() != 6) { promptVillaCode(shortName, "Le code comporte 6 chiffres."); return; }
-        AlertDialog wait = dialog("Code de la villa").setMessage("Vérification du code…").setCancelable(false).show();
+        final boolean[] over = {false};
+        AlertDialog wait = dialog("Code de la villa").setMessage("Vérification du code…")
+                .setNegativeButton("Annuler", (d, w) -> over[0] = true).setCancelable(false).show();
+        // Sans réponse au bout de 40 s : on le dit au lieu d'attendre indéfiniment.
+        list.postDelayed(() -> {
+            if (over[0] || isFinishing()) return;
+            over[0] = true;
+            try { wait.dismiss(); } catch (Throwable ignored) { }
+            promptVillaCode(shortName, "Pas de réponse du serveur de la villa (la TV n'arrive pas à le joindre).");
+        }, 40_000L);
         new Thread(() -> {
             VillaSetup.Check r = VillaSetup.verifyCode(shortName, c);
             runOnUiThread(() -> {
+                if (over[0] || isFinishing()) return;
+                over[0] = true;
                 try { wait.dismiss(); } catch (Throwable ignored) { }
-                if (isFinishing()) return;
                 if (r.base == null) {
                     list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(shortName, r.message()); }, 300L);
                     return;

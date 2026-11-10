@@ -208,8 +208,10 @@ final class VillaSetup {
         String base;          // dossier trouvé (code correct), sinon null
         boolean blocked;      // trop d'essais : bloqué 15 minutes
         boolean reached;      // au moins un reglages.php a répondu
+        String error = "";    // dernière erreur réseau
         String message() {
             if (blocked) return "Trop d'essais : réessayez dans 15 minutes.";
+            if (!reached && !error.isEmpty()) return "Serveur de la villa injoignable (" + error + ").";
             if (!reached) return "Villa introuvable (ou reglages.php absent du dossier). Vérifiez le nom et la connexion.";
             return "Code de la villa incorrect.";
         }
@@ -230,7 +232,7 @@ final class VillaSetup {
                     HttpURLConnection c = (HttpURLConnection) new URL(target).openConnection();
                     c.setInstanceFollowRedirects(false);
                     c.setConnectTimeout(8000);
-                    c.setReadTimeout(10000);
+                    c.setReadTimeout(8000);
                     c.setRequestMethod("POST");
                     c.setDoOutput(true);
                     c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
@@ -262,7 +264,8 @@ final class VillaSetup {
                     }
                     break;
                 }
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                r.error = t.getClass().getSimpleName();
             }
         }
         return r;
