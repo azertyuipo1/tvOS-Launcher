@@ -1254,9 +1254,13 @@ public class SettingsActivity extends Activity {
                 this::promptFolderUrl);
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
-        infoNote("La TV lit ses réglages dans ce dossier web :\n"
-                + "• config.txt : les réglages de la villa, une ligne par réglage.\n"
-                + "• background.jpg : la photo de l'accueil (idéalement 1920 × 1080).");
+        {
+            String page = VillaFolder.fileUrl(this, "reglages.php");
+            infoNote(page.isEmpty()
+                    ? "Indiquez l'adresse ci-dessus, puis rechargez la configuration."
+                    : "Pour modifier les réglages de la TV (nom, calendrier, Wi-Fi, applis, photo), "
+                    + "ouvrez sur un téléphone ou un ordinateur :\n" + page);
+        }
 
         section("APPLIS DE L'ACCUEIL");
         {
