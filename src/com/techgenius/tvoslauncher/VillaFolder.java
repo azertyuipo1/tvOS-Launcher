@@ -279,9 +279,16 @@ final class VillaFolder {
         java.util.List<String> cands = candidates(c);
         if (cands.isEmpty()) return;
         String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
+        Throwable failure = null;
         try {
             for (String base : cands) {
-                Object[] r = get(base + "/" + CONFIG_FILE);
+                Object[] r;
+                try {
+                    r = getRetry(base + "/" + CONFIG_FILE);
+                } catch (Throwable t) {
+                    failure = t; // ce dossier ne répond pas : on essaie le suivant
+                    continue;
+                }
                 int code = (Integer) r[0];
                 if (code == 200) {
                     String txt = (String) r[1];
@@ -309,7 +316,7 @@ final class VillaFolder {
                             .apply();
                     return;
                 }
-                if (code == 404 && (Integer) get(base + "/" + BACKGROUND_FILE)[0] == 200) {
+                if (code == 404 && (Integer) getRetry(base + "/" + BACKGROUND_FILE)[0] == 200) {
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, "")
                             .putString(P_STATUS, "config.txt absent — réglages de la TV utilisés (" + when + ")").apply();
                     return;
@@ -319,9 +326,13 @@ final class VillaFolder {
                     return;
                 }
             }
+            if (failure != null) throw failure;
             prefs(c).edit().putString(P_STATUS, "✗ dossier introuvable — " + when).apply();
         } catch (Throwable t) {
-            prefs(c).edit().putString(P_STATUS, "✗ dossier injoignable (" + t.getClass().getSimpleName() + ") — " + when).apply();
+            // Les derniers réglages lus restent appliqués.
+            boolean kept = !prefs(c).getString(P_CONFIG, "").isEmpty();
+            prefs(c).edit().putString(P_STATUS, "✗ serveur injoignable (" + t.getClass().getSimpleName() + ") — " + when
+                    + (kept ? " · réglages précédents gardés" : "")).apply();
         }
     }
 
@@ -340,6 +351,16 @@ final class VillaFolder {
         } catch (Throwable ignored) { }
     }
 
+    /** Comme get(), avec un second essai si le serveur ou le réseau ne répond pas à temps. */
+    private static Object[] getRetry(String url) throws Exception {
+        try {
+            return get(url);
+        } catch (java.io.IOException first) {
+            Thread.sleep(3000L);
+            return get(url);
+        }
+    }
+
     /** {code HTTP, texte} ; suit les redirections. */
     private static Object[] get(String url) throws Exception {
         HttpURLConnection conn = null;
@@ -349,8 +370,8 @@ final class VillaFolder {
             for (int hop = 0; hop < 6; hop++) {
                 conn = (HttpURLConnection) new URL(target).openConnection();
                 conn.setInstanceFollowRedirects(false);
-                conn.setConnectTimeout(10_000);
-                conn.setReadTimeout(15_000);
+                conn.setConnectTimeout(15_000);
+                conn.setReadTimeout(20_000);
                 conn.setUseCaches(false);
                 code = conn.getResponseCode();
                 if (code < 300 || code >= 400) break;
