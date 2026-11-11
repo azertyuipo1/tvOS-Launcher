@@ -424,7 +424,7 @@ public class SetupActivity extends Activity {
     void profile() {
         // Villa : on demande le dossier de la villa ; nom, photo et calendrier viennent de config.txt.
         title("Dossier de la villa");
-        subtitle("Tapez le nom de la villa (ex. « clo ») ou l'adresse complète de son dossier. "
+        subtitle("Tapez le nom de la villa (ex. « xXx ») ou l'adresse complète de son dossier. "
                 + "Le nom affiché, l'arrière-plan et le calendrier sont ensuite récupérés automatiquement.");
         Profiles.Profile p = Profiles.current(this);
         LinearLayout l = list();
@@ -432,7 +432,7 @@ public class SetupActivity extends Activity {
                 : "Non configuré", false, () -> {
             EditText in = new EditText(this);
             in.setSingleLine(true);
-            in.setHint("clo");
+            in.setHint("xXx");
             in.setText(VillaFolder.getBase(this));
             in.setSelection(in.getText().length());
             int pad = u(14);

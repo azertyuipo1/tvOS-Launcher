@@ -940,7 +940,7 @@ public class SettingsActivity extends Activity {
     private void promptFolderUrl() {
         android.widget.EditText in = new android.widget.EditText(this);
         in.setSingleLine(true);
-        in.setHint("clo");
+        in.setHint("xXx");
         in.setText(VillaFolder.getBase(this));
         int pad = u(14);
         FrameLayout box = new FrameLayout(this);
@@ -949,7 +949,7 @@ public class SettingsActivity extends Activity {
         // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
         final boolean[] done = {false};
         AlertDialog dlg = dialog("Code villa")
-                .setMessage("Tapez le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé.")
+                .setMessage("Tapez le nom court de la villa (ex. « xXx ») : son code à 6 chiffres sera demandé.")
                 .setView(box)
                 .setPositiveButton("Suivant", (d, w) -> {
                     if (done[0]) return;
