@@ -277,6 +277,7 @@ final class RentalReset {
      */
     static boolean isWifiDay(Stay s, String setting) {
         String v = setting == null ? "" : setting.trim().toLowerCase(Locale.ROOT);
+        if (v.matches("jamais|never|non|no|off|0")) return false;
         if (v.matches("toujours|always|test")) return true;
         if (s == null || s.start == null) return false;
         if (v.matches("tout|all|sejour|séjour|tout le sejour|tout le séjour")) return true;
