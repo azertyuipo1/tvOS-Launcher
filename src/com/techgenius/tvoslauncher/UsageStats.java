@@ -77,6 +77,8 @@ final class UsageStats {
                     && !pkg.contains("launcher") && !pkg.contains("setupwraith") && !pkg.contains("tv.settings")) {
                 PackageManager pm = c.getPackageManager();
                 ok = pm.getLeanbackLaunchIntentForPackage(pkg) != null || pm.getLaunchIntentForPackage(pkg) != null;
+                // Chaînes et entrées HDMI de la TV (quelle que soit la marque) : ce ne sont pas des applis.
+                if (ok && !pm.queryIntentServices(new Intent("android.media.tv.TvInputService").setPackage(pkg), 0).isEmpty()) ok = false;
             }
         } catch (Throwable ignored) { }
         countable.put(pkg, ok);
