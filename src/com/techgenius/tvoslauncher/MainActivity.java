@@ -4098,7 +4098,7 @@ public class MainActivity extends Activity {
     private boolean villaFlag(String key, boolean def) {
         String v = VillaFolder.get(this, key).trim().toLowerCase(java.util.Locale.ROOT);
         if (v.isEmpty()) return def;
-        return !v.matches("non|no|0|off|false");
+        return !v.matches("non|no|0|off|false|d[ée]sactiv[ée]e?|inactif");
     }
 
     /**

@@ -281,6 +281,8 @@ final class VillaFolder {
             String name = l.substring(0, i).trim();
             String v = l.substring(i + 1).trim().toLowerCase(Locale.ROOT);
             if (settings.contains(normKey(name)) || !v.matches("oui|non|yes|no|1|0|on|off")) continue;
+            // Un réglage inconnu (« mot_clé: oui ») n'est jamais une appli : les noms d'applis n'ont pas de « _ ».
+            if (name.matches("[a-z]+(_[a-z]+)+")) continue;
             if (v.matches("oui|yes|1|on")) out.add(name);
         }
         return out;
