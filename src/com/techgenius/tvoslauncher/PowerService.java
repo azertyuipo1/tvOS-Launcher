@@ -244,6 +244,7 @@ public class PowerService extends AccessibilityService {
             AppUpdater.grantInstallPermission(c); // mises à jour par la pastille, même sur un boîtier neuf
             applyEnglishApps(c);
             applyVillaTimeZone(c);
+            disableAssistant(c);
             // Écran « appairer la télécommande » des boîtiers : neutralisé dès le démarrage.
             for (String p : PAIRING_PKGS) neutralizePairingApp(c, p);
             String seen = c.getSharedPreferences("villa", Context.MODE_PRIVATE).getString("pairing_pkg", "");
@@ -935,6 +936,27 @@ public class PowerService extends AccessibilityService {
         new Thread(() -> neutralizePairingApp(c, pkg), "disable-pairing").start();
     }
 
+    /**
+     * Bouton micro de la télécommande : l'assistant vocal Google est désactivé (il permettrait d'ouvrir
+     * les réglages de la TV à la voix). Réversible : « pm enable com.google.android.katniss ».
+     */
+    static void disableAssistant(Context c) {
+        if (!GuestLock.isEnabled(c)) return;
+        String pkg = "com.google.android.katniss";
+        String status;
+        try {
+            android.content.pm.ApplicationInfo ai;
+            try { ai = c.getPackageManager().getApplicationInfo(pkg, 0); } catch (Exception notInstalled) { return; }
+            if (!ai.enabled) return; // déjà fait
+            String out = LocalAdb.execShellOutput(c, "pm disable-user --user 0 " + pkg + " 2>&1");
+            status = out != null && out.contains("disabled") ? "✓ assistant vocal désactivé"
+                    : "✗ assistant vocal : " + (out == null ? "pas de réponse" : out.trim());
+        } catch (Throwable t) {
+            status = "✗ assistant vocal : " + t.getMessage();
+        }
+        c.getSharedPreferences("villa", Context.MODE_PRIVATE).edit().putString("assistant_disabled", status).apply();
+    }
+
     /** Applis d'appairage connues des boîtiers (Mecool / Skyworth). */
     static final String[] PAIRING_PKGS = {"com.mft.rcupair", "com.skyworthdigital.rcupair"};
 
@@ -987,6 +1009,11 @@ public class PowerService extends AccessibilityService {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
             if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)) {
+                GuestLock.bounceHome(this);
+            }
+            // Bouton micro : l'assistant vocal est refermé aussitôt pour les clients.
+            if (GuestLock.isAssistantPackage(fgPkg) && GuestLock.isLocked(this)) {
+                try { performGlobalAction(GLOBAL_ACTION_BACK); } catch (Throwable ignored) { }
                 GuestLock.bounceHome(this);
             }
             // Boîtiers (Mecool…) : l'écran « appairer la télécommande » revient quand on utilise la

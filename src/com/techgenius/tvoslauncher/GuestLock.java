@@ -35,6 +35,18 @@ final class GuestLock {
             "com.android.settings",
     };
 
+    /** Assistant vocal (bouton micro) : il ouvrirait les réglages de la TV à la voix. */
+    static final String[] ASSISTANT_PACKAGES = {
+            "com.google.android.katniss",
+            "com.google.android.googlequicksearchbox",
+    };
+
+    static boolean isAssistantPackage(String pkg) {
+        if (pkg == null) return false;
+        for (String p : ASSISTANT_PACKAGES) if (p.equals(pkg)) return true;
+        return false;
+    }
+
     private GuestLock() { }
 
     private static SharedPreferences prefs(Context c) {
