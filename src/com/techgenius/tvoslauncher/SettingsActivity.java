@@ -996,7 +996,7 @@ public class SettingsActivity extends Activity {
         box.setPadding(pad, pad / 2, pad, 0);
         box.addView(in);
         String msg = (error == null ? "" : "✗ " + error + "\n\n")
-                + "Le code à 6 chiffres est affiché en haut de la page reglages.php de la villa (section « Associer une TV »).";
+                + "Le code à 6 chiffres est affiché en haut de la page de configuration de la villa.";
         final boolean[] done = {false};
         AlertDialog dlg = dialog("Code de la villa « " + shortName.toUpperCase(java.util.Locale.ROOT) + " »")
                 .setMessage(msg)
@@ -1352,7 +1352,7 @@ public class SettingsActivity extends Activity {
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
         {
-            String page = VillaFolder.fileUrl(this, "reglages.php");
+            String page = VillaFolder.fileUrl(this, "tv.php");
             if (page.isEmpty()) {
                 infoNote("Indiquez le code villa ci-dessus, puis rechargez la configuration.");
             } else {

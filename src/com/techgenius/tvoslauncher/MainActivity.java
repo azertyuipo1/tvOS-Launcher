@@ -978,22 +978,39 @@ public class MainActivity extends Activity {
         vlp.topMargin = dp(36);
         versionTag.setVisibility(View.GONE);
         root.addView(versionTag, vlp);
-        // Filigrane « MODE ADMIN » au centre de l'écran, sur le même verre que le cadre des applis.
-        adminMark = new TextView(this);
-        adminMark.setText("MODE ADMIN");
-        adminMark.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(adminMark, 26);
-        adminMark.setLetterSpacing(0.22f);
-        adminMark.setTextColor(0xB3FFFFFF);
-        adminMark.setPadding(dp(34), dp(16), dp(34), dp(16));
-        LiquidGlass adminGlass = new LiquidGlass(15 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
-        adminGlass.lens = dp(12);
-        adminGlass.rimStrength = 0.28f;
-        adminMark.setBackground(adminGlass);
-        adminMark.setFocusable(false);
-        adminMark.setVisibility(View.GONE);
-        root.addView(adminMark, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        // Encart du mode admin : affiché au centre tant que le mode admin est actif.
+        {
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setGravity(Gravity.CENTER_HORIZONTAL);
+            card.setPadding(dp(40), dp(28), dp(40), dp(28));
+            GradientDrawable abg = new GradientDrawable();
+            abg.setCornerRadius(dp(26));
+            abg.setColor(0xCC16161A);
+            card.setBackground(abg);
+            TextView t1 = new TextView(this);
+            t1.setText("Mode admin activé pendant 10 mn.");
+            t1.setTypeface(Ui.font(this, "semibold"));
+            Ui.textSize(t1, 22);
+            t1.setTextColor(Color.WHITE);
+            t1.setGravity(Gravity.CENTER);
+            TextView t2 = new TextView(this);
+            t2.setText("Maintenir le bouton OK pendant 3 secondes pour désactiver le mode admin");
+            t2.setTypeface(Ui.font(this, "regular"));
+            Ui.textSize(t2, 14);
+            t2.setTextColor(0xB3FFFFFF);
+            t2.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams t2lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            t2lp.topMargin = dp(10);
+            card.addView(t1);
+            card.addView(t2, t2lp);
+            card.setFocusable(false);
+            card.setVisibility(View.GONE);
+            adminMark = card;
+            root.addView(card, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        }
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         cclp.rightMargin = (int) (screenW * 0.065f);
@@ -3910,7 +3927,7 @@ public class MainActivity extends Activity {
     TextView welcomeLine, eyebrow, bigClock, bigDate;
     android.widget.ImageView wifiCard;
     TextView versionTag;
-    TextView adminMark;
+    View adminMark;
     View scrimView;
     String wifiCardKey = "";
 
@@ -4235,44 +4252,11 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** Message du mode admin : centré, en verre sombre, disparaît seul au bout de 5 secondes. */
+    /** Entrée en mode admin : l'encart central s'affiche (tant que le mode dure), puis les applis manquantes sont proposées. */
     void showAdminDialog() {
         if (isFinishing()) return;
         applyStatusMode();
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(dp(40), dp(28), dp(40), dp(28));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(26));
-        bg.setColor(0xCC16161A);
-        card.setBackground(bg);
-        TextView t1 = new TextView(this);
-        t1.setText("Mode admin activé pendant 10 mn.");
-        t1.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(t1, 22);
-        t1.setTextColor(Color.WHITE);
-        t1.setGravity(Gravity.CENTER);
-        TextView t2 = new TextView(this);
-        t2.setText("Maintenir le bouton OK pendant 3 secondes pour désactiver le mode admin");
-        t2.setTypeface(Ui.font(this, "regular"));
-        Ui.textSize(t2, 14);
-        t2.setTextColor(0xB3FFFFFF);
-        t2.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams t2lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        t2lp.topMargin = dp(10);
-        card.addView(t1);
-        card.addView(t2, t2lp);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
-        card.setAlpha(0f);
-        root.addView(card, lp);
-        card.animate().alpha(1f).setDuration(250).start();
-        handler.postDelayed(() -> card.animate().alpha(0f).setDuration(400).withEndAction(() -> {
-            root.removeView(card);
-            promptMissingVillaApp();
-        }).start(), 5000);
+        handler.postDelayed(this::promptMissingVillaApp, 5000);
     }
 
     /** En mode admin, propose d'installer la prochaine appli de la villa absente de la TV. */
