@@ -1352,7 +1352,7 @@ public class SettingsActivity extends Activity {
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
         {
-            String page = VillaFolder.fileUrl(this, "tv.php");
+            String page = VillaFolder.fileUrl(this, "");
             if (page.isEmpty()) {
                 infoNote("Indiquez le code villa ci-dessus, puis rechargez la configuration.");
             } else {

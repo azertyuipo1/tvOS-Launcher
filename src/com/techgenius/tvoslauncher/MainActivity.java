@@ -984,9 +984,10 @@ public class MainActivity extends Activity {
             card.setOrientation(LinearLayout.VERTICAL);
             card.setGravity(Gravity.CENTER_HORIZONTAL);
             card.setPadding(dp(40), dp(28), dp(40), dp(28));
-            GradientDrawable abg = new GradientDrawable();
-            abg.setCornerRadius(dp(26));
-            abg.setColor(0xCC16161A);
+            // Même verre que le cadre derrière les applis.
+            LiquidGlass abg = new LiquidGlass(dp(26), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
+            abg.lens = dp(12);
+            abg.rimStrength = 0.28f;
             card.setBackground(abg);
             TextView t1 = new TextView(this);
             t1.setText("Mode admin activé pendant 10 mn.");

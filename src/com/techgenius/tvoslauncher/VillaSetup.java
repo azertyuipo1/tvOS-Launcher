@@ -7,7 +7,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/** Vérification du code de la villa (6 chiffres) auprès de la page tv.php de son dossier. */
+/** Vérification du code de la villa (6 chiffres) auprès de la page de son dossier (index.php). */
 final class VillaSetup {
     private VillaSetup() { }
 
@@ -20,7 +20,7 @@ final class VillaSetup {
         String message() {
             if (blocked) return "Trop d'essais : réessayez dans 15 minutes.";
             if (!reached && !error.isEmpty()) return "Serveur de la villa injoignable (" + error + ").";
-            if (!reached) return "Villa introuvable (ou tv.php absent du dossier). Vérifiez le nom et la connexion.";
+            if (!reached) return "Villa introuvable (ou index.php absent du dossier). Vérifiez le nom et la connexion.";
             return "Code de la villa incorrect.";
         }
     }
@@ -33,7 +33,7 @@ final class VillaSetup {
         Check r = new Check();
         for (String base : VillaFolder.candidatesFor(input)) {
             try {
-                String target = base + "/tv.php";
+                String target = base + "/index.php";
                 byte[] data = ("action=verify&code=" + java.net.URLEncoder.encode(code, "UTF-8"))
                         .getBytes(StandardCharsets.UTF_8);
                 for (int hop = 0; hop < 4; hop++) {
