@@ -4114,7 +4114,7 @@ public class MainActivity extends Activity {
     /** Relit config.txt, le calendrier et background.jpg du dossier de la villa, puis met l'accueil à jour. */
     void reloadVillaFolder() {
         if (!VillaFolder.isConfigured(this)) return;
-        Toast.makeText(this, "Relecture du dossier de la villa…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Relecture du paramétrage de la villa…", Toast.LENGTH_SHORT).show();
         RentalReset.refreshCalendar(this, () -> {
             if (isFinishing()) return;
             reload(null);

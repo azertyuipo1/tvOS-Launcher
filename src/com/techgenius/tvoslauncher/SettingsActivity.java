@@ -1356,7 +1356,7 @@ public class SettingsActivity extends Activity {
             if (page.isEmpty()) {
                 infoNote("Indiquez le code villa ci-dessus, puis rechargez la configuration.");
             } else {
-                infoNote("Pour modifier les réglages de la TV, scanner le QR code :");
+                infoNote("Scanner le QR Code pour accéder à la page de configuration");
                 infoQr(page);
                 infoNote(page);
             }
@@ -1886,16 +1886,16 @@ public class SettingsActivity extends Activity {
                 () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
         infoRowDynamic("Dernière déconnexion",
                 () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
-        infoRowDynamic("Derniers écrans", () -> {
+        infoBlockDynamic("Derniers écrans", () -> {
             String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < Math.min(l.length, 3); i++) {
+            for (int i = 0; i < Math.min(l.length, 4); i++) {
                 if (l[i].isEmpty()) continue;
                 if (sb.length() > 0) sb.append("\n");
-                sb.append(l[i].length() > 60 ? "…" + l[i].substring(l[i].length() - 59) : l[i]);
+                sb.append(l[i]);
             }
             return sb.length() == 0 ? "—" : sb.toString();
-        }, null);
+        });
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
@@ -5076,6 +5076,37 @@ public class SettingsActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = u(3);
         list.addView(r, lp);
+    }
+
+    /** Libellé seul sur sa ligne, valeur en dessous sur toute la largeur (textes longs). */
+    private void infoBlockDynamic(String label, Value val) {
+        TextView l = new TextView(this);
+        l.setText(label);
+        l.setTextColor(0xB3FFFFFF);
+        l.setTypeface(Ui.font(this, "medium"));
+        Ui.textSize(l, 12.5f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = u(14);
+        lp.rightMargin = u(14);
+        lp.topMargin = u(5);
+        list.addView(l, lp);
+        TextView v = new TextView(this);
+        v.setTextColor(0x9EFFFFFF);
+        v.setTypeface(Ui.font(this, "regular"));
+        Ui.textSize(v, 11.5f);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        vlp.leftMargin = u(14);
+        vlp.rightMargin = u(14);
+        vlp.topMargin = u(2);
+        vlp.bottomMargin = u(5);
+        list.addView(v, vlp);
+        Runnable refresh = () -> {
+            try { v.setText(val.get()); } catch (Throwable ignored) { v.setText(""); }
+        };
+        refresh.run();
+        refreshers.add(refresh);
     }
 
     /** QR code (noir sur fond blanc) aligné à gauche dans la page. */
