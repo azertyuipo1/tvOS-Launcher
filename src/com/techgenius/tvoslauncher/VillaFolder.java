@@ -322,7 +322,11 @@ final class VillaFolder {
                 Object[] r;
                 try {
                     // D'abord par la page de la villa : elle renvoie config.txt et note l'état de la TV.
-                    r = postConfig(c, base);
+                    try {
+                        r = postConfig(c, base);
+                    } catch (Throwable pt) {
+                        r = null; // la lecture par la page a échoué : on lit config.txt directement
+                    }
                     if (r == null) r = manual ? getRetry(base + "/" + CONFIG_FILE) : get(base + "/" + CONFIG_FILE);
                 } catch (Throwable t) {
                     failure = t; // ce dossier ne répond pas : on essaie le suivant
