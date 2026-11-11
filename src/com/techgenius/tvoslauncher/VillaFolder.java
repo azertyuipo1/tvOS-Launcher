@@ -92,16 +92,6 @@ final class VillaFolder {
 
     /** Fichier d'association déposé par reglages.php (« Associer une TV ») pour le code affiché sur la TV. */
 
-    /** Nom du serveur du dossier de la villa (pour le diagnostic). */
-    static String serverHost(Context c) {
-        try {
-            String b = getBase(c);
-            if (isShortName(b)) b = shortUrl(b);
-            if (b.isEmpty()) b = SHORT_HOST;
-            return new URL(b).getHost();
-        } catch (Throwable t) { return ""; }
-    }
-
     // ---- Discrétion réseau : peu de requêtes, jamais d'insistance quand le serveur ne répond pas.
     static volatile String userAgent = "VillaTV-Launcher";
     private static final long MIN_GAP_MS = 15 * 60_000L;          // au plus une relecture auto par quart d'heure

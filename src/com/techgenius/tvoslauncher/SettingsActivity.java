@@ -948,7 +948,7 @@ public class SettingsActivity extends Activity {
         box.addView(in);
         // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
         final boolean[] done = {false};
-        AlertDialog dlg = dialog("Adresse du dossier de la villa")
+        AlertDialog dlg = dialog("Code villa")
                 .setMessage("Tapez le nom court de la villa (ex. « clo ») : son code à 6 chiffres sera demandé.")
                 .setView(box)
                 .setPositiveButton("Suivant", (d, w) -> {
@@ -1346,17 +1346,20 @@ public class SettingsActivity extends Activity {
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
         section("CONFIGURATION EN LIGNE");
-        row("Adresse",
+        row("Code villa",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configurée") + "  ›",
                 this::promptFolderUrl);
         row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
         {
             String page = VillaFolder.fileUrl(this, "reglages.php");
-            infoNote(page.isEmpty()
-                    ? "Indiquez l'adresse ci-dessus, puis rechargez la configuration."
-                    : "Pour modifier les réglages de la TV (nom, calendrier, Wi-Fi, applis, photo), "
-                    + "ouvrez sur un téléphone ou un ordinateur :\n" + page);
+            if (page.isEmpty()) {
+                infoNote("Indiquez le code villa ci-dessus, puis rechargez la configuration.");
+            } else {
+                infoNote("Pour modifier les réglages de la TV, scanner le QR code :");
+                infoQr(page);
+                infoNote(page);
+            }
         }
 
         section("APPLIS DE L'ACCUEIL");
@@ -1868,58 +1871,21 @@ public class SettingsActivity extends Activity {
         return miss.isEmpty() ? "✓ complète" : "✗ manque : " + android.text.TextUtils.join(", ", miss);
     }
 
-    private String serverDiag = "test en cours…", publicIp = "…";
-    private boolean serverDiagRun = false;
-
-    /** Adresse du serveur vue par la TV, et si elle répond (connexion sur le port 443). */
-    private void runServerDiag() {
-        new Thread(() -> {
-            String host = VillaFolder.serverHost(this);
-            String res;
-            try {
-                java.net.InetAddress[] ips = java.net.InetAddress.getAllByName(host);
-                StringBuilder sb = new StringBuilder();
-                for (java.net.InetAddress ip : ips) {
-                    long t0 = System.currentTimeMillis();
-                    String r;
-                    try (java.net.Socket so = new java.net.Socket()) {
-                        so.connect(new java.net.InetSocketAddress(ip, 443), 6000);
-                        r = "✓ " + (System.currentTimeMillis() - t0) + " ms";
-                    } catch (Throwable t) {
-                        r = "✗ pas de réponse";
-                    }
-                    if (sb.length() > 0) sb.append("  ·  ");
-                    sb.append(ip.getHostAddress()).append(" ").append(r);
-                }
-                res = host + " → " + sb;
-            } catch (Throwable t) {
-                res = host + " → ✗ nom introuvable (" + t.getClass().getSimpleName() + ")";
-            }
-            String ipTxt;
-            try {
-                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL("https://api.ipify.org").openConnection();
-                c.setConnectTimeout(6000);
-                c.setReadTimeout(6000);
-                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(c.getInputStream()))) {
-                    ipTxt = br.readLine();
-                }
-            } catch (Throwable t) {
-                ipTxt = "—";
-            }
-            final String a = res, b = ipTxt == null ? "—" : ipTxt.trim();
-            runOnUiThread(() -> { serverDiag = a; publicIp = b; if (!isFinishing()) refreshAll(); });
-        }, "server-diag").start();
-    }
-
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
         infoRowDynamic("Installation", this::installCheck, null);
         infoRowDynamic("Réseau", this::networkSummary, null);
         infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
-        infoRowDynamic("Serveur de la villa", () -> serverDiag, null);
-        infoRowDynamic("IP publique de la TV", () -> publicIp, null);
-        if (!serverDiagRun) { serverDiagRun = true; runServerDiag(); }
+        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Prochain départ", () -> {
+            List<String> d = RentalReset.upcomingDepartures(this, 1);
+            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
+        }, null);
+        infoRowDynamic("Dernier départ traité",
+                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         infoRowDynamic("Derniers écrans", () -> {
             String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
             StringBuilder sb = new StringBuilder();
@@ -1930,15 +1896,6 @@ public class SettingsActivity extends Activity {
             }
             return sb.length() == 0 ? "—" : sb.toString();
         }, null);
-        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
-        infoRowDynamic("Prochain départ", () -> {
-            List<String> d = RentalReset.upcomingDepartures(this, 1);
-            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
-        }, null);
-        infoRowDynamic("Dernier départ traité",
-                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
-        infoRowDynamic("Dernière déconnexion",
-                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
@@ -5119,6 +5076,30 @@ public class SettingsActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = u(3);
         list.addView(r, lp);
+    }
+
+    /** QR code (noir sur fond blanc) aligné à gauche dans la page. */
+    private void infoQr(String text) {
+        QrCode q = QrCode.encode(text);
+        if (q == null) return;
+        int quiet = 3, n = q.size + 2 * quiet, cell = Math.max(2, u(74) / n), px = n * cell;
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(px, px, android.graphics.Bitmap.Config.RGB_565);
+        android.graphics.Canvas cv = new android.graphics.Canvas(bmp);
+        cv.drawColor(Color.WHITE);
+        android.graphics.Paint pt = new android.graphics.Paint();
+        pt.setColor(Color.BLACK);
+        for (int y = 0; y < q.size; y++) {
+            for (int x = 0; x < q.size; x++) {
+                if (q.get(x, y)) cv.drawRect((x + quiet) * cell, (y + quiet) * cell, (x + quiet + 1) * cell, (y + quiet + 1) * cell, pt);
+            }
+        }
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setImageBitmap(bmp);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px, px);
+        lp.leftMargin = u(14);
+        lp.topMargin = u(4);
+        lp.bottomMargin = u(2);
+        list.addView(iv, lp);
     }
 
     private void infoNote(String note) {
