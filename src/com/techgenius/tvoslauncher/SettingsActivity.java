@@ -938,119 +938,10 @@ public class SettingsActivity extends Activity {
     }
 
     private void promptFolderUrl() {
-        android.widget.EditText in = new android.widget.EditText(this);
-        in.setSingleLine(true);
-        in.setHint("xXx");
-        in.setText(VillaFolder.getBase(this));
-        int pad = u(14);
-        FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
-        box.addView(in);
-        // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
-        final boolean[] done = {false};
-        AlertDialog dlg = dialog("Code villa")
-                .setMessage("Tapez le nom court de la villa (ex. « xXx ») : son code à 6 chiffres sera demandé.")
-                .setView(box)
-                .setPositiveButton("Suivant", (d, w) -> {
-                    if (done[0]) return;
-                    done[0] = true;
-                    folderEntered(in.getText().toString());
-                })
-                .setNegativeButton("Annuler", null)
-                .show();
-        Ui.setupDialogEditText(in, dlg);
-        // « OK / Terminé » du clavier valide directement.
-        in.setOnEditorActionListener((v, actionId, ev) -> {
-            if (done[0]) return true;
-            done[0] = true;
-            dlg.dismiss();
-            folderEntered(in.getText().toString());
-            return true;
-        });
-        in.requestFocus();
-    }
-
-    /** Nom court → code de la villa demandé ; adresse complète ou même villa → enregistré tel quel. */
-    private void folderEntered(String input) {
-        String v = input == null ? "" : input.trim();
-        boolean same = v.equalsIgnoreCase(VillaFolder.getBase(this));
-        if (v.isEmpty() || same || !VillaFolder.isShortInput(v)) {
-            String before = VillaFolder.getBase(this);
-            VillaFolder.setBase(this, v);
+        VillaCodePrompt.start(this, changed -> {
             checkFolderNow();
-            if (!before.equals(VillaFolder.getBase(this)) && VillaFolder.isConfigured(this)) signOutForNewVilla();
-            return;
-        }
-        // Petit délai : le relâchement de « OK » ne doit pas arriver dans la fenêtre du code.
-        list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(v, null); }, 450L);
-    }
-
-    private void promptVillaCode(String shortName, String error) {
-        android.widget.EditText in = new android.widget.EditText(this);
-        in.setSingleLine(true);
-        in.setHint("123456");
-        in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        in.setFilters(new android.text.InputFilter[]{ new android.text.InputFilter.LengthFilter(6) });
-        int pad = u(14);
-        FrameLayout box = new FrameLayout(this);
-        box.setPadding(pad, pad / 2, pad, 0);
-        box.addView(in);
-        String msg = (error == null ? "" : "✗ " + error + "\n\n")
-                + "Le code à 6 chiffres est affiché en haut de la page de configuration de la villa.";
-        final boolean[] done = {false};
-        AlertDialog dlg = dialog("Code de la villa « " + shortName.toUpperCase(java.util.Locale.ROOT) + " »")
-                .setMessage(msg)
-                .setView(box)
-                .setPositiveButton("Valider", (d, w) -> {
-                    if (done[0]) return;
-                    done[0] = true;
-                    checkVillaCode(shortName, in.getText().toString());
-                })
-                .setNegativeButton("Annuler", null)
-                .show();
-        Ui.setupDialogEditText(in, dlg);
-        in.setOnEditorActionListener((v, actionId, ev) -> {
-            if (done[0]) return true;
-            done[0] = true;
-            dlg.dismiss();
-            checkVillaCode(shortName, in.getText().toString());
-            return true;
+            if (changed) signOutForNewVilla();
         });
-        in.requestFocus();
-    }
-
-    private void checkVillaCode(String shortName, String code) {
-        String c = code == null ? "" : code.replaceAll("\\D", "");
-        if (c.length() != 6) { promptVillaCode(shortName, "Le code comporte 6 chiffres."); return; }
-        final boolean[] over = {false};
-        AlertDialog wait = dialog("Code de la villa").setMessage("Vérification du code…")
-                .setNegativeButton("Annuler", (d, w) -> over[0] = true).setCancelable(false).show();
-        // Sans réponse au bout de 40 s : on le dit au lieu d'attendre indéfiniment.
-        list.postDelayed(() -> {
-            if (over[0] || isFinishing()) return;
-            over[0] = true;
-            try { wait.dismiss(); } catch (Throwable ignored) { }
-            promptVillaCode(shortName, "Pas de réponse du serveur de la villa (la TV n'arrive pas à le joindre).");
-        }, 40_000L);
-        new Thread(() -> {
-            VillaSetup.Check r = VillaSetup.verifyCode(shortName, c);
-            runOnUiThread(() -> {
-                if (over[0] || isFinishing()) return;
-                over[0] = true;
-                try { wait.dismiss(); } catch (Throwable ignored) { }
-                if (r.base == null) {
-                    list.postDelayed(() -> { if (!isFinishing()) promptVillaCode(shortName, r.message()); }, 300L);
-                    return;
-                }
-                String before = VillaFolder.getBase(this);
-                VillaFolder.setBase(this, shortName);
-                VillaFolder.setResolved(this, r.base);
-                android.widget.Toast.makeText(this, "✓ Villa configurée : " + VillaFolder.getBase(this),
-                        android.widget.Toast.LENGTH_LONG).show();
-                checkFolderNow();
-                if (!before.equals(VillaFolder.getBase(this))) signOutForNewVilla();
-            });
-        }, "villa-code").start();
     }
 
     /** Changement de villa : les comptes streaming de l'ancienne villa sont déconnectés (jamais Live TV). */
@@ -1848,32 +1739,9 @@ public class SettingsActivity extends Activity {
         }
     }
 
-    /** Contrôle de l'installation : « ✓ complète », sinon la liste de ce qui manque. */
-    private String installCheck() {
-        java.util.List<String> miss = new java.util.ArrayList<>();
-        if (PowerService.instance == null) miss.add("service d'accessibilité");
-        if (!LocalAdb.isPaired(this)) miss.add("ADB local");
-        try {
-            android.content.pm.ResolveInfo home = getPackageManager().resolveActivity(
-                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
-                    android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
-            if (home == null || home.activityInfo == null || !getPackageName().equals(home.activityInfo.packageName)) {
-                miss.add("accueil d'origine à désactiver");
-            }
-        } catch (Throwable ignored) { }
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
-                miss.add("autorisation de mise à jour");
-            }
-        } catch (Throwable ignored) { }
-        if (!GuestLock.isEnabled(this)) miss.add("verrou clients");
-        if (!VillaFolder.isConfigured(this)) miss.add("villa non configurée");
-        return miss.isEmpty() ? "✓ complète" : "✗ manque : " + android.text.TextUtils.join(", ", miss);
-    }
-
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
-        infoRowDynamic("Installation", this::installCheck, null);
+        infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
         infoRowDynamic("Réseau", this::networkSummary, null);
         infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);

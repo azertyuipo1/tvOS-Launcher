@@ -321,7 +321,9 @@ final class VillaFolder {
             for (String base : cands) {
                 Object[] r;
                 try {
-                    r = manual ? getRetry(base + "/" + CONFIG_FILE) : get(base + "/" + CONFIG_FILE);
+                    // D'abord par la page de la villa : elle renvoie config.txt et note l'état de la TV.
+                    r = postConfig(c, base);
+                    if (r == null) r = manual ? getRetry(base + "/" + CONFIG_FILE) : get(base + "/" + CONFIG_FILE);
                 } catch (Throwable t) {
                     failure = t; // ce dossier ne répond pas : on essaie le suivant
                     continue;
@@ -389,6 +391,75 @@ final class VillaFolder {
                 if (m != null) m.refreshProfileTitle();
             });
         } catch (Throwable ignored) { }
+    }
+
+    /** Identifiant court et stable de la TV (pour la distinguer des autres TV de la villa). */
+    static String deviceId(Context c) {
+        try {
+            String a = android.provider.Settings.Secure.getString(c.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] h = md.digest(((a == null ? "" : a) + "|villa-tv").getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 5; i++) sb.append(String.format(Locale.ROOT, "%02x", h[i]));
+            return sb.toString();
+        } catch (Throwable t) {
+            return "inconnu";
+        }
+    }
+
+    /**
+     * Lit config.txt par la page de la villa (index.php, action=config) en lui envoyant l'état de la TV :
+     * modèle, version, installation, applis manquantes, temps passé par appli. Renvoie null si la page ne
+     * le gère pas (ancienne page, autre hébergement) : on lit alors config.txt directement.
+     */
+    private static Object[] postConfig(Context c, String base) throws Exception {
+        StringBuilder body = new StringBuilder("action=config");
+        java.util.List<String> miss = InstallCheck.missing(c);
+        String[][] fields = {
+                {"id", deviceId(c)},
+                {"modele", (android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL).trim()},
+                {"version", AppUpdater.getCurrentVersion(c)},
+                {"installation", miss.isEmpty() ? "ok" : android.text.TextUtils.join(", ", miss)},
+                {"applis_manquantes", android.text.TextUtils.join(", ", InstallCheck.missingApps(c))},
+                {"usage", UsageStats.summary30(c)},
+        };
+        for (String[] f : fields) {
+            body.append('&').append(f[0]).append('=').append(java.net.URLEncoder.encode(f[1] == null ? "" : f[1], "UTF-8"));
+        }
+        byte[] data = body.toString().getBytes(StandardCharsets.UTF_8);
+        String target = base + "/index.php";
+        for (int hop = 0; hop < 4; hop++) {
+            HttpURLConnection conn = (HttpURLConnection) new URL(target).openConnection();
+            try {
+                conn.setInstanceFollowRedirects(false);
+                conn.setConnectTimeout(15_000);
+                conn.setReadTimeout(20_000);
+                conn.setUseCaches(false);
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setRequestProperty("User-Agent", userAgent);
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                try (java.io.OutputStream o = conn.getOutputStream()) { o.write(data); }
+                int code = conn.getResponseCode();
+                if (code >= 300 && code < 400) {
+                    String loc = conn.getHeaderField("Location");
+                    if (loc == null) return null;
+                    target = new URL(new URL(target), loc).toString();
+                    continue;
+                }
+                if (!"1".equals(conn.getHeaderField("X-Villa-Config"))) return null; // page sans cette fonction
+                if (code != 200) return new Object[]{ code, "" };
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null && sb.length() < 64_000) sb.append(line).append('\n');
+                }
+                return new Object[]{ code, sb.toString() };
+            } finally {
+                conn.disconnect();
+            }
+        }
+        return null;
     }
 
     /** Comme get(), avec un second essai si le serveur ou le réseau ne répond pas à temps. */

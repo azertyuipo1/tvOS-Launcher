@@ -197,6 +197,7 @@ public class PowerService extends AccessibilityService {
     protected void onServiceConnected() {
         instance = this;
         serviceConnectedElapsedMs = SystemClock.elapsedRealtime();
+        UsageStats.init(this);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         try {
             AccessibilityServiceInfo info = getServiceInfo();
@@ -1008,6 +1009,7 @@ public class PowerService extends AccessibilityService {
         if (e != null && e.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && e.getPackageName() != null) {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
+            UsageStats.onForeground(this, fgPkg);
             if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)) {
                 GuestLock.bounceHome(this);
             }

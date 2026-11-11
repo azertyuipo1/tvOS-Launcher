@@ -561,6 +561,10 @@ public final class I18n {
         m.put("Screen Off", "Éteindre l'écran");
         m.put(" paired", " appairé(s)");
         m.put("% used · Recent Apps", "% utilisés · Applis récentes");
+        m.put("WRITE_SECURE_SETTINGS and all launcher permissions are now active, and ADB (port 5555) has been closed for your security.\n\n"
+                + "Tip: For maximum security, you can also select \u201cRevoke USB debugging authorizations\u201d in Developer Options.",
+                "Toutes les autorisations du launcher sont actives, et l'ADB (port 5555) a été refermé pour votre sécurité.\n\n"
+                + "Conseil : pour une sécurité maximale, vous pouvez aussi choisir « Révoquer les autorisations de débogage USB » dans les options pour les développeurs.");
     }
 
     private static void add(String en, String hi, String es, String fr, String de, String it, String ru, String pt, String ar, String ja, String zh) {

@@ -115,12 +115,11 @@ public class SetupActivity extends Activity {
             getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("villa_lang_set", true).apply();
         }
         Scenes.setLook(this, Scenes.LOOK_CLASSIC);
+        // Villa : bienvenue, code villa, autorisations, accueil par défaut, fin.
         steps.add(this::hello);
         steps.add(this::profile);
-        steps.add(this::presentation);
         steps.add(this::homeAndPermissions);
         steps.add(this::defaultHomeSetup);
-        steps.add(this::buttonMapperSetup);
         steps.add(this::finish_);
         if (getIntent().getBooleanExtra("skip", false)) {  // adb: --ez skip true marks setup as done
             getSharedPreferences("setup", MODE_PRIVATE).edit().putBoolean(K_DONE, true).putInt("cur_step", 0).apply();
@@ -147,7 +146,7 @@ public class SetupActivity extends Activity {
         int target = intent.getIntExtra("step", savedStep);
         if (target != index || (lang != null && !lang.isEmpty())) {
             show(target, 0);
-        } else if (index == 5 || index == 6 || index == 7) {
+        } else if (index == IDX_PERMS || index == IDX_HOME) {
             show(index, 0);
         }
     }
@@ -176,8 +175,30 @@ public class SetupActivity extends Activity {
         page.animate().alpha(1f).translationX(0).setDuration(dir == 0 ? 120 : 320).start();
     }
 
+    static final int IDX_VILLA = 1, IDX_PERMS = 2, IDX_HOME = 3;
+
+    /** Étape déjà faite (on la saute en avançant) : villa configurée, autorisations données, accueil choisi. */
+    boolean stepDone(int i) {
+        try {
+            if (i == IDX_VILLA) return VillaFolder.isConfigured(this);
+            if (i == IDX_PERMS) {
+                return PowerService.instance != null && LocalAdb.isPaired(this)
+                        && (android.os.Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls());
+            }
+            if (i == IDX_HOME) {
+                android.content.pm.ResolveInfo home = getPackageManager().resolveActivity(
+                        new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                        android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+                return home != null && home.activityInfo != null && getPackageName().equals(home.activityInfo.packageName);
+            }
+        } catch (Throwable ignored) { }
+        return false;
+    }
+
     void next() {
-        show(index + 1, 1);
+        int i = index + 1;
+        while (i < steps.size() - 1 && stepDone(i)) i++;
+        show(i, 1);
     }
 
     @Override
@@ -187,9 +208,9 @@ public class SetupActivity extends Activity {
             show(2, -1);
             return;
         }
-        if (index == 5 && permMode != 0) {
+        if (index == IDX_PERMS && permMode != 0) {
             permMode = 0;
-            show(5, -1);
+            show(IDX_PERMS, -1);
             return;
         }
         if (index > 0) show(index - 1, -1);
@@ -198,13 +219,13 @@ public class SetupActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] p, int[] r) {
-        if (index == 5 || index == 6) show(index, 0);  // refresh the ticks
+        if (index == IDX_PERMS || index == IDX_HOME) show(index, 0);  // refresh the ticks
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (index == 5 || index == 6 || index == 7) show(index, 0);
+        if (index == IDX_PERMS || index == IDX_HOME) show(index, 0);
     }
 
     // ---------------------------------------------------------------- building blocks
@@ -422,113 +443,29 @@ public class SetupActivity extends Activity {
     }
 
     void profile() {
-        // Villa : on demande le dossier de la villa ; nom, photo et calendrier viennent de config.txt.
-        title("Dossier de la villa");
-        subtitle("Tapez le nom de la villa (ex. « xXx ») ou l'adresse complète de son dossier. "
-                + "Le nom affiché, l'arrière-plan et le calendrier sont ensuite récupérés automatiquement.");
-        Profiles.Profile p = Profiles.current(this);
+        // Villa : nom court + code à 6 chiffres ; nom, photo, Wi-Fi et calendrier viennent de la page de la villa.
+        title("Code villa");
+        subtitle("Tapez le nom court de la villa (ex. « xXx ») : son code à 6 chiffres sera demandé. "
+                + "Le nom, la photo, le Wi-Fi et le calendrier sont ensuite récupérés automatiquement.");
         LinearLayout l = list();
-        View nameRow = option(l, "Dossier", VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) + "  ·  " + VillaFolder.villaName(this)
-                : "Non configuré", false, () -> {
-            EditText in = new EditText(this);
-            in.setSingleLine(true);
-            in.setHint("xXx");
-            in.setText(VillaFolder.getBase(this));
-            in.setSelection(in.getText().length());
-            int pad = u(14);
-            FrameLayout box = new FrameLayout(this);
-            box.setPadding(pad, pad / 2, pad, 0);
-            box.addView(in);
-            android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Dossier de la villa").setView(box)
-                    .setPositiveButton("OK", (d, w) -> {
-                        VillaFolder.setBase(this, in.getText().toString());
-                        Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-                        new Thread(() -> {
-                            VillaFolder.refreshBlocking(this, true);
-                            runOnUiThread(() -> {
-                                if (isFinishing()) return;
-                                RemoteWallpaper.refresh(this, true, null);
-                                RentalReset.forceCheckSoon(this, null);
-                                show(index, 0);
-                                android.widget.Toast.makeText(this, VillaFolder.getStatus(this), android.widget.Toast.LENGTH_LONG).show();
-                            });
-                        }, "setup-folder").start();
-                    }).setNegativeButton("Annuler", null).show();
-            Ui.setupDialogEditText(in, dlg);
-            in.requestFocus();
-        });
-        int nameId = View.generateViewId();
-        nameRow.setId(nameId);
-
-        // Avatar: a row of emoji, the current one ringed.
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.setClipChildren(false);
-        List<String> choices = new ArrayList<>(Profiles.freeEmojis(this, p.id));
-        if (!choices.contains(p.emoji)) choices.add(0, p.emoji);
-        int count = Math.min(8, choices.size());
-        int[] emojiIds = new int[count];
-        TextView[] emojiViews = new TextView[count];
-        GradientDrawable[] emojiBgs = new GradientDrawable[count];
-        int activeEmojiId = View.NO_ID;
-        for (int i = 0; i < count; i++) {
-            final int idx = i;
-            String e = choices.get(i);
-            TextView t = new TextView(this);
-            int eid = View.generateViewId();
-            t.setId(eid);
-            emojiIds[i] = eid;
-            emojiViews[i] = t;
-            if (e.equals(p.emoji) || activeEmojiId == View.NO_ID) activeEmojiId = eid;
-            t.setText(e);
-            Ui.textSize(t, 26);
-            t.setGravity(Gravity.CENTER);
-            t.setFocusable(true);
-            t.setClickable(true);
-            GradientDrawable g = new GradientDrawable();
-            g.setShape(GradientDrawable.OVAL);
-            g.setColor(e.equals(p.emoji) ? 0x59FFFFFF : 0x1FFFFFFF);
-            emojiBgs[i] = g;
-            t.setBackground(g);
-            t.setOnFocusChangeListener((v, has) -> {
-                g.setStroke(has ? u(2) : 0, Color.WHITE);
-                v.animate().scaleX(has ? 1.2f : 1f).scaleY(has ? 1.2f : 1f).setDuration(160).start();
-            });
-            t.setOnClickListener(v -> {
-                p.emoji = e;
-                Profiles.update(this, p);
-                for (int j = 0; j < count; j++) {
-                    boolean sel = choices.get(j).equals(p.emoji);
-                    emojiBgs[j].setColor(sel ? 0x59FFFFFF : 0x1FFFFFFF);
-                }
-                nameRow.setNextFocusDownId(emojiIds[idx]);
-            });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(u(46), u(46));
-            lp.leftMargin = lp.rightMargin = u(5);
-            row.addView(t, lp);
-        }
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rlp.topMargin = u(6);
-        rlp.bottomMargin = u(14);
-        page.addView(row, rlp);
-        LinearLayout l2 = list();
-        View contRow = option(l2, tr("Continue", "Devam Et"), null, false, this::next);
-        int contId = View.generateViewId();
-        contRow.setId(contId);
-
-        if (activeEmojiId != View.NO_ID) {
-            nameRow.setNextFocusDownId(activeEmojiId);
-            contRow.setNextFocusUpId(activeEmojiId);
-            for (int i = 0; i < count; i++) {
-                emojiViews[i].setNextFocusUpId(nameId);
-                emojiViews[i].setNextFocusDownId(contId);
-                if (i > 0) emojiViews[i].setNextFocusLeftId(emojiIds[i - 1]);
-                if (i + 1 < count) emojiViews[i].setNextFocusRightId(emojiIds[i + 1]);
-            }
-        }
-        nameRow.requestFocus();
+        View villaRow = option(l, "Code villa", VillaFolder.isConfigured(this)
+                ? VillaFolder.getBase(this) + "  ·  " + VillaFolder.villaName(this) : "Non configuré", false,
+                () -> VillaCodePrompt.start(this, changed -> {
+                    Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+                    new Thread(() -> {
+                        VillaFolder.refreshBlocking(this, true);
+                        runOnUiThread(() -> {
+                            if (isFinishing()) return;
+                            RemoteWallpaper.refresh(this, true, null);
+                            RentalReset.forceCheckSoon(this, null);
+                            show(index, 0);
+                            focusRow(1);
+                        });
+                    }, "setup-folder").start();
+                }));
+        option(l, tr("Continue", "Devam Et"), VillaFolder.isConfigured(this) ? null : "Vous pourrez le faire plus tard dans Réglages → Villa",
+                false, this::next);
+        villaRow.requestFocus();
         dots();
     }
 
@@ -822,7 +759,7 @@ public class SetupActivity extends Activity {
     int permMode = 0; // 0 = Choose Usage Mode (3 modes), 1 = Easy ADB Directions, 2 = Manual Setup
 
     void openDefaultHomeSubMenu() {
-        show(6, 1);
+        show(IDX_HOME, 1);
     }
 
     void homeAndPermissions() {
@@ -852,7 +789,7 @@ public class SetupActivity extends Activity {
                     false,
                     () -> {
                         permMode = 2;
-                        show(5, 1);
+                        show(IDX_PERMS, 1);
                     });
             option(l, tr("Continue", "Devam Et"), null, false, this::next);
             dots();
@@ -899,7 +836,7 @@ public class SetupActivity extends Activity {
                     false,
                     () -> {
                         permMode = 0;
-                        show(5, -1);
+                        show(IDX_PERMS, -1);
                     });
             dots();
             return;
@@ -942,7 +879,7 @@ public class SetupActivity extends Activity {
                 });
         option(l, tr("Back to Usage Mode Selection", "Kullanım Modu Seçimine Dön"), null, false, () -> {
             permMode = 0;
-            show(5, -1);
+            show(IDX_PERMS, -1);
         });
         option(l, tr("Continue", "Devam Et"), null, false, this::next);
         dots();
@@ -1088,7 +1025,7 @@ public class SetupActivity extends Activity {
     private void proceedToEasyAdbOrDirections() {
         if (!LocalAdb.isAdbSettingEnabled(this)) {
             permMode = 1;
-            show(5, 1);
+            show(IDX_PERMS, 1);
         } else {
             runEasyAdbGrant();
         }
@@ -1133,7 +1070,7 @@ public class SetupActivity extends Activity {
                 }
             } else {
                 permMode = 1;
-                show(5, 0);
+                show(IDX_PERMS, 0);
                 new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                         .setTitle(tr("ADB Debugging Needed", "ADB Hata Ayıklama Gerekli"))
                         .setMessage(tr(
@@ -1142,7 +1079,7 @@ public class SetupActivity extends Activity {
                         .setPositiveButton(tr("OK", "Tamam"), null)
                         .setNeutralButton(tr("Manual Setup", "Manuel Kurulum"), (d, w) -> {
                             permMode = 2;
-                            show(5, 1);
+                            show(IDX_PERMS, 1);
                         })
                         .show();
             }
