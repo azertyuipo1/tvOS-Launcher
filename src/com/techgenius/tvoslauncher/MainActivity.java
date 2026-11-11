@@ -967,23 +967,33 @@ public class MainActivity extends Activity {
         clockColView = clockCol;
         // Numéro de version en haut à gauche, visible seulement en mode admin.
         versionTag = new TextView(this);
-        // Bandeau du mode admin : on voit tout de suite qu'on y est, et comment en sortir.
-        versionTag.setText("MODE ADMIN   ·   v" + AppUpdater.getCurrentVersion(this) + "   ·   OK 7 s pour quitter");
-        versionTag.setTypeface(Ui.font(this, "semibold"));
+        versionTag.setText("v" + AppUpdater.getCurrentVersion(this));
+        versionTag.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(versionTag, 11);
-        versionTag.setTextColor(0xFFFFFFFF);
-        versionTag.setLetterSpacing(0.04f);
-        android.graphics.drawable.GradientDrawable adminBg = new android.graphics.drawable.GradientDrawable();
-        adminBg.setColor(0xB3000000);
-        adminBg.setCornerRadius(dp(14));
-        versionTag.setBackground(adminBg);
-        versionTag.setPadding(dp(12), dp(5), dp(12), dp(5));
+        versionTag.setTextColor(0xCCFFFFFF);
+        versionTag.setShadowLayer(dp(6), 0, dp(1), 0x99000000);
         FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
         vlp.leftMargin = (int) (screenW * 0.065f);
         vlp.topMargin = dp(36);
         versionTag.setVisibility(View.GONE);
         root.addView(versionTag, vlp);
+        // Filigrane « MODE ADMIN » au centre de l'écran, sur le même verre que le cadre des applis.
+        adminMark = new TextView(this);
+        adminMark.setText("MODE ADMIN");
+        adminMark.setTypeface(Ui.font(this, "semibold"));
+        Ui.textSize(adminMark, 26);
+        adminMark.setLetterSpacing(0.22f);
+        adminMark.setTextColor(0xB3FFFFFF);
+        adminMark.setPadding(dp(34), dp(16), dp(34), dp(16));
+        LiquidGlass adminGlass = new LiquidGlass(15 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
+        adminGlass.lens = dp(12);
+        adminGlass.rimStrength = 0.28f;
+        adminMark.setBackground(adminGlass);
+        adminMark.setFocusable(false);
+        adminMark.setVisibility(View.GONE);
+        root.addView(adminMark, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
         FrameLayout.LayoutParams cclp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         cclp.rightMargin = (int) (screenW * 0.065f);
@@ -3900,6 +3910,7 @@ public class MainActivity extends Activity {
     TextView welcomeLine, eyebrow, bigClock, bigDate;
     android.widget.ImageView wifiCard;
     TextView versionTag;
+    TextView adminMark;
     View scrimView;
     String wifiCardKey = "";
 
@@ -4154,6 +4165,7 @@ public class MainActivity extends Activity {
             boolean clockOn = !VillaFolder.get(this, VillaFolder.K_CLOCK).toLowerCase(java.util.Locale.ROOT).matches("non|no|0|off");
             clockColView.setVisibility(scenes || admin || !clockOn ? View.GONE : View.VISIBLE);
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
+            if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
         }
     }
@@ -5889,6 +5901,7 @@ public class MainActivity extends Activity {
         if (clockBox == null || Scenes.isScenesLook(this)) return;
         boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
         if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
+            if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
         if (wifiCard != null) {
             if (admin) wifiCard.setVisibility(View.GONE);
             else refreshProfileTitle();
