@@ -35,6 +35,8 @@ final class VillaFolder {
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
     static final String K_TZ = "fuseau_horaire";
+    static final String K_INTRO = "effet_allumage";  // « effet_allumage: oui | non » (apparition de l'accueil à l'allumage)
+    static final String K_INTRO_HOME = "effet_accueil"; // « effet_accueil: oui | non » (apparition à chaque retour sur l'accueil)
     static final String K_CLOCK = "affichage_heure";  // « affichage_heure: oui | non » (heure et date de l'accueil)        // « fuseau_horaire: America/La_Paz » (GMT-4 par défaut)
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */
@@ -269,7 +271,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ, K_CLOCK));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");

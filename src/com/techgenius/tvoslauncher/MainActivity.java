@@ -4095,12 +4095,28 @@ public class MainActivity extends Activity {
     private boolean introPending = true;
     private android.animation.ObjectAnimator kenBurns;
 
-    /** Au démarrage et au réveil de la TV (pas à chaque retour d'une appli). */
+    private boolean villaFlag(String key, boolean def) {
+        String v = VillaFolder.get(this, key).trim().toLowerCase(java.util.Locale.ROOT);
+        if (v.isEmpty()) return def;
+        return !v.matches("non|no|0|off|false");
+    }
+
+    /**
+     * Au démarrage et au réveil de la TV (réglage « effet_allumage », oui par défaut) ; à chaque retour sur
+     * l'accueil seulement si « effet_accueil » est à oui.
+     */
     private void maybePlayIntro() {
-        if (!introPending || wallView == null) return;
+        if (wallView == null) return;
+        boolean boot = introPending;
         introPending = false;
+        boolean onBoot = villaFlag(VillaFolder.K_INTRO, true), onHome = villaFlag(VillaFolder.K_INTRO_HOME, false);
+        if (!onBoot && !onHome) {
+            stopKenBurns();
+            return;
+        }
+        if (boot ? !onBoot : !onHome) return;
         long now = android.os.SystemClock.uptimeMillis();
-        if (now - lastIntroAt < 60_000L) return;
+        if (now - lastIntroAt < (boot ? 60_000L : 2_000L)) return;
         lastIntroAt = now;
         wallView.setAlpha(0f);
         wallView.setScaleX(1.04f);
@@ -4118,6 +4134,14 @@ public class MainActivity extends Activity {
                     .setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f)).start();
             delay += 140;
         }
+    }
+
+    private void stopKenBurns() {
+        if (kenBurns == null) return;
+        kenBurns.cancel();
+        kenBurns = null;
+        wallView.setScaleX(1f);
+        wallView.setScaleY(1f);
     }
 
     /** Zoom très lent et continu de la photo, à peine perceptible. */
