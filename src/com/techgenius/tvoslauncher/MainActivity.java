@@ -967,11 +967,17 @@ public class MainActivity extends Activity {
         clockColView = clockCol;
         // Numéro de version en haut à gauche, visible seulement en mode admin.
         versionTag = new TextView(this);
-        versionTag.setText("v" + AppUpdater.getCurrentVersion(this));
-        versionTag.setTypeface(Ui.font(this, "medium"));
+        // Bandeau du mode admin : on voit tout de suite qu'on y est, et comment en sortir.
+        versionTag.setText("MODE ADMIN   ·   v" + AppUpdater.getCurrentVersion(this) + "   ·   OK 7 s pour quitter");
+        versionTag.setTypeface(Ui.font(this, "semibold"));
         Ui.textSize(versionTag, 11);
-        versionTag.setTextColor(0xCCFFFFFF);
-        versionTag.setShadowLayer(dp(6), 0, dp(1), 0x99000000);
+        versionTag.setTextColor(0xFFFFFFFF);
+        versionTag.setLetterSpacing(0.04f);
+        android.graphics.drawable.GradientDrawable adminBg = new android.graphics.drawable.GradientDrawable();
+        adminBg.setColor(0xB3000000);
+        adminBg.setCornerRadius(dp(14));
+        versionTag.setBackground(adminBg);
+        versionTag.setPadding(dp(12), dp(5), dp(12), dp(5));
         FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.START);
         vlp.leftMargin = (int) (screenW * 0.065f);
