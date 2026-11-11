@@ -4254,7 +4254,7 @@ public class MainActivity extends Activity {
         t1.setTextColor(Color.WHITE);
         t1.setGravity(Gravity.CENTER);
         TextView t2 = new TextView(this);
-        t2.setText("Maintenir le bouton OK pendant 7 secondes pour désactiver le mode admin");
+        t2.setText("Maintenir le bouton OK pendant 3 secondes pour désactiver le mode admin");
         t2.setTypeface(Ui.font(this, "regular"));
         Ui.textSize(t2, 14);
         t2.setTextColor(0xB3FFFFFF);
