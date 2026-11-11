@@ -1845,6 +1845,29 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    /** Contrôle de l'installation : « ✓ complète », sinon la liste de ce qui manque. */
+    private String installCheck() {
+        java.util.List<String> miss = new java.util.ArrayList<>();
+        if (PowerService.instance == null) miss.add("service d'accessibilité");
+        if (!LocalAdb.isPaired(this)) miss.add("ADB local");
+        try {
+            android.content.pm.ResolveInfo home = getPackageManager().resolveActivity(
+                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                    android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+            if (home == null || home.activityInfo == null || !getPackageName().equals(home.activityInfo.packageName)) {
+                miss.add("accueil d'origine à désactiver");
+            }
+        } catch (Throwable ignored) { }
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+                miss.add("autorisation de mise à jour");
+            }
+        } catch (Throwable ignored) { }
+        if (!GuestLock.isEnabled(this)) miss.add("verrou clients");
+        if (!VillaFolder.isConfigured(this)) miss.add("villa non configurée");
+        return miss.isEmpty() ? "✓ complète" : "✗ manque : " + android.text.TextUtils.join(", ", miss);
+    }
+
     private String serverDiag = "test en cours…", publicIp = "…";
     private boolean serverDiagRun = false;
 
@@ -1890,6 +1913,7 @@ public class SettingsActivity extends Activity {
 
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
+        infoRowDynamic("Installation", this::installCheck, null);
         infoRowDynamic("Réseau", this::networkSummary, null);
         infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);

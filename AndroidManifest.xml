@@ -62,8 +62,7 @@
         android:banner="@drawable/banner"
         android:theme="@style/HomeTheme"
         android:requestLegacyExternalStorage="true"
-        android:allowBackup="false"
-        android:usesCleartextTraffic="true">
+        android:allowBackup="false">
 
         <activity
             android:name=".MainActivity"
