@@ -3928,6 +3928,7 @@ public class MainActivity extends Activity {
     android.widget.ImageView wifiCard;
     TextView versionTag;
     View adminMark;
+    private Boolean lastAdminUi;
     View scrimView;
     String wifiCardKey = "";
 
@@ -4184,6 +4185,13 @@ public class MainActivity extends Activity {
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
+            // Le mode admin vient d'expirer (10 min) : la barre du haut doit disparaître aussi.
+            if (lastAdminUi != null && lastAdminUi && !admin) {
+                lastAdminUi = false;
+                handler.post(MainActivity::onAdminLocked);
+            } else {
+                lastAdminUi = admin;
+            }
         }
     }
 
