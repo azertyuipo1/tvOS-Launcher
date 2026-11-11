@@ -422,6 +422,7 @@ final class VillaFolder {
                 {"installation", miss.isEmpty() ? "ok" : android.text.TextUtils.join(", ", miss)},
                 {"applis_manquantes", android.text.TextUtils.join(", ", InstallCheck.missingApps(c))},
                 {"usage", UsageStats.summary30(c)},
+                {"usage_total", UsageStats.summaryAll(c)},
         };
         for (String[] f : fields) {
             body.append('&').append(f[0]).append('=').append(java.net.URLEncoder.encode(f[1] == null ? "" : f[1], "UTF-8"));

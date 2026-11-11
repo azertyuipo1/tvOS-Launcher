@@ -96,11 +96,37 @@ final class UsageStats {
             long s0 = v == null ? 0 : v.optLong(0), n0 = v == null ? 0 : v.optLong(1);
             day.put(pkg, new org.json.JSONArray().put(s0 + sec).put(n0 + opens));
             all.put(d, day);
+            // Totaux depuis l'installation (au premier passage, repris des jours déjà comptés).
+            JSONObject tot = p.contains("t") ? new JSONObject(p.getString("t", "{}")) : seedTotals(all, pkg, sec, opens);
+            org.json.JSONArray tv = tot.optJSONArray(pkg);
+            if (p.contains("t")) {
+                tot.put(pkg, new org.json.JSONArray().put((tv == null ? 0 : tv.optLong(0)) + sec).put((tv == null ? 0 : tv.optLong(1)) + opens));
+            }
             // On ne garde que 31 jours.
             String limit = new SimpleDateFormat("yyyyMMdd", Locale.ROOT).format(new Date(System.currentTimeMillis() - 31L * 86_400_000L));
             for (Iterator<String> it = all.keys(); it.hasNext(); ) if (it.next().compareTo(limit) < 0) it.remove();
-            p.edit().putString("d", all.toString()).apply();
+            p.edit().putString("d", all.toString()).putString("t", tot.toString()).apply();
         } catch (Throwable ignored) { }
+    }
+
+    /** Premier calcul des totaux : somme des jours gardés (qui incluent déjà l'ajout en cours). */
+    private static JSONObject seedTotals(JSONObject all, String pkg, long sec, int opens) throws org.json.JSONException {
+        JSONObject tot = new JSONObject();
+        for (Iterator<String> it = all.keys(); it.hasNext(); ) {
+            JSONObject day = all.getJSONObject(it.next());
+            for (Iterator<String> ip = day.keys(); ip.hasNext(); ) {
+                String k = ip.next();
+                org.json.JSONArray v = day.getJSONArray(k), t = tot.optJSONArray(k);
+                tot.put(k, new org.json.JSONArray().put((t == null ? 0 : t.optLong(0)) + v.optLong(0)).put((t == null ? 0 : t.optLong(1)) + v.optLong(1)));
+            }
+        }
+        return tot;
+    }
+
+    /** Totaux depuis l'installation : {"pkg":[secondes, ouvertures], …}. */
+    static synchronized String summaryAll(Context c) {
+        flush(c, System.currentTimeMillis());
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("t", "{}");
     }
 
     /** Totaux sur 30 jours : {"pkg":[secondes, ouvertures], …} (compte aussi le segment en cours). */
