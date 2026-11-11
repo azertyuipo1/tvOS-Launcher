@@ -35,8 +35,9 @@ final class VillaFolder {
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
     static final String K_TZ = "fuseau_horaire";
-    static final String K_INTRO = "effet_allumage";  // « effet_allumage: oui | non » (apparition de l'accueil à l'allumage)
-    static final String K_INTRO_HOME = "effet_accueil"; // « effet_accueil: oui | non » (apparition à chaque retour sur l'accueil)
+    // Anciens réglages d'animation (retirés) : reconnus pour ne jamais être pris pour une appli.
+    static final String K_INTRO = "effet_allumage";
+    static final String K_INTRO_HOME = "effet_accueil";
     static final String K_CLOCK = "affichage_heure";  // « affichage_heure: oui | non » (heure et date de l'accueil)        // « fuseau_horaire: America/La_Paz » (GMT-4 par défaut)
 
     /** Hébergement des dossiers saisis par un simple nom (non affiché à l'écran). */

@@ -317,7 +317,6 @@ public class MainActivity extends Activity {
         wakeReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context c, Intent i) {
                 AirPlayGuard.check(c, true);
-                introPending = true; // la TV se rallume : l'accueil rejoue son apparition
                 LocalAdb.scheduleKeepAliveRepair(c, 1500L);
                 RentalReset.check(c);
                 GuestLock.lock();
@@ -449,8 +448,7 @@ public class MainActivity extends Activity {
         // Certaines applis (Netflix) passent par un écran intermédiaire qui ramène l'accueil une fraction de
         // seconde avant de s'ouvrir : juste après un lancement, on garde l'écran noir au lieu d'afficher l'accueil.
         if (android.os.SystemClock.uptimeMillis() - lastLaunchAt < 3000) showBounceCover();
-        else { hideBounceCover(); maybePlayIntro(); }
-        if (kenBurns != null && kenBurns.isPaused()) kenBurns.resume();
+        else hideBounceCover();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
             String ws = Profiles.homePrefs(this).getString("wallpaper", "photo:tessellated-pavement.jpg");
@@ -560,7 +558,6 @@ public class MainActivity extends Activity {
         super.onPause();
         resumed = false;
         handler.removeCallbacks(hideBounce); // l'appli a repris la main : l'écran noir reste derrière elle
-        if (kenBurns != null) kenBurns.pause(); // pas d'animation pendant qu'une appli tourne
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
         }
@@ -4090,75 +4087,7 @@ public class MainActivity extends Activity {
     }
     View clockColView;
 
-    // ---------- Accueil animé : fondu de la photo et des textes à l'allumage, zoom très lent ----------
-    private long lastIntroAt;
-    private boolean introPending = true;
-    private android.animation.ObjectAnimator kenBurns;
 
-    private boolean villaFlag(String key, boolean def) {
-        String v = VillaFolder.get(this, key).trim().toLowerCase(java.util.Locale.ROOT);
-        if (v.isEmpty()) return def;
-        return !v.matches("non|no|0|off|false|d[ée]sactiv[ée]e?|inactif");
-    }
-
-    /**
-     * Au démarrage et au réveil de la TV (réglage « effet_allumage », oui par défaut) ; à chaque retour sur
-     * l'accueil seulement si « effet_accueil » est à oui.
-     */
-    private void maybePlayIntro() {
-        if (wallView == null) return;
-        boolean boot = introPending;
-        introPending = false;
-        boolean onBoot = villaFlag(VillaFolder.K_INTRO, true), onHome = villaFlag(VillaFolder.K_INTRO_HOME, false);
-        if (!onBoot && !onHome) {
-            stopKenBurns();
-            return;
-        }
-        if (boot ? !onBoot : !onHome) return;
-        long now = android.os.SystemClock.uptimeMillis();
-        if (now - lastIntroAt < (boot ? 60_000L : 2_000L)) return;
-        lastIntroAt = now;
-        wallView.setAlpha(0f);
-        wallView.setScaleX(1.04f);
-        wallView.setScaleY(1.04f);
-        wallView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(1100)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
-                .withEndAction(this::startKenBurns).start();
-        View[] parts = { titleBoxView, clockColView, wifiCard, dockRow };
-        long delay = 350;
-        for (View v : parts) {
-            if (v == null) continue;
-            v.setAlpha(0f);
-            v.setTranslationY(dp(14));
-            v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(700)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f)).start();
-            delay += 140;
-        }
-    }
-
-    private void stopKenBurns() {
-        if (kenBurns == null) return;
-        kenBurns.cancel();
-        kenBurns = null;
-        wallView.setScaleX(1f);
-        wallView.setScaleY(1f);
-    }
-
-    /** Zoom très lent et continu de la photo, à peine perceptible. */
-    private void startKenBurns() {
-        if (wallView == null || kenBurns != null) return;
-        wallView.setPivotX(wallView.getWidth() * 0.55f);
-        wallView.setPivotY(wallView.getHeight() * 0.42f);
-        kenBurns = android.animation.ObjectAnimator.ofPropertyValuesHolder(wallView,
-                android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.035f),
-                android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.035f));
-        kenBurns.setDuration(40_000L);
-        kenBurns.setRepeatMode(android.animation.ValueAnimator.REVERSE);
-        kenBurns.setRepeatCount(android.animation.ValueAnimator.INFINITE);
-        kenBurns.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-        wallView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        kenBurns.start();
-    }
     private int villaTicks = 0;
 
     /** Toutes les 20 s : horloge, date, salutation ; toutes les 30 min : vérification des départs. */
