@@ -73,16 +73,35 @@ public class KeyTestActivity extends Activity {
         setContentView(root);
     }
 
+    /**
+     * Volume : sur un boîtier, les touches de volume sont souvent traitées par le système (HDMI-CEC) avant
+     * d'arriver ici, ou envoyées directement à la TV en infrarouge. On affiche donc aussi tout changement du
+     * volume du boîtier.
+     */
+    private final android.content.BroadcastReceiver volume = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context c, android.content.Intent i) {
+            if (i.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != android.media.AudioManager.STREAM_MUSIC) return;
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            addLine("Volume du boîtier modifié : " + am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                    + " / " + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                    + (am.isStreamMute(android.media.AudioManager.STREAM_MUSIC) ? " (muet)" : ""),
+                    "      (la touche n'est pas passée par le launcher, le système l'a traitée directement)");
+        }
+    };
+
     @Override
     protected void onResume() {
         super.onResume();
         instance = this;
+        try { registerReceiver(volume, new android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")); } catch (Throwable ignored) { }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         if (instance == this) instance = null;
+        try { unregisterReceiver(volume); } catch (Throwable ignored) { }
     }
 
     /** Sans service d'accessibilité, les touches arrivent ici (sauf Accueil et volume). */
@@ -114,10 +133,14 @@ public class KeyTestActivity extends Activity {
         InputDevice d = e.getDevice();
         String dev = d == null ? "?" : d.getName();
         String name = KeyEvent.keyCodeToString(code).replace("KEYCODE_", "");
+        addLine(name + "   —   code " + code + " · scan " + e.getScanCode() + " · " + dev,
+                "      en mode client : " + GuestLock.describeKey(this, code));
+    }
+
+    private void addLine(String l1, String l2) {
         count++;
         TextView row = new TextView(this);
-        row.setText(count + ".  " + name + "   —   code " + code + " · scan " + e.getScanCode() + " · " + dev
-                + "\n      en mode client : " + GuestLock.describeKey(this, code));
+        row.setText(count + ".  " + l1 + "\n" + l2);
         row.setTextColor(Color.WHITE);
         row.setTypeface(Ui.font(this, "regular"));
         Ui.textSize(row, 12.5f);

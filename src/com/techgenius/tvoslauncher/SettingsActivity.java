@@ -1742,7 +1742,6 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAbout() {
-        row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
         infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
         infoRowDynamic("Réseau", this::networkSummary, null);
@@ -1771,6 +1770,7 @@ public class SettingsActivity extends Activity {
             String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
             return t.isEmpty() ? "—" : t;
         });
+        row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
