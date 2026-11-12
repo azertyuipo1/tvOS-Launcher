@@ -96,8 +96,25 @@ final class GuestLock {
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
                 return true;
             default:
-                return false;
+                // Toute touche d'alimentation, quel que soit son code (TV, boîtier, ampli, veille, réveil).
+                String n = KeyEvent.keyCodeToString(k);
+                return n.contains("POWER") || n.contains("SLEEP") || n.contains("WAKEUP");
         }
+    }
+
+    /** Dernières touches bloquées (code et scancode), pour identifier une touche de télécommande. */
+    private static void noteBlocked(Context c, KeyEvent e) {
+        if (e.getAction() != KeyEvent.ACTION_DOWN || e.getRepeatCount() > 0) return;
+        try {
+            SharedPreferences p = c.getSharedPreferences("villa", Context.MODE_PRIVATE);
+            String entry = KeyEvent.keyCodeToString(e.getKeyCode()).replace("KEYCODE_", "") + " (" + e.getKeyCode()
+                    + ", scan " + e.getScanCode() + ") — " + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE).format(new java.util.Date());
+            String old = p.getString("keys_blocked", "");
+            String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
+            StringBuilder sb = new StringBuilder(entry);
+            for (int i = 0; i < Math.min(parts.length, 3); i++) sb.append('\n').append(parts[i]);
+            p.edit().putString("keys_blocked", sb.toString()).apply();
+        } catch (Throwable ignored) { }
     }
 
     private static boolean onHome() {
@@ -138,7 +155,7 @@ final class GuestLock {
             if (e.getAction() == KeyEvent.ACTION_UP) launchNext(c);
             return true;
         }
-        if (isSystemKey(code)) return true;
+        if (isSystemKey(code)) { noteBlocked(c, e); return true; }
         if (e.getAction() == KeyEvent.ACTION_DOWN) appKeyUntil = SystemClock.uptimeMillis() + 5000L;
         return false;
     }

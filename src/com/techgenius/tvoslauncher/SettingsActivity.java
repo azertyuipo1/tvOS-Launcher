@@ -1766,6 +1766,10 @@ public class SettingsActivity extends Activity {
             }
             return sb.length() == 0 ? "—" : sb.toString();
         });
+        infoBlockDynamic("Dernières touches bloquées", () -> {
+            String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
+            return t.isEmpty() ? "—" : t;
+        });
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
