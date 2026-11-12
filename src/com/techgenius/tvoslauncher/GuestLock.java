@@ -102,19 +102,67 @@ final class GuestLock {
         }
     }
 
-    /** Dernières touches bloquées (code et scancode), pour identifier une touche de télécommande. */
-    private static void noteBlocked(Context c, KeyEvent e) {
+    /** Dernières touches de la télécommande (code, scancode, ce qu'il en est advenu), pour identifier une touche. */
+    static void noteKey(Context c, KeyEvent e, String what) {
         if (e.getAction() != KeyEvent.ACTION_DOWN || e.getRepeatCount() > 0) return;
         try {
             SharedPreferences p = c.getSharedPreferences("villa", Context.MODE_PRIVATE);
             String entry = KeyEvent.keyCodeToString(e.getKeyCode()).replace("KEYCODE_", "") + " (" + e.getKeyCode()
-                    + ", scan " + e.getScanCode() + ") — " + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE).format(new java.util.Date());
+                    + ", scan " + e.getScanCode() + ") " + what + " — "
+                    + new java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE).format(new java.util.Date());
             String old = p.getString("keys_blocked", "");
             String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
             StringBuilder sb = new StringBuilder(entry);
-            for (int i = 0; i < Math.min(parts.length, 3); i++) sb.append('\n').append(parts[i]);
+            for (int i = 0; i < Math.min(parts.length, 5); i++) sb.append('\n').append(parts[i]);
             p.edit().putString("keys_blocked", sb.toString()).apply();
         } catch (Throwable ignored) { }
+    }
+
+    /** Ajoute l'appli ouverte à la dernière touche notée. */
+    private static void noteKeyResult(Context c, String what) {
+        try {
+            SharedPreferences p = c.getSharedPreferences("villa", Context.MODE_PRIVATE);
+            String old = p.getString("keys_blocked", "");
+            if (old.isEmpty()) return;
+            int nl = old.indexOf('\n');
+            String first = nl < 0 ? old : old.substring(0, nl);
+            int dash = first.lastIndexOf(" — ");
+            if (dash > 0) first = first.substring(0, dash) + " " + what + first.substring(dash);
+            p.edit().putString("keys_blocked", first + (nl < 0 ? "" : old.substring(nl))).apply();
+        } catch (Throwable ignored) { }
+    }
+
+    private static boolean isNavKey(int k) {
+        switch (k) {
+            case KeyEvent.KEYCODE_DPAD_UP: case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_LEFT: case KeyEvent.KEYCODE_DPAD_RIGHT:
+            case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_BACK:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /** Boîtier branché sur une TV (Mecool, Chromecast…) : pas d'entrée HDMI, donc pas de vraie touche « Source ». */
+    private static Boolean box;
+    private static boolean isBox(Context c) {
+        if (box == null) {
+            boolean hdmi = false;
+            try {
+                android.media.tv.TvInputManager tim = (android.media.tv.TvInputManager) c.getSystemService(Context.TV_INPUT_SERVICE);
+                if (tim != null) for (android.media.tv.TvInputInfo i : tim.getTvInputList())
+                    if (i.getType() == android.media.tv.TvInputInfo.TYPE_HDMI) { hdmi = true; break; }
+            } catch (Throwable ignored) { }
+            box = !hdmi;
+        }
+        return box;
+    }
+
+    /** Touche « TV » : selon les télécommandes, TV, Guide (programme TV), ou Source sur un boîtier. */
+    private static boolean isTvKey(Context c, int k) {
+        return k == KeyEvent.KEYCODE_TV || k == KeyEvent.KEYCODE_GUIDE
+                || (k == KeyEvent.KEYCODE_TV_INPUT && isBox(c));
     }
 
     private static boolean onHome() {
@@ -146,16 +194,23 @@ final class GuestLock {
 
     /** Appelée pour chaque touche par le service d'accessibilité. Renvoie true si la touche est avalée. */
     static boolean onAnyKey(Context c, KeyEvent e) {
-        if (!isLocked(c)) return false;
         int code = e.getKeyCode();
+        boolean locked = isLocked(c);
+        if (!locked) {
+            if (!isNavKey(code)) noteKey(c, e, "(mode admin)");
+            return false;
+        }
         trackOkHold(c, e);
-        if (isAllowedKey(code)) return false;
-        if (code == KeyEvent.KEYCODE_TV) {
+        if (isNavKey(code)) return false;
+        if (isAllowedKey(code)) { noteKey(c, e, "passe"); return false; }
+        if (isTvKey(c, code)) {
             // Touche TV : ouvre Next (ITVSTREAM).
+            noteKey(c, e, "→ Next");
             if (e.getAction() == KeyEvent.ACTION_UP) launchNext(c);
             return true;
         }
-        if (isSystemKey(code)) { noteBlocked(c, e); return true; }
+        if (isSystemKey(code)) { noteKey(c, e, "bloquée"); return true; }
+        noteKey(c, e, "touche d'appli");
         if (e.getAction() == KeyEvent.ACTION_DOWN) appKeyUntil = SystemClock.uptimeMillis() + 5000L;
         return false;
     }
@@ -175,9 +230,21 @@ final class GuestLock {
         if (SystemClock.uptimeMillis() > appKeyUntil || !isLocked(c)) { appKeyUntil = 0L; return; }
         // Écrans de passage (barre système, clavier) : on attend l'appli elle-même.
         if (pkg.equals("com.android.systemui") || pkg.contains("inputmethod") || pkg.equals("android")) return;
+        // Écran de passage d'un service système (gestionnaire de touches du fabricant…) : pas une appli, on attend.
+        if (!pkg.equals(c.getPackageName()) && !launchable(c, pkg)) return;
         appKeyUntil = 0L;
-        if (pkg.equals(c.getPackageName()) || MainActivity.villaRank("", pkg) >= 0) return;
+        if (pkg.equals(c.getPackageName()) || MainActivity.villaRank("", pkg) >= 0) { noteKeyResult(c, "ouvre " + pkg); return; }
+        noteKeyResult(c, "a ouvert " + pkg + " → accueil");
         bounceHome(c);
+    }
+
+    private static boolean launchable(Context c, String pkg) {
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            return pm.getLeanbackLaunchIntentForPackage(pkg) != null || pm.getLaunchIntentForPackage(pkg) != null;
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     private static long okDownAt = 0L;

@@ -1766,7 +1766,7 @@ public class SettingsActivity extends Activity {
             }
             return sb.length() == 0 ? "—" : sb.toString();
         });
-        infoBlockDynamic("Dernières touches bloquées", () -> {
+        infoBlockDynamic("Dernières touches", () -> {
             String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
             return t.isEmpty() ? "—" : t;
         });
