@@ -355,7 +355,7 @@ final class VillaFolder {
                     if (name != null && !name.isEmpty()) syncProfileName(c, name);
                     String newApps = (cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS)) + appLines(txt);
                     String upd = cfg.get(K_UPDATE) == null ? "" : cfg.get(K_UPDATE).toLowerCase(Locale.ROOT);
-                    if (upd.matches("oui|yes|true|1|on")) AppUpdater.autoFromConfig();
+                    if (!upd.matches("non|no|false|0|off")) AppUpdater.autoFromConfig(); // par défaut : mise à jour automatique
                     if (!oldApps.equals(newApps)) {
                         // Liste ou ordre des applis changé : l'accueil se reconstruit.
                         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
