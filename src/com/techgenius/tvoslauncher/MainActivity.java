@@ -4163,7 +4163,7 @@ public class MainActivity extends Activity {
         eyebrow.setText(villa.toUpperCase(java.util.Locale.FRENCH));
         if (guest) {
             welcomeLine.setText(RentalReset.greeting(this, stay));
-            profileTitle.setText(stay.name.replaceAll("\\.+$", ""));
+            profileTitle.setText(GuestName.format(stay.name));
         } else if (anonStay) {
             String g = RentalReset.greeting(this, stay).replaceAll(",\\s*$", "");
             if (g.startsWith("Thank you")) g += ".";
