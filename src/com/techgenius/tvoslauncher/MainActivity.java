@@ -986,7 +986,9 @@ public class MainActivity extends Activity {
             card.setPadding(dp(40), dp(28), dp(40), dp(28));
             // Même verre que le cadre derrière les applis.
             LiquidGlass abg = new LiquidGlass(dp(26), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
-            abg.lens = dp(12);
+            // Sans effet de loupe sur les bords : sur un encart aussi large, la bande grossie paraissait
+            // décalée par rapport au fond (bordure épaisse mal alignée).
+            abg.lens = 0;
             abg.rimStrength = 0.28f;
             card.setBackground(abg);
             TextView t1 = new TextView(this);
