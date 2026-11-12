@@ -833,6 +833,7 @@ public class PowerService extends AccessibilityService {
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
         int code = event.getKeyCode();
+        if (KeyTestActivity.capture(event)) return true; // écran de test des touches
         if (GuestLock.onAnyKey(this, event)) return true;
         // Appui long de 2 s sur Retour = Accueil (pratique avec la télécommande de la TV, dont le bouton
         // Accueil n'arrive pas toujours au boîtier).

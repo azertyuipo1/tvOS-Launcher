@@ -193,6 +193,20 @@ final class GuestLock {
     private static volatile long appKeyUntil = 0L;
 
     /** Appelée pour chaque touche par le service d'accessibilité. Renvoie true si la touche est avalée. */
+    /** Ce que fait une touche en mode client (écran de test des touches). */
+    static String describeKey(Context c, int code) {
+        if (isNavKey(code)) return "navigation";
+        if (code == KeyEvent.KEYCODE_HOME) return "retour à l'accueil";
+        String n = KeyEvent.keyCodeToString(code);
+        if (n.contains("POWER") || n.contains("SLEEP") || n.contains("WAKEUP")) return "alimentation (passe)";
+        if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_MUTE)
+            return "volume (passe au système)";
+        if (isAllowedKey(code)) return "passe";
+        if (isTvKey(c, code)) return "ouvre Next";
+        if (isSystemKey(code)) return "bloquée";
+        return "touche d'appli : passe, l'appli doit être sur l'accueil";
+    }
+
     static boolean onAnyKey(Context c, KeyEvent e) {
         int code = e.getKeyCode();
         boolean locked = isLocked(c);

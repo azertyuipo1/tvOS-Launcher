@@ -1742,6 +1742,7 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAbout() {
+        row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
         infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
         infoRowDynamic("Réseau", this::networkSummary, null);
