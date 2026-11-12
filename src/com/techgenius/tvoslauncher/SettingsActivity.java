@@ -939,6 +939,8 @@ public class SettingsActivity extends Activity {
 
     private void promptFolderUrl() {
         VillaCodePrompt.start(this, changed -> {
+            // Nouvelle villa : la page est reconstruite pour que le QR Code et le lien suivent le nouveau code.
+            rebuildMainRows();
             checkFolderNow();
             if (changed) signOutForNewVilla();
         });

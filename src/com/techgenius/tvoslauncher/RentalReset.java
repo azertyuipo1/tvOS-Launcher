@@ -226,6 +226,43 @@ final class RentalReset {
         }
     }
 
+    /**
+     * Séjours récents et en cours pour la page de la villa (temps de visionnage par client) :
+     * [["nom", "yyyy-MM-dd", "yyyy-MM-dd"], …], du plus ancien au plus récent, 60 jours en arrière au plus.
+     */
+    static String staysSummary(Context c) {
+        JSONArray out = new JSONArray();
+        String json = prefs(c).getString(K_CACHE, null);
+        if (json == null) return out.toString();
+        try {
+            JSONArray data = new JSONObject(json).optJSONArray("data");
+            SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            String today = f.format(new java.util.Date());
+            String from = f.format(new java.util.Date(System.currentTimeMillis() - 60L * 86_400_000L));
+            java.util.List<String[]> l = new java.util.ArrayList<>();
+            for (int i = 0; data != null && i < data.length(); i++) {
+                JSONObject r = data.optJSONObject(i);
+                if (r == null) continue;
+                String s = r.optString("startDate", ""), e = r.optString("endDate", "");
+                if (s.length() < 10 || e.length() < 10 || "CANCELLED".equals(r.optString("status"))) continue;
+                s = s.substring(0, 10);
+                e = e.substring(0, 10);
+                if (e.compareTo(from) < 0 || s.compareTo(today) > 0) continue;
+                String name = r.optString("nom", "").trim();
+                java.util.Iterator<String> keys = r.keys();
+                if (name.isEmpty() && !r.has("nom") && keys.hasNext()) {
+                    String k = keys.next();
+                    Object v = r.opt(k);
+                    if (v instanceof String && !isTechnicalKey(k)) name = ((String) v).trim();
+                }
+                l.add(new String[]{ name.length() > 60 ? name.substring(0, 60) : name, s, e });
+            }
+            java.util.Collections.sort(l, (a, b) -> a[1].compareTo(b[1]));
+            for (String[] x : l.subList(Math.max(0, l.size() - 30), l.size())) out.put(new JSONArray().put(x[0]).put(x[1]).put(x[2]));
+        } catch (Exception ignored) { }
+        return out.toString();
+    }
+
     static String currentGuest(Context c) {
         Stay s = currentStay(c);
         return s == null ? "" : s.name;

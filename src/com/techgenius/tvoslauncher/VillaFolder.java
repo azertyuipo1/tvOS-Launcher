@@ -130,6 +130,9 @@ final class VillaFolder {
     /** Simple nom de dossier (ex. « clo ») plutôt qu'une adresse complète. */
     static boolean isShortName(String b) { return b.matches("[a-z0-9_-]+"); }
 
+    /** Code villa saisi sur la TV : 3 lettres ou chiffres (« azu », « CLO »). */
+    static boolean isCode(String in) { return in != null && in.trim().matches("[A-Za-z0-9]{3}"); }
+
     /** Saisie d'un nom court (« clo », « ADS »), quelle que soit la casse. */
     static boolean isShortInput(String in) {
         String u = in == null ? "" : in.trim();
@@ -432,7 +435,10 @@ final class VillaFolder {
                 {"applis_manquantes", android.text.TextUtils.join(", ", InstallCheck.missingApps(c))},
                 {"usage", UsageStats.summary30(c)},
                 {"usage_total", UsageStats.summaryAll(c)},
+                {"heures", UsageStats.hoursToSend(c)},
+                {"sejours", RentalReset.staysSummary(c)},
         };
+        long sentAt = System.currentTimeMillis();
         for (String[] f : fields) {
             body.append('&').append(f[0]).append('=').append(java.net.URLEncoder.encode(f[1] == null ? "" : f[1], "UTF-8"));
         }
@@ -458,6 +464,7 @@ final class VillaFolder {
                     continue;
                 }
                 if (!"1".equals(conn.getHeaderField("X-Villa-Config"))) return null; // page sans cette fonction
+                if ("1".equals(conn.getHeaderField("X-Villa-Heures"))) UsageStats.hoursSent(c, sentAt);
                 if (code != 200) return new Object[]{ code, "" };
                 StringBuilder sb = new StringBuilder();
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {

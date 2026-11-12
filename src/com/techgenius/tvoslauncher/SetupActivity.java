@@ -445,8 +445,8 @@ public class SetupActivity extends Activity {
     void profile() {
         // Villa : nom court + code à 6 chiffres ; nom, photo, Wi-Fi et calendrier viennent de la page de la villa.
         title("Code villa");
-        subtitle("Tapez le nom court de la villa (ex. « xXx ») : son code à 6 chiffres sera demandé. "
-                + "Le nom, la photo, le Wi-Fi et le calendrier sont ensuite récupérés automatiquement.");
+        subtitle("Code de la villa en 3 lettres (ex. « azu »), puis son code à 6 chiffres. "
+                + "Le reste est récupéré automatiquement.");
         LinearLayout l = list();
         View villaRow = option(l, "Code villa", VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + "  ·  " + VillaFolder.villaName(this) : "Non configuré", false,

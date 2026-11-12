@@ -22,8 +22,17 @@ final class VillaCodePrompt {
     static void start(Activity a, Saved saved) {
         android.widget.EditText in = new android.widget.EditText(a);
         in.setSingleLine(true);
-        in.setHint("xXx");
-        in.setText(VillaFolder.getBase(a));
+        in.setHint("azu");
+        // Code de la villa : 3 lettres ou chiffres, rien d'autre (plus d'adresse externe).
+        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        in.setFilters(new android.text.InputFilter[]{ new android.text.InputFilter.LengthFilter(3),
+                (src, st, en, dst, ds, de) -> {
+                    StringBuilder ok = new StringBuilder();
+                    for (int i = st; i < en; i++) if (Character.isLetterOrDigit(src.charAt(i)) && src.charAt(i) < 128) ok.append(src.charAt(i));
+                    return ok.length() == en - st ? null : ok;
+                } });
+        String cur = VillaFolder.getBase(a);
+        in.setText(VillaFolder.isCode(cur) ? cur : "");
         int pad = (int) (14 * a.getResources().getDisplayMetrics().density);
         FrameLayout box = new FrameLayout(a);
         box.setPadding(pad, pad / 2, pad, 0);
@@ -31,7 +40,7 @@ final class VillaCodePrompt {
         // Le clavier peut envoyer « OK » deux fois (appui + relâchement) : on ne valide qu'une fois.
         final boolean[] done = {false};
         AlertDialog dlg = dialog(a, "Code villa")
-                .setMessage("Tapez le nom court de la villa (ex. « xXx ») : son code à 6 chiffres sera demandé.")
+                .setMessage("Code de la villa en 3 lettres (ex. « azu »).")
                 .setView(box)
                 .setPositiveButton("Suivant", (d, w) -> {
                     if (done[0]) return;
@@ -52,14 +61,18 @@ final class VillaCodePrompt {
         in.requestFocus();
     }
 
-    /** Nom court → code de la villa demandé ; adresse complète ou même villa → enregistré tel quel. */
+    /** Code à 3 lettres → code à 6 chiffres demandé ; même villa → rien ne change. */
     private static void folderEntered(Activity a, String input, Saved saved) {
         String v = input == null ? "" : input.trim();
-        boolean same = v.equalsIgnoreCase(VillaFolder.getBase(a));
-        if (v.isEmpty() || same || !VillaFolder.isShortInput(v)) {
-            String before = VillaFolder.getBase(a);
+        if (v.isEmpty()) return;
+        if (!VillaFolder.isCode(v)) {
+            android.widget.Toast.makeText(a, "Le code villa comporte 3 lettres (ex. « azu »).", android.widget.Toast.LENGTH_LONG).show();
+            H.postDelayed(() -> { if (!a.isFinishing()) start(a, saved); }, 450L);
+            return;
+        }
+        if (v.equalsIgnoreCase(VillaFolder.getBase(a))) {
             VillaFolder.setBase(a, v);
-            saved.run(!before.equals(VillaFolder.getBase(a)) && VillaFolder.isConfigured(a));
+            saved.run(false);
             return;
         }
         // Petit délai : le relâchement de « OK » ne doit pas arriver dans la fenêtre du code.

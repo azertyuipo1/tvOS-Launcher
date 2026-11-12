@@ -87,6 +87,9 @@ final class GuestLock {
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_BACK: case KeyEvent.KEYCODE_HOME:
             case KeyEvent.KEYCODE_POWER:
+            // Télécommandes de TV (Sony…) : Power arrive souvent sous un autre code que KEYCODE_POWER.
+            case KeyEvent.KEYCODE_TV_POWER: case KeyEvent.KEYCODE_SLEEP:
+            case KeyEvent.KEYCODE_WAKEUP: case KeyEvent.KEYCODE_SOFT_SLEEP:
             case KeyEvent.KEYCODE_VOLUME_UP: case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: case KeyEvent.KEYCODE_MEDIA_PLAY:
@@ -102,12 +105,62 @@ final class GuestLock {
         return m != null && m.resumed;
     }
 
+    /** Touches système toujours bloquées (réglages, sources, chaînes, chiffres, recherche, assistant…). */
+    private static boolean isSystemKey(int k) {
+        if (k >= KeyEvent.KEYCODE_0 && k <= KeyEvent.KEYCODE_9) return true;
+        if (k >= KeyEvent.KEYCODE_CHANNEL_UP && k <= KeyEvent.KEYCODE_APP_SWITCH) return true;   // 166-187
+        if (k >= KeyEvent.KEYCODE_PAIRING && k <= KeyEvent.KEYCODE_ALL_APPS) return true;        // 225-284
+        switch (k) {
+            case KeyEvent.KEYCODE_MENU: case KeyEvent.KEYCODE_NOTIFICATION:
+            case KeyEvent.KEYCODE_SEARCH: case KeyEvent.KEYCODE_ASSIST:
+            case KeyEvent.KEYCODE_SETTINGS: case KeyEvent.KEYCODE_EXPLORER:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Touche d'appli de la télécommande (Netflix, Prime Video, YouTube…) : chaque marque a ses propres codes,
+     * on la laisse donc passer et on regarde l'appli qui s'ouvre. Si c'est une appli de l'accueil installée,
+     * elle reste ouverte ; sinon (appli absente → Play Store, appli non proposée) retour à l'accueil.
+     */
+    private static volatile long appKeyUntil = 0L;
+
     /** Appelée pour chaque touche par le service d'accessibilité. Renvoie true si la touche est avalée. */
     static boolean onAnyKey(Context c, KeyEvent e) {
         if (!isLocked(c)) return false;
         int code = e.getKeyCode();
         trackOkHold(c, e);
-        return !isAllowedKey(code);
+        if (isAllowedKey(code)) return false;
+        if (code == KeyEvent.KEYCODE_TV) {
+            // Touche TV : ouvre Next (ITVSTREAM).
+            if (e.getAction() == KeyEvent.ACTION_UP) launchNext(c);
+            return true;
+        }
+        if (isSystemKey(code)) return true;
+        if (e.getAction() == KeyEvent.ACTION_DOWN) appKeyUntil = SystemClock.uptimeMillis() + 5000L;
+        return false;
+    }
+
+    private static void launchNext(Context c) {
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            Intent i = pm.getLeanbackLaunchIntentForPackage(ItvTile.PKG);
+            if (i == null) i = pm.getLaunchIntentForPackage(ItvTile.PKG);
+            if (i != null) c.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Throwable ignored) { }
+    }
+
+    /** Écran ouvert (service d'accessibilité) : vérifie ce qu'a ouvert une touche d'appli. */
+    static void onForeground(Context c, String pkg) {
+        if (appKeyUntil == 0L || pkg == null) return;
+        if (SystemClock.uptimeMillis() > appKeyUntil || !isLocked(c)) { appKeyUntil = 0L; return; }
+        // Écrans de passage (barre système, clavier) : on attend l'appli elle-même.
+        if (pkg.equals("com.android.systemui") || pkg.contains("inputmethod") || pkg.equals("android")) return;
+        appKeyUntil = 0L;
+        if (pkg.equals(c.getPackageName()) || MainActivity.villaRank("", pkg) >= 0) return;
+        bounceHome(c);
     }
 
     private static long okDownAt = 0L;

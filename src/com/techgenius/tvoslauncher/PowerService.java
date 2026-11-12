@@ -1010,6 +1010,7 @@ public class PowerService extends AccessibilityService {
             String fgPkg = e.getPackageName().toString();
             RecentAppsOverlay.recordAppUsed(this, fgPkg);
             UsageStats.onForeground(this, fgPkg);
+            GuestLock.onForeground(this, fgPkg);
             if (GuestLock.isLockedPackage(fgPkg) && GuestLock.isLocked(this)) {
                 GuestLock.bounceHome(this);
             }

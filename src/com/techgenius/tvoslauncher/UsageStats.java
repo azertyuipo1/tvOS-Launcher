@@ -30,15 +30,107 @@ final class UsageStats {
     private static boolean receiverOn;
     private static final Map<String, Boolean> countable = new HashMap<>();
 
-    /** À appeler une fois (service d'accessibilité) : l'écran éteint arrête le compteur. */
+    /** Début de la période « TV allumée » en cours (0 = écran éteint). */
+    private static long screenSince;
+    private static final long MAX_SCREEN_MS = 6L * 60 * 60_000L;
+    private static final String P_HOURS = "h";
+    private static final String P_SENT = "h_sent";
+
+    /** À appeler une fois (service d'accessibilité) : l'écran éteint arrête les compteurs. */
     static synchronized void init(Context ctx) {
         if (receiverOn) return;
         receiverOn = true;
         try {
-            ctx.getApplicationContext().registerReceiver(new BroadcastReceiver() {
-                @Override public void onReceive(Context c, Intent i) { stop(c); }
-            }, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+            android.os.PowerManager pm = (android.os.PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            if (pm != null && pm.isInteractive()) screenSince = System.currentTimeMillis();
         } catch (Throwable ignored) { }
+        try {
+            IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+            f.addAction(Intent.ACTION_SCREEN_ON);
+            ctx.getApplicationContext().registerReceiver(new BroadcastReceiver() {
+                @Override public void onReceive(Context c, Intent i) {
+                    if (Intent.ACTION_SCREEN_ON.equals(i.getAction())) screenOn(c);
+                    else stop(c);
+                }
+            }, f);
+        } catch (Throwable ignored) { }
+    }
+
+    private static synchronized void screenOn(Context c) {
+        if (screenSince == 0L) screenSince = System.currentTimeMillis();
+    }
+
+    /** Ajoute le temps « TV allumée » écoulé depuis la dernière mesure. */
+    private static void flushScreen(Context c, long now) {
+        if (screenSince == 0L) return;
+        long from = Math.max(screenSince, now - MAX_SCREEN_MS);
+        if (now - from >= 1000L) {
+            add(c, "_tv", (now - from) / 1000L, 0);
+            addHours(c, "_tv", from, now);
+        }
+        screenSince = now;
+    }
+
+    private static String hourKey(long t) { return new SimpleDateFormat("yyyyMMddHH", Locale.ROOT).format(new Date(t)); }
+
+    /**
+     * Temps heure par heure (heure locale de la villa), pour retrouver le temps passé pendant chaque séjour :
+     * {"yyyyMMddHH": {"_tv": secondes TV allumée, "pkg": secondes}, …} ; 62 jours gardés.
+     */
+    private static void addHours(Context c, String key, long from, long to) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject all = new JSONObject(p.getString(P_HOURS, "{}"));
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            long t = from;
+            while (t < to) {
+                cal.setTimeInMillis(t);
+                cal.set(java.util.Calendar.MINUTE, 0);
+                cal.set(java.util.Calendar.SECOND, 0);
+                cal.set(java.util.Calendar.MILLISECOND, 0);
+                cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
+                long end = Math.min(to, cal.getTimeInMillis());
+                long sec = (end - t) / 1000L;
+                if (sec > 0) {
+                    String h = hourKey(t);
+                    JSONObject b = all.optJSONObject(h);
+                    if (b == null) b = new JSONObject();
+                    b.put(key, Math.min(3600L, b.optLong(key) + sec));
+                    all.put(h, b);
+                }
+                t = end;
+            }
+            String limit = hourKey(System.currentTimeMillis() - 62L * 86_400_000L);
+            for (Iterator<String> it = all.keys(); it.hasNext(); ) if (it.next().compareTo(limit) < 0) it.remove();
+            p.edit().putString(P_HOURS, all.toString()).apply();
+        } catch (Throwable ignored) { }
+    }
+
+    /** Heures à envoyer : depuis le dernier envoi réussi (moins 2 h de marge), 62 jours au plus. */
+    static synchronized String hoursToSend(Context c) {
+        long now = System.currentTimeMillis();
+        flush(c, now);
+        flushScreen(c, now);
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONObject all = new JSONObject(p.getString(P_HOURS, "{}"));
+            long sent = p.getLong(P_SENT, 0L);
+            if (sent == 0L) return all.toString();
+            String from = hourKey(sent - 2L * 60 * 60_000L);
+            JSONObject out = new JSONObject();
+            for (Iterator<String> it = all.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (k.compareTo(from) >= 0) out.put(k, all.get(k));
+            }
+            return out.toString();
+        } catch (Throwable t) {
+            return "{}";
+        }
+    }
+
+    /** La page de la villa a bien reçu les heures. */
+    static void hoursSent(Context c, long at) {
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(P_SENT, at).apply();
     }
 
     /** Une appli passe au premier plan. */
@@ -56,14 +148,20 @@ final class UsageStats {
     }
 
     static synchronized void stop(Context c) {
-        flush(c, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        flush(c, now);
+        flushScreen(c, now);
+        screenSince = 0L;
         curPkg = null;
     }
 
     private static void flush(Context c, long now) {
         if (curPkg == null) return;
         long ms = Math.min(Math.max(0L, now - curSince), MAX_SEGMENT_MS);
-        if (ms >= 1000L) add(c, curPkg, ms / 1000L, 0);
+        if (ms >= 1000L) {
+            add(c, curPkg, ms / 1000L, 0);
+            addHours(c, curPkg, now - ms, now);
+        }
         curSince = now;
     }
 
@@ -128,12 +226,14 @@ final class UsageStats {
     /** Totaux depuis l'installation : {"pkg":[secondes, ouvertures], …}. */
     static synchronized String summaryAll(Context c) {
         flush(c, System.currentTimeMillis());
+        flushScreen(c, System.currentTimeMillis());
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("t", "{}");
     }
 
     /** Totaux sur 30 jours : {"pkg":[secondes, ouvertures], …} (compte aussi le segment en cours). */
     static synchronized String summary30(Context c) {
         flush(c, System.currentTimeMillis());
+        flushScreen(c, System.currentTimeMillis());
         try {
             JSONObject all = new JSONObject(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("d", "{}"));
             String limit = new SimpleDateFormat("yyyyMMdd", Locale.ROOT).format(new Date(System.currentTimeMillis() - 30L * 86_400_000L));
