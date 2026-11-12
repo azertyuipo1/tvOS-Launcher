@@ -4074,7 +4074,7 @@ public class MainActivity extends Activity {
                     Bitmap card = drawWifiCard(q, ssid, pass);
                     wifiCard.setImageBitmap(card);
                     LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
-                    g.lens = dp(3);
+                    g.lens = 0; // sans loupe : la bande grossie paraissait décalée par rapport au fond
                     g.rimStrength = 0f;
                     wifiCard.setBackground(g);
                     FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
