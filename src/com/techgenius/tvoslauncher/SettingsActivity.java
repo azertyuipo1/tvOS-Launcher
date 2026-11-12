@@ -4975,6 +4975,18 @@ public class SettingsActivity extends Activity {
         vlp.rightMargin = u(14);
         vlp.topMargin = u(2);
         vlp.bottomMargin = u(5);
+        // Focusable : la télécommande peut descendre jusqu'aux blocs en bas de page (la liste défile avec le focus).
+        v.setFocusable(true);
+        v.setPadding(u(6), u(3), u(6), u(3));
+        vlp.leftMargin = u(8);
+        vlp.rightMargin = u(8);
+        v.setOnFocusChangeListener((view, f) -> {
+            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+            g.setCornerRadius(u(6));
+            g.setColor(f ? 0x26FFFFFF : 0x00000000);
+            view.setBackground(g);
+            v.setTextColor(f ? 0xE6FFFFFF : 0x9EFFFFFF);
+        });
         list.addView(v, vlp);
         Runnable refresh = () -> {
             try { v.setText(val.get()); } catch (Throwable ignored) { v.setText(""); }
