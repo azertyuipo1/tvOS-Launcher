@@ -341,6 +341,8 @@ final class RentalReset {
         }
     }
 
+    /** Dernière lecture réussie du calendrier (ms), 0 si jamais. Envoyée à la page de la villa. */
+    static long getFetchOkAt(Context c) { return prefs(c).getLong("fetch_ok_at", 0L); }
     static String getFetchStatus(Context c) { return prefs(c).getString(K_FETCH_STATUS, "pas encore lu"); }
 
     /** Relit le calendrier en arrière-plan (sans rien déconnecter), puis onDone sur le fil principal. */
@@ -402,7 +404,8 @@ final class RentalReset {
             int n = 0;
             try { JSONArray d = new JSONObject(json).optJSONArray("data"); n = d == null ? 0 : d.length(); } catch (Exception ignored) { }
             prefs(c).edit().putString(K_CACHE, json)
-                    .putString(K_FETCH_STATUS, "✓ lu le " + when + " (" + n + " réservations)").apply();
+                    .putString(K_FETCH_STATUS, "✓ lu le " + when + " (" + n + " réservations)")
+                    .putLong("fetch_ok_at", System.currentTimeMillis()).apply();
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                 MainActivity m = MainActivity.activeInstance;
                 if (m != null) m.refreshProfileTitle();

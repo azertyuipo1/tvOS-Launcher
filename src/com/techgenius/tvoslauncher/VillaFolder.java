@@ -437,6 +437,8 @@ final class VillaFolder {
                 {"usage_total", UsageStats.summaryAll(c)},
                 {"heures", UsageStats.hoursToSend(c)},
                 {"sejours", RentalReset.staysSummary(c)},
+                {"calendrier", RentalReset.getFetchStatus(c)},
+                {"calendrier_ok", String.valueOf(RentalReset.getFetchOkAt(c) / 1000L)},
         };
         long sentAt = System.currentTimeMillis();
         for (String[] f : fields) {
