@@ -22,7 +22,7 @@ final class VillaCodePrompt {
     static void start(Activity a, Saved saved) {
         android.widget.EditText in = new android.widget.EditText(a);
         in.setSingleLine(true);
-        in.setHint("azu");
+        // Pas d'exemple dans le champ : il est donné dans le texte au-dessus.
         // Code de la villa : 3 lettres ou chiffres, rien d'autre (plus d'adresse externe).
         in.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         in.setFilters(new android.text.InputFilter[]{ new android.text.InputFilter.LengthFilter(3),
