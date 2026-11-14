@@ -331,6 +331,7 @@ final class VillaFolder {
                 try {
                     // D'abord par la page de la villa : elle renvoie config.txt et note l'état de la TV.
                     try {
+                        if (manual) RemoteBattery.readNow(c); // « Mettre à jour » : piles relues tout de suite
                         r = postConfig(c, base);
                     } catch (Throwable pt) {
                         r = null; // la lecture par la page a échoué : on lit config.txt directement

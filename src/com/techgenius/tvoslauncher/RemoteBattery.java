@@ -50,6 +50,29 @@ final class RemoteBattery {
         return sb.toString();
     }
 
+    /**
+     * Lecture immédiate (bouton « Mettre à jour », hors fil principal) : accorde l'autorisation si besoin,
+     * lit les piles et attend le résultat quelques secondes, pour qu'il parte avec ce contact-ci.
+     */
+    static void readNow(Context ctx) {
+        Context c = ctx.getApplicationContext();
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 31
+                    && c.checkSelfPermission("android.permission.BLUETOOTH_CONNECT") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                LocalAdb.execShellOutput(c, "pm grant " + c.getPackageName() + " android.permission.BLUETOOTH_CONNECT");
+            }
+            prefs(c).edit().putLong("last_try", 0L).apply();
+            pending = new java.util.concurrent.CountDownLatch(1);
+            refresh(c);
+            if (pending != null) pending.await(6, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Throwable ignored) {
+        } finally {
+            pending = null;
+        }
+    }
+
+    private static volatile java.util.concurrent.CountDownLatch pending;
+
     /** Lance une lecture (en arrière-plan) si la dernière date de plus de 6 h. */
     static void refresh(Context c) {
         if (System.currentTimeMillis() - prefs(c).getLong("last_try", 0L) < EVERY_MS) return;
@@ -108,7 +131,9 @@ final class RemoteBattery {
                     if (status == BluetoothGatt.GATT_SUCCESS && v != null && v.length > 0) {
                         int pct = v[0] & 0xff;
                         if (pct <= 100) prefs(c).edit().putInt("v:" + name, pct)
-                                .putLong("t:" + name, System.currentTimeMillis()).apply();
+                                .putLong("t:" + name, System.currentTimeMillis()).commit();
+                        java.util.concurrent.CountDownLatch l = pending;
+                        if (l != null) l.countDown();
                     }
                     h.post(close);
                 }
