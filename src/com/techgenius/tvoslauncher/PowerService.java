@@ -196,6 +196,7 @@ public class PowerService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         instance = this;
+        NightlyWake.schedule(this);
         serviceConnectedElapsedMs = SystemClock.elapsedRealtime();
         UsageStats.init(this);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);

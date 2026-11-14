@@ -688,6 +688,8 @@ public final class AppUpdater {
         MAIN.post(() -> {
             Activity a = MainActivity.activeInstance;
             if (a == null || a.isFinishing() || checking || downloading) return;
+            // Jamais pendant que quelqu'un regarde : la mise à jour se fait écran éteint (réveil de 3 h 30 / 15 h 30).
+            if (NightlyWake.screenOn(a) && !(GuestLock.isEnabled(a) && !GuestLock.isLocked(a))) return;
             checkForUpdates(a, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
                 if (success && updateAvailable && !a.isFinishing()) {
                     downloadAndInstall(a, downloadUrl, latestVersion, true, null);
