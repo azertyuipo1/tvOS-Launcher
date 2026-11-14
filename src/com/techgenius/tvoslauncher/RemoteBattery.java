@@ -149,7 +149,9 @@ final class RemoteBattery {
                     dumpRunning = true;
                     new Thread(() -> {
                         try {
-                            String out = LocalAdb.execShellOutput(c, "dumpsys bluetooth_manager | grep -i -m 6 batt");
+                            // Dernier essai : les services de télécommande du boîtier (Google TV, Amlogic btrcu…).
+                            String out = LocalAdb.execShellOutput(c, "for p in $(pm list packages | grep -i -E 'remote|rcu|accessor' | cut -d: -f2); do "
+                                    + "r=$(dumpsys activity service $p 2>/dev/null | grep -i -m 3 batt); [ -n \"$r\" ] && echo \"$p: $r\"; done");
                             dump = out == null || out.trim().isEmpty() ? "rien" : out.trim();
                         } catch (Throwable t) {
                             dump = "échec : " + t.getMessage();
@@ -157,7 +159,7 @@ final class RemoteBattery {
                         dumpRunning = false;
                     }, "bt-dump").start();
                 }
-                sb.append("dumpsys : ").append(dump).append('\n');
+                sb.append("services : ").append(dump).append('\n');
                 refreshSysfs(c);
                 sb.append("noyau : ").append(sysfs == null ? "en cours… (rouvrir À propos)" : sysfs.isEmpty() ? "rien" : sysfs.replace('\n', ' ')).append('\n');
             }
