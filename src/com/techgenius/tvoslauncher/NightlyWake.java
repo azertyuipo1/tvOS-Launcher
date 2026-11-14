@@ -10,7 +10,7 @@ import android.os.PowerManager;
 import java.util.Calendar;
 
 /**
- * Réveil discret toutes les 12 h (vers 3 h 30 et 15 h 30), écran éteint : le boîtier réveille seulement
+ * Réveil discret à midi et à 18 h, écran éteint : le boîtier réveille seulement
  * son processeur — la TV reste éteinte. Il donne de ses nouvelles à la page de la villa, relit le calendrier
  * (déconnexion des comptes si un départ est passé) et installe une mise à jour éventuelle, pour que rien de
  * tout ça n'arrive pendant que les clients regardent.
@@ -20,12 +20,19 @@ public class NightlyWake extends BroadcastReceiver {
     static void schedule(Context ctx) {
         Context c = ctx.getApplicationContext();
         try {
-            Calendar next = Calendar.getInstance();
-            next.set(Calendar.SECOND, 0);
-            next.set(Calendar.MILLISECOND, 0);
-            next.set(Calendar.MINUTE, 30);
-            next.set(Calendar.HOUR_OF_DAY, 3);
-            while (next.getTimeInMillis() <= System.currentTimeMillis() + 60_000L) next.add(Calendar.HOUR_OF_DAY, 12);
+            // Prochain créneau parmi 12 h et 18 h (aujourd'hui ou demain).
+            Calendar next = null;
+            for (int d = 0; d < 2 && next == null; d++) {
+                for (int h : new int[]{12, 18}) {
+                    Calendar k = Calendar.getInstance();
+                    k.add(Calendar.DAY_OF_MONTH, d);
+                    k.set(Calendar.HOUR_OF_DAY, h);
+                    k.set(Calendar.MINUTE, 0);
+                    k.set(Calendar.SECOND, 0);
+                    k.set(Calendar.MILLISECOND, 0);
+                    if (k.getTimeInMillis() > System.currentTimeMillis() + 60_000L) { next = k; break; }
+                }
+            }
             AlarmManager am = c.getSystemService(AlarmManager.class);
             PendingIntent pi = PendingIntent.getBroadcast(c, 7, new Intent(c, NightlyWake.class),
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
