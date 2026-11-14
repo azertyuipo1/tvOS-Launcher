@@ -804,6 +804,7 @@ final class LocalAdb {
             cmds.add("pm grant " + pkg + " android.permission.DUMP 2>/dev/null");
             cmds.add("pm grant " + pkg + " android.permission.SET_VOLUME_KEY_LONG_PRESS_LISTENER 2>/dev/null");
             cmds.add("pm grant " + pkg + " android.permission.READ_TV_LISTINGS 2>/dev/null");
+            cmds.add("pm grant " + pkg + " android.permission.BLUETOOTH_CONNECT 2>/dev/null"); // piles des télécommandes
             cmds.add("appops set " + pkg + " READ_TV_LISTINGS allow 2>/dev/null");
             cmds.add("settings put global hidden_api_policy 1 2>/dev/null");
             cmds.add("settings put global hidden_api_policy_p_apps 1 2>/dev/null");
