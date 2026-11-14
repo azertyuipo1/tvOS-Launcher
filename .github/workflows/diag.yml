@@ -1,0 +1,15 @@
+name: Diag piles (hors production)
+on:
+  push:
+    branches: [diag-piles]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "17" }
+      - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+      - run: bash diag/build.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: diag-piles, path: diag/build/diag-piles.apk }
