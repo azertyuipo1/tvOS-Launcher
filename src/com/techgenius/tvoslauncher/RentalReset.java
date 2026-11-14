@@ -366,11 +366,16 @@ final class RentalReset {
             JSONArray data = new JSONObject(json).optJSONArray("data");
             if (data == null) return ends;
             String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            // Le départ du jour ne compte plus une fois l'heure de check-out passée ou le départ traité.
+            boolean todayPending = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) < getCheckoutHour(c)
+                    && !today.equals(getLastEnd(c));
             for (int i = 0; i < data.length(); i++) {
                 JSONObject r = data.optJSONObject(i);
                 if (r == null) continue;
                 String end = r.optString("endDate", "").trim();
-                if (end.length() >= 10 && end.substring(0, 10).compareTo(today) >= 0) ends.add(end.substring(0, 10));
+                if (end.length() < 10) continue;
+                end = end.substring(0, 10);
+                if (end.compareTo(today) > 0 || (end.equals(today) && todayPending)) ends.add(end);
             }
         } catch (Exception ignored) {
         }

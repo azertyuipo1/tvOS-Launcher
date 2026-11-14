@@ -1753,7 +1753,11 @@ public class SettingsActivity extends Activity {
             return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
         }, null);
         infoRowDynamic("Dernier départ traité",
-                () -> RentalReset.getLastEnd(this).isEmpty() ? "—" : RentalReset.getLastEnd(this), null);
+                () -> {
+                    String e = RentalReset.getLastEnd(this);
+                    return e.length() < 10 ? "—" : e.substring(8, 10) + "/" + e.substring(5, 7) + "/" + e.substring(0, 4)
+                            + " à " + RentalReset.getCheckoutHour(this) + "h";
+                }, null);
         infoRowDynamic("Dernière déconnexion",
                 () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         infoBlockDynamic("Derniers écrans", () -> {
