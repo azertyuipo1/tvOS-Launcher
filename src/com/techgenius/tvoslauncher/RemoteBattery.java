@@ -15,6 +15,8 @@ final class RemoteBattery {
     private RemoteBattery() { }
 
     private static boolean grantTried;
+    private static volatile boolean dumpRunning;
+    private static volatile String dump = "en cours… (rouvrir À propos)";
 
     /** « Nom:85;Nom 2:40 » ou "" si aucun niveau connu. */
     static String summary(Context c) {
@@ -89,10 +91,30 @@ final class RemoteBattery {
                 java.util.Set<android.bluetooth.BluetoothDevice> set = ad.getBondedDevices();
                 if (set.isEmpty()) sb.append("Bluetooth : aucun appareil appairé");
                 for (android.bluetooth.BluetoothDevice dev : set) {
-                    int level = -1;
-                    try { level = (Integer) dev.getClass().getMethod("getBatteryLevel").invoke(dev); } catch (Throwable ignored) { }
-                    sb.append("BT ").append(dev.getName()).append(" : ").append(level >= 0 ? level + " %" : "pas de niveau").append('\n');
+                    String r;
+                    try {
+                        int level = (Integer) dev.getClass().getMethod("getBatteryLevel").invoke(dev);
+                        r = level >= 0 ? level + " %" : "pas de niveau (" + level + ")";
+                    } catch (Throwable t) {
+                        Throwable x = t.getCause() != null ? t.getCause() : t;
+                        r = "erreur " + x.getClass().getSimpleName() + (x.getMessage() != null ? " : " + x.getMessage() : "");
+                    }
+                    sb.append("BT ").append(dev.getName()).append(" : ").append(r).append('\n');
                 }
+                // Ce que le système Bluetooth dit des piles (via l'ADB local).
+                if (!dumpRunning) {
+                    dumpRunning = true;
+                    new Thread(() -> {
+                        try {
+                            String out = LocalAdb.execShellOutput(c, "dumpsys bluetooth_manager | grep -i -m 6 batt");
+                            dump = out == null || out.trim().isEmpty() ? "rien" : out.trim();
+                        } catch (Throwable t) {
+                            dump = "échec : " + t.getMessage();
+                        }
+                        dumpRunning = false;
+                    }, "bt-dump").start();
+                }
+                sb.append("dumpsys : ").append(dump).append('\n');
             }
         } catch (SecurityException se) {
             sb.append("Bluetooth : autorisation manquante");
