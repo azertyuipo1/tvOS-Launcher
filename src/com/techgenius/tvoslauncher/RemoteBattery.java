@@ -17,6 +17,48 @@ final class RemoteBattery {
     private static boolean grantTried;
     private static volatile boolean dumpRunning;
     private static volatile String dump = "en cours… (rouvrir À propos)";
+    /** Niveaux lus par le noyau (/sys/class/power_supply/hid-<adresse>-battery), via l'ADB local. */
+    private static volatile String sysfs = null;
+    private static volatile boolean sysfsRunning;
+
+    private static void refreshSysfs(Context c) {
+        if (sysfsRunning) return;
+        sysfsRunning = true;
+        new Thread(() -> {
+            try {
+                String out = LocalAdb.execShellOutput(c, "for d in /sys/class/power_supply/*; do v=$(cat $d/capacity 2>/dev/null); "
+                        + "[ -n \"$v\" ] && echo \"${d##*/}=$v\"; done");
+                sysfs = out == null ? "" : out.trim();
+            } catch (Throwable t) {
+                if (sysfs == null) sysfs = "";
+            }
+            sysfsRunning = false;
+        }, "bt-sysfs").start();
+    }
+
+    /** Ajoute les niveaux du noyau (piles des télécommandes BLE que l'API Bluetooth ne donne pas). */
+    private static void addSysfs(Context c, Map<String, Integer> lv) {
+        refreshSysfs(c);
+        String s = sysfs;
+        if (s == null || s.isEmpty()) return;
+        Map<String, String> names = new java.util.HashMap<>();
+        try {
+            android.bluetooth.BluetoothManager bm = (android.bluetooth.BluetoothManager) c.getSystemService(Context.BLUETOOTH_SERVICE);
+            android.bluetooth.BluetoothAdapter ad = bm == null ? null : bm.getAdapter();
+            if (ad != null) for (android.bluetooth.BluetoothDevice d : ad.getBondedDevices())
+                names.put(d.getAddress().toLowerCase(java.util.Locale.ROOT), clean(d.getName()));
+        } catch (Throwable ignored) { }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("hid-([^=\\s]*?)-battery=(\\d+)").matcher(s);
+        while (m.find()) {
+            String id = m.group(1).toLowerCase(java.util.Locale.ROOT);
+            String name = null;
+            for (Map.Entry<String, String> n : names.entrySet()) if (id.contains(n.getKey())) name = n.getValue();
+            if (name == null) name = "Télécommande";
+            int v = Integer.parseInt(m.group(2));
+            if (v >= 0 && v <= 100 && !lv.containsKey(name)) lv.put(name, v);
+        }
+    }
 
     /** « Nom:85;Nom 2:40 » ou "" si aucun niveau connu. */
     static String summary(Context c) {
@@ -59,6 +101,7 @@ final class RemoteBattery {
                 }, "bt-grant").start();
             }
         } catch (Throwable ignored) { }
+        addSysfs(c, lv);
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<String, Integer> e : lv.entrySet()) {
             if (sb.length() > 0) sb.append(';');
@@ -115,6 +158,8 @@ final class RemoteBattery {
                     }, "bt-dump").start();
                 }
                 sb.append("dumpsys : ").append(dump).append('\n');
+                refreshSysfs(c);
+                sb.append("noyau : ").append(sysfs == null ? "en cours… (rouvrir À propos)" : sysfs.isEmpty() ? "rien" : sysfs.replace('\n', ' ')).append('\n');
             }
         } catch (SecurityException se) {
             sb.append("Bluetooth : autorisation manquante");
