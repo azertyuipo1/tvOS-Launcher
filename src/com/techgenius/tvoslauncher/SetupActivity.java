@@ -795,20 +795,8 @@ public class SetupActivity extends Activity {
         if (permMode == 1) {
             boolean secureClose = LocalAdb.getAdbMode(this) == LocalAdb.ADB_MODE_SECURE_CLOSE;
             title(tr("Enable ADB Debugging", "ADB Hata Ayıklamayı Etkinleştirin"));
-            TextView s = subtitle(tr(
-                    "1. Open TV Settings \u2192 System \u2192 About and click Build 7 times to unlock Developer Options.\n"
-                    + "2. Open Settings \u2192 System \u2192 Developer Options and enable USB Debugging / Network Debugging.\n"
-                    + "3. Return here and select Grant Permissions Now"
-                    + (secureClose ? " (ADB port 5555 will be closed automatically right after setup)." : " (ADB will remain enabled for CleanYourTV)."),
-                    "1. TV Ayarları \u2192 Sistem \u2192 Hakkında menüsüne gidin ve Geliştirici Seçeneklerini açmak için Yapı Numarası'na 7 kez basın.\n"
-                    + "2. Ayarlar \u2192 Sistem \u2192 Geliştirici Seçenekleri'nden USB / Ağ Hata Ayıklamayı açın.\n"
-                    + "3. Buraya dönüp İzinleri Şimdi Ver'i seçin"
-                    + (secureClose ? " (Kurulumdan hemen sonra ADB port 5555 otomatik olarak kapatılacaktır)." : " (CleanYourTV için ADB açık kalacaktır).")));
-            ((LinearLayout.LayoutParams) s.getLayoutParams()).width = u(620);
-            ((LinearLayout.LayoutParams) s.getLayoutParams()).bottomMargin = u(14);
             LinearLayout l = scrollableList();
-            option(l, tr("Open Developer Options / TV Settings\u2026", "Geliştirici Seçeneklerini / TV Ayarlarını Aç\u2026"),
-                    tr("Enable USB / Network Debugging in Developer Options", "Geliştirici Seçeneklerinde USB / Ağ Hata Ayıklamayı açın"),
+            option(l, "Étape 1 · Activer le débogage ADB", null,
                     LocalAdb.isAdbSettingEnabled(this),
                     () -> {
                         Intent dev = new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
@@ -819,13 +807,7 @@ public class SetupActivity extends Activity {
                             }
                         }
                     });
-            option(l, secureClose
-                            ? tr("Grant Permissions & Close ADB Now", "İzinleri Ver ve ADB'yi Şimdi Kapat")
-                            : tr("Grant Permissions Now (Keep ADB Open)", "İzinleri Şimdi Ver (ADB'yi Açık Tut)"),
-                    secureClose
-                            ? tr("Grants WRITE_SECURE_SETTINGS & closes port 5555 when done", "WRITE_SECURE_SETTINGS verir ve bittiğinde port 5555'i kapatır")
-                            : tr("Uses local ADB to grant permissions and keeps ADB open", "İzinleri vermek için yerel ADB'yi kullanır ve ADB'yi açık tutar"),
-                    false,
+            option(l, "Étape 2 · Toujours autoriser sur cet ordinateur", null, false,
                     this::runEasyAdbGrant);
             dots();
             return;
@@ -885,19 +867,17 @@ public class SetupActivity extends Activity {
         LinearLayout l = scrollableList();
 
         boolean isDef = Perms.isDefaultHome(this);
-        option(l, tr("Step 1: Set tvOS Launcher as Default via Local ADB", "1. Adım: Yerel ADB ile tvOS Launcher'ı Varsayılan Yap"),
-                isDef ? tr("Active — Set as default home launcher", "Etkin — Varsayılan ana ekran olarak ayarlandı")
-                      : tr("Run ROLE_HOME & set-home-activity over Local ADB ›", "Yerel ADB üzerinden ROLE_HOME ve set-home-activity çalıştır ›"),
+        option(l, "Étape 1 : définir tvOS Launcher par défaut", null,
                 isDef,
                 () -> runAdbTroubleshootStep(this::executeStep1SetDefaultLauncherViaAdb));
 
-        option(l, tr("Step 2: Disable System Launchers (Google TV / Android TV / OEM)", "2. Adım: Sistem Başlatıcılarını Devre Dışı Bırak (Google TV / Android TV / OEM)"),
+        option(l, "Étape 2 : désactiver les launchers système",
                 CleanYourTv.getSystemLaunchersSummary(this),
                 !Perms.hasEnabledStockLauncher(this),
                 () -> runAdbTroubleshootStep(() -> CleanYourTv.showDisableSystemLaunchersDialog(this, () -> show(index, 0))));
 
         boolean homeFixOn = ButtonMapper.isHomeFixEnabled(this);
-        option(l, tr("Step 3: Fix Home Button via Accessibility (Button Mapper)", "3. Adım: Erişilebilirlik ile Ana Ekran Tuşu Düzeltmesi"),
+        option(l, "Étape 3 : corriger le bouton Home",
                 homeFixOn
                         ? tr("On — Pressing Home launches tvOS Launcher", "Açık — Ana Ekran tuşu tvOS Launcher'ı açar")
                         : tr("Off — Tap to enable Home button remap", "Kapalı — Ana Ekran tuşu yönlendirmesini açmak için dokunun"),
@@ -916,15 +896,7 @@ public class SetupActivity extends Activity {
                     show(index, 0);
                 });
 
-        option(l, tr("Step 4: Open Android System Home Settings", "4. Adım: Android Sistem Ana Ekran Ayarlarını Aç"),
-                tr("Open system selector (if supported by TV) ›", "Sistem seçicisini aç (TV destekliyorsa) ›"),
-                false,
-                () -> Perms.openSystemHomeSettingsUi(this));
-
-        option(l, tr("Continue", "Devam Et"),
-                tr("Proceed to the next setup step when you are done here", "Buradaki adımlarla işiniz bittiğinde sonraki kurulum adımına geçin"),
-                false,
-                this::next);
+        option(l, tr("Continue", "Devam Et"), null, false, this::next);
         dots();
     }
 
