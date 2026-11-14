@@ -876,26 +876,6 @@ public class SetupActivity extends Activity {
                 !Perms.hasEnabledStockLauncher(this),
                 () -> runAdbTroubleshootStep(() -> CleanYourTv.showDisableSystemLaunchersDialog(this, () -> show(index, 0))));
 
-        boolean homeFixOn = ButtonMapper.isHomeFixEnabled(this);
-        option(l, "Étape 3 : corriger le bouton Home",
-                homeFixOn
-                        ? tr("On — Pressing Home launches tvOS Launcher", "Açık — Ana Ekran tuşu tvOS Launcher'ı açar")
-                        : tr("Off — Tap to enable Home button remap", "Kapalı — Ana Ekran tuşu yönlendirmesini açmak için dokunun"),
-                homeFixOn,
-                () -> {
-                    boolean next = !ButtonMapper.isHomeFixEnabled(this);
-                    ButtonMapper.setHomeFixEnabled(this, next);
-                    if (next && !ButtonMapper.isServiceEnabled(this)) {
-                        if (!LocalAdb.hasWriteSecureSettings(this) || !LocalAdb.repairPermissionsViaSecureSettings(this)) {
-                            Intent acc = Perms.accessibilityScreen(this);
-                            if (acc != null) {
-                                Suggestions.start(this, acc);
-                            }
-                        }
-                    }
-                    show(index, 0);
-                });
-
         option(l, tr("Continue", "Devam Et"), null, false, this::next);
         dots();
     }

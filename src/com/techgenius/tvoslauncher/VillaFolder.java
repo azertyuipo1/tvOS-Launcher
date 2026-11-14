@@ -406,6 +406,17 @@ final class VillaFolder {
     }
 
     /** Identifiant court et stable de la TV (pour la distinguer des autres TV de la villa). */
+    /** Nom donné à l'appareil (Paramètres → Système → À propos → Nom de l'appareil : « Salon », « Chambre 2 »…). */
+    static String deviceName(Context c) {
+        try {
+            String n = android.provider.Settings.Global.getString(c.getContentResolver(), "device_name");
+            if (n == null || n.trim().isEmpty()) n = android.provider.Settings.Secure.getString(c.getContentResolver(), "bluetooth_name");
+            return n == null ? "" : n.trim();
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     static String deviceId(Context c) {
         try {
             String a = android.provider.Settings.Secure.getString(c.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
@@ -438,6 +449,7 @@ final class VillaFolder {
                 {"heures", UsageStats.hoursToSend(c)},
                 {"sejours", RentalReset.staysSummary(c)},
                 {"calendrier", RentalReset.getFetchStatus(c)},
+                {"nom_appareil", deviceName(c)},
                 {"calendrier_ok", String.valueOf(RentalReset.getFetchOkAt(c) / 1000L)},
         };
         long sentAt = System.currentTimeMillis();
