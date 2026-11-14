@@ -450,7 +450,6 @@ final class VillaFolder {
                 {"sejours", RentalReset.staysSummary(c)},
                 {"calendrier", RentalReset.getFetchStatus(c)},
                 {"nom_appareil", deviceName(c)},
-                {"telecommande", RemoteBattery.summary(c)},
                 {"calendrier_ok", String.valueOf(RentalReset.getFetchOkAt(c) / 1000L)},
         };
         long sentAt = System.currentTimeMillis();
