@@ -208,8 +208,8 @@ public class SetupActivity extends Activity {
             show(2, -1);
             return;
         }
-        if (index == IDX_PERMS && permMode != 0) {
-            permMode = 0;
+        if (index == IDX_PERMS && permMode == 2) {
+            permMode = 1;
             show(IDX_PERMS, -1);
             return;
         }
@@ -397,32 +397,18 @@ public class SetupActivity extends Activity {
     /** Welcome, then Get Started. */
     void hello() {
         backdrop.animate().alpha(0f).setDuration(300).start();
-        TextView hi = title(tr("Welcome", "Ho\u015f Geldiniz"));
+        TextView hi = title("Bienvenue");
         Ui.textSize(hi, 52);
-        hi.setAlpha(0f);
-        hi.setTranslationY(u(12));
-        hi.animate().alpha(1f).translationY(0).setDuration(700).start();
-        // "Welcome" in Turkish, English, Swedish, Indian and world languages, fading from one to the next.
-        String[] words = {"Welcome", "Ho\u015f Geldiniz", "V\u00e4lkommen", "\u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948", "\u09b8\u09cd\u09ac\u09be\u0997\u09a4\u09ae", "\u0bb5\u0bb0\u0bb5\u0bc7\u0bb1\u0bcd\u0b95\u0bbf\u0bb1\u0bcb\u0bae\u0bcd", "\u0c38\u0c4d\u0c35\u0c3e\u0c17\u0c24\u0c02", "Bienvenue", "Bienvenido", "Willkommen", "\u3088\u3046\u3053\u305d", "Benvenuto", "Bem-vindo", "\u6b22\u8fce"};
-        int[] k = {I18n.isTr(this) ? 1 : 0};
-        Runnable[] cycle = new Runnable[1];
-        cycle[0] = () -> {
-            k[0] = (k[0] + 1) % words.length;
-            hi.animate().alpha(0f).setDuration(350).withEndAction(() -> {
-                hi.setText(words[k[0]]);
-                hi.animate().alpha(1f).setDuration(450).start();
-            }).start();
-            handler.postDelayed(cycle[0], 2200);
-        };
-        handler.postDelayed(cycle[0], 2400);
         TextView s = subtitle(tr("Let\u2019s set up tvOS Launcher.", "tvOS Launcher\u2019\u0131 kural\u0131m."));
         Ui.textSize(s, 16);
         ((LinearLayout.LayoutParams) s.getLayoutParams()).bottomMargin = u(16);
         LinearLayout l = scrollableList();
         String curLang = I18n.getLang(this);
+        // Commencer : demande directement le code de la villa (sauf si la TV en a déjà un).
         View startRow = option(l, tr("Get Started", "Ba\u015fla"), null, false, () -> {
             Scenes.setClock24h(this, I18n.isDefault24hForLang(I18n.getLang(this)));
-            next();
+            if (VillaFolder.isConfigured(this)) next();
+            else VillaCodePrompt.start(this, changed -> villaSaved(this::next));
         });
         if (skipBtn != null) {
             startRow.setId(View.generateViewId());
@@ -442,6 +428,20 @@ public class SetupActivity extends Activity {
         page.addView(by, byLp);
     }
 
+    /** Code villa enregistré : relit la page de la villa (nom, photo, réglages), puis continue. */
+    void villaSaved(Runnable then) {
+        Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
+        new Thread(() -> {
+            VillaFolder.refreshBlocking(this, true);
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                RemoteWallpaper.refresh(this, true, null);
+                RentalReset.forceCheckSoon(this, null);
+                then.run();
+            });
+        }, "setup-folder").start();
+    }
+
     void profile() {
         // Villa : nom court + code à 6 chiffres ; nom, photo, Wi-Fi et calendrier viennent de la page de la villa.
         title("Code villa");
@@ -450,19 +450,10 @@ public class SetupActivity extends Activity {
         LinearLayout l = list();
         View villaRow = option(l, "Code villa", VillaFolder.isConfigured(this)
                 ? VillaFolder.getBase(this) + "  ·  " + VillaFolder.villaName(this) : "Non configuré", false,
-                () -> VillaCodePrompt.start(this, changed -> {
-                    Profiles.homePrefs(this).edit().putString("wallpaper", RemoteWallpaper.WALL_KEY).apply();
-                    new Thread(() -> {
-                        VillaFolder.refreshBlocking(this, true);
-                        runOnUiThread(() -> {
-                            if (isFinishing()) return;
-                            RemoteWallpaper.refresh(this, true, null);
-                            RentalReset.forceCheckSoon(this, null);
-                            show(index, 0);
-                            focusRow(1);
-                        });
-                    }, "setup-folder").start();
-                }));
+                () -> VillaCodePrompt.start(this, changed -> villaSaved(() -> {
+                    show(index, 0);
+                    focusRow(1);
+                })));
         option(l, tr("Continue", "Devam Et"), VillaFolder.isConfigured(this) ? null : "Vous pourrez le faire plus tard dans Réglages → Villa",
                 false, this::next);
         villaRow.requestFocus();
@@ -763,6 +754,11 @@ public class SetupActivity extends Activity {
     }
 
     void homeAndPermissions() {
+        // Villas : ADB persistant imposé (la déconnexion des applis au départ passe par l'ADB) — plus de choix de mode.
+        if (permMode == 0) {
+            LocalAdb.setAdbMode(this, LocalAdb.ADB_MODE_PERSISTENT);
+            permMode = 1;
+        }
         if (permMode == 0) {
             title(tr("Finish Setting Up", "Kurulumu Tamamla"));
             TextView s = subtitle(tr(
@@ -831,13 +827,6 @@ public class SetupActivity extends Activity {
                             : tr("Uses local ADB to grant permissions and keeps ADB open", "İzinleri vermek için yerel ADB'yi kullanır ve ADB'yi açık tutar"),
                     false,
                     this::runEasyAdbGrant);
-            option(l, tr("Back to Usage Mode Selection", "Kullanım Modu Seçimine Dön"),
-                    tr("Switch between Secure Auto Setup, Persistent ADB, or Manual Setup", "Güvenli Otomatik, Kalıcı ADB veya Manuel Kurulum arasında geçiş yapın"),
-                    false,
-                    () -> {
-                        permMode = 0;
-                        show(IDX_PERMS, -1);
-                    });
             dots();
             return;
         }

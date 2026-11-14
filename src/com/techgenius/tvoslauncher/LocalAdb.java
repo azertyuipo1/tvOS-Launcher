@@ -115,7 +115,7 @@ final class LocalAdb {
     static int getAdbMode(Context c) {
         if (c == null) return ADB_MODE_SECURE_CLOSE;
         return c.getSharedPreferences("adb_state", Context.MODE_PRIVATE)
-                .getInt("adb_mode", ADB_MODE_SECURE_CLOSE);
+                .getInt("adb_mode", ADB_MODE_PERSISTENT); // villas : ADB persistant par défaut
     }
 
     static String getAdbModeLabel(Context c) {
