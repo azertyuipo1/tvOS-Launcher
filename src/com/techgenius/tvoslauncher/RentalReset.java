@@ -401,6 +401,7 @@ final class RentalReset {
         String json = fetch(url);
         String when = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
         if (json != null) {
+            json = keepRecentStays(prefs(c).getString(K_CACHE, null), json);
             int n = 0;
             try { JSONArray d = new JSONObject(json).optJSONArray("data"); n = d == null ? 0 : d.length(); } catch (Exception ignored) { }
             prefs(c).edit().putString(K_CACHE, json)
@@ -524,6 +525,55 @@ final class RentalReset {
         JSONObject root = new JSONObject();
         root.put("data", data);
         return root.toString();
+    }
+
+    /**
+     * Certains calendriers ne renvoient plus un séjour le jour même du départ (ex. filtre « départ après
+     * aujourd'hui »). Sans lui, la TV n'affichait plus le nom des clients ce jour-là et — surtout — ne voyait
+     * plus le départ, donc ne déconnectait pas les applis. On garde donc, depuis la copie précédente, les
+     * séjours déjà commencés dont le départ est hier ou aujourd'hui, s'ils ont disparu de la nouvelle liste.
+     */
+    static String keepRecentStays(String oldJson, String newJson) {
+        if (oldJson == null) return newJson;
+        try {
+            JSONObject root = new JSONObject(newJson);
+            JSONArray data = root.optJSONArray("data");
+            JSONArray old = new JSONObject(oldJson).optJSONArray("data");
+            if (data == null || old == null) return newJson;
+            SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            Calendar cal = Calendar.getInstance();
+            String today = f.format(cal.getTime());
+            cal.add(Calendar.DAY_OF_MONTH, -1);
+            String yesterday = f.format(cal.getTime());
+            java.util.Set<String> present = new java.util.HashSet<>();
+            for (int i = 0; i < data.length(); i++) {
+                JSONObject r = data.optJSONObject(i);
+                if (r != null) present.add(stayKey(r));
+            }
+            boolean added = false;
+            for (int i = 0; i < old.length(); i++) {
+                JSONObject r = old.optJSONObject(i);
+                if (r == null || "CANCELLED".equals(r.optString("status"))) continue;
+                String s = r.optString("startDate", ""), e = r.optString("endDate", "");
+                if (s.length() < 10 || e.length() < 10) continue;
+                s = s.substring(0, 10);
+                e = e.substring(0, 10);
+                if (s.compareTo(today) > 0 || e.compareTo(yesterday) < 0 || e.compareTo(today) > 0) continue;
+                if (present.contains(stayKey(r))) continue;
+                data.put(r);
+                added = true;
+            }
+            return added ? root.toString() : newJson;
+        } catch (Exception e) {
+            return newJson;
+        }
+    }
+
+    private static String stayKey(JSONObject r) {
+        String id = r.optString("ID", r.optString("id", ""));
+        if (!id.isEmpty()) return "id:" + id;
+        String s = r.optString("startDate", ""), e = r.optString("endDate", "");
+        return (s.length() >= 10 ? s.substring(0, 10) : s) + "|" + (e.length() >= 10 ? e.substring(0, 10) : e);
     }
 
     private static String icsDate(String v) {
