@@ -1615,7 +1615,7 @@ public class MainActivity extends Activity {
         // Coins du dock concentriques aux tuiles : rayon de la tuile + marge intérieure du dock.
         float dockRad = radius + Math.round(tileH * (FOCUS_SCALE - 1f) / 2f) + dp(6);
         LiquidGlass g = new LiquidGlass(dockRad, VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
-        g.lens = dp(12);
+        g.lens = 0; // sans loupe : la bande grossie paraissait décalée par rapport au fond
         g.rimStrength = 0.28f;
         return g;
     }
