@@ -65,6 +65,43 @@ final class RemoteBattery {
         return sb.toString();
     }
 
+    /** Diagnostic pour Réglages › À propos : ce que le boîtier sait des télécommandes. */
+    static String debug(Context c) {
+        StringBuilder sb = new StringBuilder();
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                for (int id : InputDevice.getDeviceIds()) {
+                    InputDevice d = InputDevice.getDevice(id);
+                    if (d == null || d.isVirtual() || (d.getSources() & InputDevice.SOURCE_KEYBOARD) == 0) continue;
+                    android.hardware.BatteryState b = d.getBatteryState();
+                    boolean has = b != null && b.isPresent() && !Float.isNaN(b.getCapacity());
+                    sb.append(d.getName()).append(" : ").append(has ? Math.round(b.getCapacity() * 100) + " %" : "pas de niveau").append('\n');
+                }
+            } catch (Throwable t) { sb.append("Entrées : ").append(t.getClass().getSimpleName()).append('\n'); }
+        } else {
+            sb.append("Android ").append(android.os.Build.VERSION.RELEASE).append(" : niveau des entrées non disponible\n");
+        }
+        try {
+            android.bluetooth.BluetoothManager bm = (android.bluetooth.BluetoothManager) c.getSystemService(Context.BLUETOOTH_SERVICE);
+            android.bluetooth.BluetoothAdapter ad = bm == null ? null : bm.getAdapter();
+            if (ad == null) sb.append("Bluetooth : absent");
+            else {
+                java.util.Set<android.bluetooth.BluetoothDevice> set = ad.getBondedDevices();
+                if (set.isEmpty()) sb.append("Bluetooth : aucun appareil appairé");
+                for (android.bluetooth.BluetoothDevice dev : set) {
+                    int level = -1;
+                    try { level = (Integer) dev.getClass().getMethod("getBatteryLevel").invoke(dev); } catch (Throwable ignored) { }
+                    sb.append("BT ").append(dev.getName()).append(" : ").append(level >= 0 ? level + " %" : "pas de niveau").append('\n');
+                }
+            }
+        } catch (SecurityException se) {
+            sb.append("Bluetooth : autorisation manquante");
+        } catch (Throwable t) {
+            sb.append("Bluetooth : ").append(t.getClass().getSimpleName());
+        }
+        return sb.toString().trim();
+    }
+
     private static String clean(String n) {
         return (n == null || n.trim().isEmpty() ? "Télécommande" : n.trim()).replaceAll("[;:]", " ");
     }

@@ -1766,6 +1766,7 @@ public class SettingsActivity extends Activity {
             }
             return sb.length() == 0 ? "—" : sb.toString();
         });
+        infoBlockDynamic("Télécommandes", () -> RemoteBattery.debug(this));
         infoBlockDynamic("Dernières touches", () -> {
             String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
             return t.isEmpty() ? "—" : t;
