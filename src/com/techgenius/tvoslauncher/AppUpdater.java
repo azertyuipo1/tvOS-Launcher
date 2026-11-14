@@ -621,10 +621,22 @@ public final class AppUpdater {
                         if (onUiRefresh != null) MAIN.post(onUiRefresh);
                         return;
                     }
+                    // Écran éteint (réveil de midi / 18 h) : on n'ouvre pas l'installateur, qui attendrait un clic
+                    // et s'afficherait aux clients à l'allumage. Nouvel essai au prochain réveil.
+                    if (!NightlyWake.screenOn(appCtx)) {
+                        downloading = false;
+                        if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                        return;
+                    }
                     // Échec : on affiche la raison donnée par Android, puis l'installateur standard prend le relais.
                     final String why = LocalAdb.lastInstallOutput;
                     MAIN.post(() -> Toast.makeText(appCtx, "Installation silencieuse impossible"
                             + (why.isEmpty() ? "" : " : " + why) + " — ouverture de l'installateur…", Toast.LENGTH_LONG).show());
+                }
+                if (autoSilent && !NightlyWake.screenOn(appCtx)) { // écran éteint et ADB indisponible : pas d'installateur à l'écran
+                    downloading = false;
+                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                    return;
                 }
                 if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
                     downloading = false;
