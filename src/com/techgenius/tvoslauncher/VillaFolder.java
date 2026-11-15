@@ -436,6 +436,17 @@ final class VillaFolder {
      * modèle, version, installation, applis manquantes, temps passé par appli. Renvoie null si la page ne
      * le gère pas (ancienne page, autre hébergement) : on lit alors config.txt directement.
      */
+    /** Donne seulement des nouvelles à la page (sans relire config.txt ni relancer de mise à jour). */
+    static void reportOnly(Context c) {
+        for (String base : candidates(c)) {
+            try {
+                initUserAgent(c);
+                postConfig(c, base);
+                return;
+            } catch (Throwable ignored) { }
+        }
+    }
+
     private static Object[] postConfig(Context c, String base) throws Exception {
         StringBuilder body = new StringBuilder("action=config");
         java.util.List<String> miss = InstallCheck.missing(c);
@@ -453,6 +464,8 @@ final class VillaFolder {
                 {"nom_appareil", deviceName(c)},
                 {"telecommande", RemoteBattery.summary(c)},
                 {"calendrier_ok", String.valueOf(RentalReset.getFetchOkAt(c) / 1000L)},
+                {"maj_essai", String.valueOf(AppUpdater.lastTryAt(c) / 1000L)},
+                {"maj_resultat", AppUpdater.lastTryResult(c)},
         };
         long sentAt = System.currentTimeMillis();
         for (String[] f : fields) {

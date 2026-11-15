@@ -31,6 +31,8 @@ import java.util.List;
  */
 public class PowerService extends AccessibilityService {
     static PowerService instance;
+    /** Dernière touche de télécommande (heure murale) : sert à savoir si quelqu'un est devant la TV. */
+    static volatile long lastKeyWallMs = System.currentTimeMillis();
 
     private static final List<String> queue = new ArrayList<>();
     private static Runnable onDone;
@@ -833,6 +835,7 @@ public class PowerService extends AccessibilityService {
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
+        lastKeyWallMs = System.currentTimeMillis();
         int code = event.getKeyCode();
         if (KeyTestActivity.capture(event)) return true; // écran de test des touches
         if (GuestLock.onAnyKey(this, event)) return true;

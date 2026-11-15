@@ -621,9 +621,11 @@ public final class AppUpdater {
                         if (onUiRefresh != null) MAIN.post(onUiRefresh);
                         return;
                     }
+                    String out = LocalAdb.lastInstallOutput;
+                    noteResult(appCtx, "refusée par Android" + (out == null || out.isEmpty() ? "" : " : " + (out.length() > 80 ? out.substring(0, 80) : out)));
                     // Écran éteint (réveil de midi / 18 h) : on n'ouvre pas l'installateur, qui attendrait un clic
                     // et s'afficherait aux clients à l'allumage. Nouvel essai au prochain réveil.
-                    if (!NightlyWake.screenOn(appCtx)) {
+                    if (NightlyWake.unattended(appCtx)) {
                         downloading = false;
                         if (onUiRefresh != null) MAIN.post(onUiRefresh);
                         return;
@@ -633,7 +635,8 @@ public final class AppUpdater {
                     MAIN.post(() -> Toast.makeText(appCtx, "Installation silencieuse impossible"
                             + (why.isEmpty() ? "" : " : " + why) + " — ouverture de l'installateur…", Toast.LENGTH_LONG).show());
                 }
-                if (autoSilent && !NightlyWake.screenOn(appCtx)) { // écran éteint et ADB indisponible : pas d'installateur à l'écran
+                if (autoSilent && NightlyWake.unattended(appCtx)) { // écran éteint et ADB indisponible : pas d'installateur à l'écran
+                    if (!LocalAdb.isAdbPortCurrentlyOpen()) noteResult(appCtx, "impossible : ADB local fermé");
                     downloading = false;
                     if (onUiRefresh != null) MAIN.post(onUiRefresh);
                     return;
@@ -670,6 +673,7 @@ public final class AppUpdater {
                 MAIN.post(() -> installWithPackageInstaller(activity, apkFile));
             } catch (Throwable t) {
                 downloading = false;
+                if (autoSilent) noteResult(appCtx, "téléchargement impossible");
                 if (onUiRefresh != null) MAIN.post(onUiRefresh);
                 MAIN.post(() -> Toast.makeText(appCtx,
                         I18n.s(appCtx, "Update download failed.", "Güncelleme indirilemedi."),
@@ -701,14 +705,30 @@ public final class AppUpdater {
             Activity a = MainActivity.activeInstance;
             if (a == null || a.isFinishing() || checking || downloading) return;
             // Jamais pendant que quelqu'un regarde : la mise à jour se fait écran éteint (réveil de midi / 18 h).
-            if (NightlyWake.screenOn(a) && !(GuestLock.isEnabled(a) && !GuestLock.isLocked(a))) return;
+            boolean admin = GuestLock.isEnabled(a) && !GuestLock.isLocked(a);
+            if (!admin && !NightlyWake.unattended(a)) {
+                if (NightlyWake.running) noteResult(a, "reportée : TV utilisée");
+                return;
+            }
             checkForUpdates(a, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-                if (success && updateAvailable && !a.isFinishing()) {
+                if (!success) noteResult(a, "GitHub injoignable");
+                else if (!updateAvailable) noteResult(a, "à jour");
+                else if (!a.isFinishing()) {
+                    noteResult(a, "installation de v" + cleanVersion(latestVersion) + " lancée");
                     downloadAndInstall(a, downloadUrl, latestVersion, true, null);
                 }
             });
         });
     }
+
+    /** Dernier essai de mise à jour automatique, envoyé à la page de la villa (« maj_essai », « maj_resultat »). */
+    static void noteResult(Context c, String result) {
+        prefs(c).edit().putLong("maj_essai", System.currentTimeMillis()).putString("maj_resultat", result).apply();
+    }
+
+    static long lastTryAt(Context c) { return prefs(c).getLong("maj_essai", 0L); }
+
+    static String lastTryResult(Context c) { return prefs(c).getString("maj_resultat", ""); }
 
     /** Accorde au launcher « Installer des applis inconnues » via l'ADB local (sans effet si déjà accordé). */
     static void grantInstallPermission(Context c) {

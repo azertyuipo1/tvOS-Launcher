@@ -17,6 +17,9 @@ import java.util.Calendar;
  */
 public class NightlyWake extends BroadcastReceiver {
 
+    /** Vrai pendant un réveil de midi / 18 h. */
+    static volatile boolean running;
+
     static void schedule(Context ctx) {
         Context c = ctx.getApplicationContext();
         try {
@@ -51,12 +54,16 @@ public class NightlyWake extends BroadcastReceiver {
         new Thread(() -> {
             try {
                 // Le réseau revient quelques secondes après le réveil.
+                running = true;
                 for (int i = 0; i < 30 && !online(c); i++) Thread.sleep(2000L);
                 VillaFolder.refreshBlocking(c, true);   // nouvelles à la page + mise à jour éventuelle (écran éteint)
                 RentalReset.forceCheckSoon(c, null);     // départ passé : déconnexion des comptes
-                Thread.sleep(4 * 60_000L);               // laisse finir le téléchargement / l'installation
+                Thread.sleep(2 * 60_000L);               // laisse finir le téléchargement / l'installation
+                VillaFolder.reportOnly(c);               // résultat de la mise à jour transmis à la page
+                Thread.sleep(2 * 60_000L);
             } catch (Throwable ignored) {
             } finally {
+                running = false;
                 try { if (wl.isHeld()) wl.release(); } catch (Throwable ignored) { }
             }
         }, "nightly-wake").start();
@@ -70,6 +77,21 @@ public class NightlyWake extends BroadcastReceiver {
             return nc != null && nc.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
         } catch (Throwable t) {
             return true;
+        }
+    }
+
+    /**
+     * Personne devant la TV : écran éteint, ou — pendant un réveil — boîtier resté allumé (TV coupée avec
+     * sa propre télécommande) sans touche pressée depuis 3 h ni son en cours.
+     */
+    static boolean unattended(Context c) {
+        if (!screenOn(c)) return true;
+        if (!running || PowerService.instance == null) return false;
+        if (System.currentTimeMillis() - PowerService.lastKeyWallMs < 3 * 3600_000L) return false;
+        try {
+            return !c.getSystemService(android.media.AudioManager.class).isMusicActive();
+        } catch (Throwable t) {
+            return false;
         }
     }
 
