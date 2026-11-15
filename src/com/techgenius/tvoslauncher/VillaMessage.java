@@ -19,10 +19,14 @@ final class VillaMessage {
 
     static final String K_MESSAGES = "messages";
 
-    /** Texte à afficher maintenant (emoji + message, {nom} remplacé), ou "" s'il n'y en a pas. */
-    static String current(Context c, RentalReset.Stay stay) {
+    /**
+     * Messages à afficher maintenant (emoji + texte), 2 au plus : l'événement d'un seul jour d'abord,
+     * puis celui de plusieurs jours. Liste vide s'il n'y en a pas.
+     */
+    static java.util.List<String> current(Context c, RentalReset.Stay stay) {
+        java.util.List<String> unJour = new java.util.ArrayList<>(), plusieurs = new java.util.ArrayList<>();
         String raw = VillaFolder.get(c, K_MESSAGES);
-        if (raw.isEmpty()) return "";
+        if (raw.isEmpty()) return unJour;
         try {
             JSONArray a = new JSONArray(raw);
             Calendar now = Calendar.getInstance();
@@ -40,9 +44,10 @@ final class VillaMessage {
                 String t = m.optString("t", "").replace("{nom}", nom).replaceAll("\\s+", " ").trim();
                 if (t.isEmpty()) continue;
                 String e = m.optString("e", "").trim();
-                return e.isEmpty() ? t : e + "  " + t;
+                (du.equals(au) ? unJour : plusieurs).add(e.isEmpty() ? t : e + "  " + t);
             }
         } catch (Exception ignored) { }
-        return "";
+        unJour.addAll(plusieurs);
+        return unJour.size() > 2 ? unJour.subList(0, 2) : unJour;
     }
 }

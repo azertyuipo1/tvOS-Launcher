@@ -3937,53 +3937,74 @@ public class MainActivity extends Activity {
     String wifiCardKey = "";
 
     /** Carte WiFi : calque indépendant en haut à droite, dessinée d'un bloc (taille calculée sur le texte). */
-    /** Message temporaire de la page de la villa (« 🎂 Happy birthday Debby! »), centré au-dessus des applis. */
-    TextView messagePill;
+    /**
+     * Messages temporaires de la page de la villa (« 🎂 Happy birthday Debby! »), centrés au-dessus des applis.
+     * Jusqu'à 2 à la fois, sur 2 lignes : l'événement d'un seul jour au-dessus, celui de plusieurs jours en dessous.
+     */
+    LinearLayout messageBox;
+    final TextView[] messagePills = new TextView[2];
     String messagePillKey;
 
     private void buildMessagePill(FrameLayout root) {
         float u = Ui.unit(this);
-        messagePill = new TextView(this);
-        messagePill.setTypeface(Ui.font(this, "semibold"));
-        Ui.textSize(messagePill, 15);
-        messagePill.setTextColor(Color.WHITE);
-        messagePill.setShadowLayer(dp(8), 0, dp(1), 0x66000000);
-        messagePill.setSingleLine(true);
-        messagePill.setIncludeFontPadding(false);
-        messagePill.setGravity(Gravity.CENTER);
-        messagePill.setPadding(Math.round(14 * u), Math.round(7 * u), Math.round(14 * u), Math.round(7 * u));
+        messageBox = new LinearLayout(this);
+        messageBox.setOrientation(LinearLayout.VERTICAL);
+        messageBox.setGravity(Gravity.CENTER_HORIZONTAL);
+        for (int i = 0; i < 2; i++) {
+            TextView t = new TextView(this);
+            t.setTypeface(Ui.font(this, "semibold"));
+            Ui.textSize(t, 15);
+            t.setTextColor(Color.WHITE);
+            t.setShadowLayer(dp(8), 0, dp(1), 0x66000000);
+            t.setSingleLine(true);
+            t.setIncludeFontPadding(false);
+            t.setGravity(Gravity.CENTER);
+            t.setPadding(Math.round(14 * u), Math.round(7 * u), Math.round(14 * u), Math.round(7 * u));
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            tl.gravity = Gravity.CENTER_HORIZONTAL;
+            if (i == 1) tl.topMargin = Math.round(6 * u);
+            t.setVisibility(View.GONE);
+            messageBox.addView(t, tl);
+            messagePills[i] = t;
+        }
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         lp.bottomMargin = (int) (screenH * (1080 - 777 + 22) / 1080f); // juste au-dessus du cadre des applis
-        messagePill.setVisibility(View.GONE);
-        root.addView(messagePill, lp);
+        messageBox.setVisibility(View.GONE);
+        root.addView(messageBox, lp);
         // Calé sur le haut réel du cadre des applis une fois l'écran mis en page.
         root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (dockRow == null || messagePill.getVisibility() != View.VISIBLE) return;
+            if (dockRow == null || messageBox.getVisibility() != View.VISIBLE || dockRow.getHeight() == 0) return;
             int[] d = new int[2], r = new int[2];
             dockRow.getLocationInWindow(d);
             root.getLocationInWindow(r);
-            if (dockRow.getHeight() == 0) return;
             int bottom = root.getHeight() - (d[1] - r[1]) + Math.round(11 * Ui.unit(this));
-            FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) messagePill.getLayoutParams();
-            if (bottom > 0 && p.bottomMargin != bottom) { p.bottomMargin = bottom; messagePill.setLayoutParams(p); }
+            FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) messageBox.getLayoutParams();
+            if (bottom > 0 && p.bottomMargin != bottom) { p.bottomMargin = bottom; messageBox.setLayoutParams(p); }
         });
     }
 
     private void updateMessagePill(RentalReset.Stay stay, boolean scenes) {
-        if (messagePill == null) return;
-        String t = scenes ? "" : VillaMessage.current(this, stay);
-        if (!t.contentEquals(messagePill.getText())) messagePill.setText(t);
+        if (messageBox == null) return;
+        java.util.List<String> l = scenes ? java.util.Collections.emptyList() : VillaMessage.current(this, stay);
         // Verre recréé quand la photo de fond change (même verre que la carte Wi-Fi).
         String key = screenW + "/" + System.identityHashCode(glassSource);
-        if (!t.isEmpty() && !key.equals(messagePillKey)) {
-            LiquidGlass g = new LiquidGlass(20 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
-            g.lens = 0;
-            g.rimStrength = 0.2f;
-            messagePill.setBackground(g);
-            messagePillKey = key;
+        boolean newGlass = !l.isEmpty() && !key.equals(messagePillKey);
+        for (int i = 0; i < 2; i++) {
+            TextView t = messagePills[i];
+            String txt = i < l.size() ? l.get(i) : "";
+            if (!txt.contentEquals(t.getText())) t.setText(txt);
+            if (newGlass || t.getBackground() == null) {
+                LiquidGlass g = new LiquidGlass(20 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
+                g.lens = 0;
+                g.rimStrength = 0.2f;
+                t.setBackground(g);
+            }
+            t.setVisibility(txt.isEmpty() ? View.GONE : View.VISIBLE);
         }
-        messagePill.setVisibility(t.isEmpty() ? View.GONE : View.VISIBLE);
+        if (newGlass) messagePillKey = key;
+        messageBox.setVisibility(l.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void buildWifiCard(FrameLayout col) {
