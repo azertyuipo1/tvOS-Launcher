@@ -50,12 +50,21 @@ public class NightlyWake extends BroadcastReceiver {
         schedule(c);
         PowerManager pm = c.getSystemService(PowerManager.class);
         final PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "villa:nightly");
-        wl.acquire(5 * 60_000L); // le temps de télécharger et d'installer une mise à jour
+        wl.acquire(8 * 60_000L); // le temps de rattraper le Wi‑Fi, de télécharger et d'installer une mise à jour
+        // Boîtier en veille : on demande au Wi‑Fi de rester allumé pendant le réveil.
+        android.net.wifi.WifiManager.WifiLock wifi = null;
+        try {
+            wifi = c.getSystemService(android.net.wifi.WifiManager.class)
+                    .createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "villa:nightly");
+            wifi.setReferenceCounted(false);
+            wifi.acquire();
+        } catch (Throwable ignored) { }
+        final android.net.wifi.WifiManager.WifiLock wifiLock = wifi;
         new Thread(() -> {
             try {
-                // Le réseau revient quelques secondes après le réveil.
+                // Le réseau revient quelques secondes (parfois une à deux minutes) après le réveil.
                 running = true;
-                for (int i = 0; i < 30 && !online(c); i++) Thread.sleep(2000L);
+                for (int i = 0; i < 90 && !online(c); i++) Thread.sleep(2000L);
                 VillaFolder.refreshBlocking(c, true);   // nouvelles à la page + mise à jour éventuelle (écran éteint)
                 RentalReset.forceCheckSoon(c, null);     // départ passé : déconnexion des comptes
                 Thread.sleep(2 * 60_000L);               // laisse finir le téléchargement / l'installation
@@ -64,6 +73,7 @@ public class NightlyWake extends BroadcastReceiver {
             } catch (Throwable ignored) {
             } finally {
                 running = false;
+                try { if (wifiLock != null && wifiLock.isHeld()) wifiLock.release(); } catch (Throwable ignored) { }
                 try { if (wl.isHeld()) wl.release(); } catch (Throwable ignored) { }
             }
         }, "nightly-wake").start();
