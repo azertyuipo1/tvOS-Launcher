@@ -964,6 +964,7 @@ public class MainActivity extends Activity {
         bdlp.topMargin = -dp(2);
         clockCol.addView(bigDate, bdlp);
         buildWifiCard(root);
+        buildMessagePill(root);
         clockColView = clockCol;
         // Numéro de version en haut à gauche, visible seulement en mode admin.
         versionTag = new TextView(this);
@@ -3936,6 +3937,55 @@ public class MainActivity extends Activity {
     String wifiCardKey = "";
 
     /** Carte WiFi : calque indépendant en haut à droite, dessinée d'un bloc (taille calculée sur le texte). */
+    /** Message temporaire de la page de la villa (« 🎂 Happy birthday Debby! »), centré au-dessus des applis. */
+    TextView messagePill;
+    String messagePillKey;
+
+    private void buildMessagePill(FrameLayout root) {
+        float u = Ui.unit(this);
+        messagePill = new TextView(this);
+        messagePill.setTypeface(Ui.font(this, "semibold"));
+        Ui.textSize(messagePill, 15);
+        messagePill.setTextColor(Color.WHITE);
+        messagePill.setShadowLayer(dp(8), 0, dp(1), 0x66000000);
+        messagePill.setSingleLine(true);
+        messagePill.setIncludeFontPadding(false);
+        messagePill.setGravity(Gravity.CENTER);
+        messagePill.setPadding(Math.round(14 * u), Math.round(7 * u), Math.round(14 * u), Math.round(7 * u));
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        lp.bottomMargin = (int) (screenH * (1080 - 777 + 22) / 1080f); // juste au-dessus du cadre des applis
+        messagePill.setVisibility(View.GONE);
+        root.addView(messagePill, lp);
+        // Calé sur le haut réel du cadre des applis une fois l'écran mis en page.
+        root.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (dockRow == null || messagePill.getVisibility() != View.VISIBLE) return;
+            int[] d = new int[2], r = new int[2];
+            dockRow.getLocationInWindow(d);
+            root.getLocationInWindow(r);
+            if (dockRow.getHeight() == 0) return;
+            int bottom = root.getHeight() - (d[1] - r[1]) + Math.round(11 * Ui.unit(this));
+            FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) messagePill.getLayoutParams();
+            if (bottom > 0 && p.bottomMargin != bottom) { p.bottomMargin = bottom; messagePill.setLayoutParams(p); }
+        });
+    }
+
+    private void updateMessagePill(RentalReset.Stay stay, boolean scenes) {
+        if (messagePill == null) return;
+        String t = scenes ? "" : VillaMessage.current(this, stay);
+        if (!t.contentEquals(messagePill.getText())) messagePill.setText(t);
+        // Verre recréé quand la photo de fond change (même verre que la carte Wi-Fi).
+        String key = screenW + "/" + System.identityHashCode(glassSource);
+        if (!t.isEmpty() && !key.equals(messagePillKey)) {
+            LiquidGlass g = new LiquidGlass(20 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
+            g.lens = 0;
+            g.rimStrength = 0.2f;
+            messagePill.setBackground(g);
+            messagePillKey = key;
+        }
+        messagePill.setVisibility(t.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
     private void buildWifiCard(FrameLayout col) {
         wifiCard = new android.widget.ImageView(this);
         wifiCard.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
@@ -4190,6 +4240,7 @@ public class MainActivity extends Activity {
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
+            updateMessagePill(stay, scenes);
             // Le mode admin vient d'expirer (10 min) : la barre du haut doit disparaître aussi.
             if (lastAdminUi != null && lastAdminUi && !admin) {
                 lastAdminUi = false;
