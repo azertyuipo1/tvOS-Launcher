@@ -3914,6 +3914,7 @@ public class MainActivity extends Activity {
         if (m == null) return;
         m.runOnUiThread(() -> {
             m.villaPromptSnoozed = false;
+            m.applyStatusMode();
             AppUpdater.checkForUpdates(m, (ok, ver, url, avail, err) -> {
                 if (m.isFinishing()) return;
                 if (ok && avail) {
