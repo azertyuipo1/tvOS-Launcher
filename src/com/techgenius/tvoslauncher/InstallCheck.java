@@ -12,9 +12,22 @@ import java.util.List;
 final class InstallCheck {
     private InstallCheck() { }
 
+    static boolean accessibilityEnabled(Context c) {
+        try {
+            String on = android.provider.Settings.Secure.getString(c.getContentResolver(),
+                    android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            return on != null && on.contains(c.getPackageName() + "/")
+                    && android.provider.Settings.Secure.getInt(c.getContentResolver(),
+                            android.provider.Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     static List<String> missing(Context c) {
         List<String> miss = new ArrayList<>();
-        if (PowerService.instance == null) miss.add("service d'accessibilité");
+        // Service activé dans les réglages mais pas encore relancé (juste après une mise à jour, au réveil) : pas un souci.
+        if (PowerService.instance == null && !accessibilityEnabled(c)) miss.add("service d'accessibilité");
         if (!LocalAdb.isPaired(c)) miss.add("ADB local");
         try {
             ResolveInfo home = c.getPackageManager().resolveActivity(
