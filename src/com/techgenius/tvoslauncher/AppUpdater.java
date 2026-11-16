@@ -548,7 +548,7 @@ public final class AppUpdater {
     }
 
     public static void downloadAndInstall(
-            Activity activity,
+            Context activity,
             String apkUrl,
             String version,
             boolean autoSilent,
@@ -558,7 +558,7 @@ public final class AppUpdater {
         if (onUiRefresh != null) MAIN.post(onUiRefresh);
         final Context appCtx = activity.getApplicationContext();
 
-        Toast.makeText(activity,
+        Toast.makeText(appCtx,
                 I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
                 Toast.LENGTH_SHORT).show();
 
@@ -644,7 +644,7 @@ public final class AppUpdater {
                 if (Build.VERSION.SDK_INT < 26 || appCtx.getPackageManager().canRequestPackageInstalls()) {
                     downloading = false;
                     if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                    MAIN.post(() -> installWithPackageInstaller(activity, apkFile));
+                    MAIN.post(() -> openInstaller(activity, apkFile));
                     return;
                 }
 
@@ -670,7 +670,7 @@ public final class AppUpdater {
                 // 2. If ADB is disabled (Secure Mode) or ADB install was unavailable, use system PackageInstaller
                 downloading = false;
                 if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                MAIN.post(() -> installWithPackageInstaller(activity, apkFile));
+                MAIN.post(() -> openInstaller(activity, apkFile));
             } catch (Throwable t) {
                 downloading = false;
                 if (autoSilent) noteResult(appCtx, "téléchargement impossible");
@@ -700,10 +700,14 @@ public final class AppUpdater {
     }
 
     /** « mise_a_jour: oui » dans config.txt : installe seule toute nouvelle version, sans personne devant la TV. */
-    public static void autoFromConfig() {
+    public static void autoFromConfig(Context ctx) {
+        final Context app = ctx.getApplicationContext();
         MAIN.post(() -> {
-            Activity a = MainActivity.activeInstance;
-            if (a == null || a.isFinishing() || checking || downloading) return;
+            // Au réveil en veille, l'accueil n'existe parfois plus (processus relancé par l'alarme) :
+            // la mise à jour se fait alors sans lui.
+            Activity act = MainActivity.activeInstance;
+            final Context a = act != null && !act.isFinishing() ? act : app;
+            if (checking || downloading) return;
             // Jamais pendant que quelqu'un regarde : la mise à jour se fait écran éteint (réveil de midi / 18 h).
             boolean admin = GuestLock.isEnabled(a) && !GuestLock.isLocked(a);
             if (!admin && !NightlyWake.unattended(a)) {
@@ -713,7 +717,7 @@ public final class AppUpdater {
             checkForUpdates(a, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
                 if (!success) noteResult(a, "GitHub injoignable");
                 else if (!updateAvailable) noteResult(a, "à jour");
-                else if (!a.isFinishing()) {
+                else {
                     noteResult(a, "installation de v" + cleanVersion(latestVersion) + " lancée");
                     downloadAndInstall(a, downloadUrl, latestVersion, true, null);
                 }
@@ -749,6 +753,12 @@ public final class AppUpdater {
             }
             fos.flush();
         }
+    }
+
+    /** Installateur Android à l'écran : seulement depuis l'accueil (impossible sans lui). */
+    private static void openInstaller(Context c, File apkFile) {
+        if (c instanceof Activity && !((Activity) c).isFinishing()) installWithPackageInstaller((Activity) c, apkFile);
+        else noteResult(c, "installateur non ouvert (accueil fermé)");
     }
 
     private static void installWithPackageInstaller(Activity activity, File apkFile) {
