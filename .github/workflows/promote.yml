@@ -1,0 +1,25 @@
+name: Mise en production
+
+# Met en production (version « stable » installée par toutes les villas) la version écrite dans
+# version-stable.txt, par ex. « 3.1.54 ». Les nouvelles versions sortent d'abord en test (dossier tst).
+on:
+  push:
+    branches: [main]
+    paths: [version-stable.txt]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Passer la version en production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="v$(tr -d ' \r\n' < version-stable.txt | sed 's/^v//')"
+          gh release edit "$V" --prerelease=false --latest
+          echo "$V est en production"
