@@ -623,7 +623,7 @@ public final class AppUpdater {
                     }
                     String out = LocalAdb.lastInstallOutput;
                     noteResult(appCtx, "refusée par Android" + (out == null || out.isEmpty() ? "" : " : " + (out.length() > 80 ? out.substring(0, 80) : out)));
-                    // Écran éteint (réveil de midi / 18 h) : on n'ouvre pas l'installateur, qui attendrait un clic
+                    // Écran éteint (réveil discret) : on n'ouvre pas l'installateur, qui attendrait un clic
                     // et s'afficherait aux clients à l'allumage. Nouvel essai au prochain réveil.
                     if (NightlyWake.unattended(appCtx)) {
                         downloading = false;
@@ -708,10 +708,10 @@ public final class AppUpdater {
             Activity act = MainActivity.activeInstance;
             final Context a = act != null && !act.isFinishing() ? act : app;
             if (checking || downloading) return;
-            // Jamais pendant que quelqu'un regarde : la mise à jour se fait écran éteint (réveil de midi / 18 h).
+            // Jamais pendant que quelqu'un regarde : la mise à jour se fait au réveil discret, sans appli ouverte.
             boolean admin = GuestLock.isEnabled(a) && !GuestLock.isLocked(a);
             if (!admin && !NightlyWake.unattended(a)) {
-                if (NightlyWake.running) noteResult(a, "reportée : TV utilisée");
+                if (NightlyWake.running) noteResult(a, "reportée : appli ouverte ou TV utilisée");
                 return;
             }
             checkForUpdates(a, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {

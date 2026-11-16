@@ -124,7 +124,7 @@ final class RentalReset {
 
     /** Appelée au réveil / au démarrage. Sans effet si le mode location n'est pas configuré. */
     static void check(Context c) {
-        NightlyWake.schedule(c); // reprogramme le réveil de midi / 18 h, au cas où il aurait été perdu
+        NightlyWake.schedule(c); // reprogramme le réveil discret, au cas où il aurait été perdu
         run(c, false, false, null);
     }
 

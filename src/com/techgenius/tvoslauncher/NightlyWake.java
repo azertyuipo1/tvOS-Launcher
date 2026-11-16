@@ -10,7 +10,7 @@ import android.os.PowerManager;
 import java.util.Calendar;
 
 /**
- * Réveil discret à midi et à 18 h, écran éteint : le boîtier réveille seulement
+ * Réveil discret toutes les 3 h (2 h 30, 5 h 30 … 23 h 30), écran éteint : le boîtier réveille seulement
  * son processeur — la TV reste éteinte. Il donne de ses nouvelles à la page de la villa, relit le calendrier
  * (déconnexion des comptes si un départ est passé) et installe une mise à jour éventuelle, pour que rien de
  * tout ça n'arrive pendant que les clients regardent.
@@ -19,20 +19,23 @@ import java.util.Calendar;
  */
 public class NightlyWake extends BroadcastReceiver {
 
-    /** Vrai pendant un réveil de midi / 18 h. */
+    /** Heures des réveils (à la demie). */
+    static final int[] HOURS = {2, 5, 8, 11, 14, 17, 20, 23};
+
+    /** Vrai pendant un réveil. */
     static volatile boolean running;
 
     public static void schedule(Context ctx) {
         Context c = ctx.getApplicationContext();
         try {
-            // Prochain créneau parmi 12 h et 18 h (aujourd'hui ou demain).
+            // Prochain créneau (2 h 30, 5 h 30 … 23 h 30), aujourd'hui ou demain.
             Calendar next = null;
             for (int d = 0; d < 2 && next == null; d++) {
-                for (int h : new int[]{12, 18}) {
+                for (int h : HOURS) {
                     Calendar k = Calendar.getInstance();
                     k.add(Calendar.DAY_OF_MONTH, d);
                     k.set(Calendar.HOUR_OF_DAY, h);
-                    k.set(Calendar.MINUTE, 0);
+                    k.set(Calendar.MINUTE, 30);
                     k.set(Calendar.SECOND, 0);
                     k.set(Calendar.MILLISECOND, 0);
                     if (k.getTimeInMillis() > System.currentTimeMillis() + 60_000L) { next = k; break; }
@@ -64,7 +67,7 @@ public class NightlyWake extends BroadcastReceiver {
         }
     }
 
-    /** Réveil d'essai dans 2 min (en plus de midi / 18 h), pour vérifier qu'une box en veille se réveille. */
+    /** Réveil d'essai dans 2 min (en plus des réveils habituels), pour vérifier qu'une box en veille se réveille. */
     static long testSoon(Context ctx) {
         Context c = ctx.getApplicationContext();
         long at = System.currentTimeMillis() + 2 * 60_000L;
@@ -141,19 +144,22 @@ public class NightlyWake extends BroadcastReceiver {
     }
 
     /**
-     * Personne devant la TV : écran éteint, ou — pendant un réveil — boîtier resté allumé (TV coupée avec
-     * sa propre télécommande) sans touche pressée depuis 3 h ni son en cours.
+     * Mise à jour possible sans gêner : écran éteint, ou — pendant un réveil — écran allumé mais sur l'accueil
+     * du launcher (aucune appli ouverte : pas de Netflix en cours…), sans son ni touche depuis 10 min.
      */
     static boolean unattended(Context c) {
         if (!screenOn(c)) return true;
         if (!running || PowerService.instance == null) return false;
-        if (System.currentTimeMillis() - PowerService.lastKeyWallMs < 3 * 3600_000L) return false;
+        MainActivity m = MainActivity.activeInstance;
+        if (m == null || !m.resumed) return false; // une appli est ouverte
+        if (System.currentTimeMillis() - PowerService.lastKeyWallMs < 10 * 60_000L) return false;
         try {
             return !c.getSystemService(android.media.AudioManager.class).isMusicActive();
         } catch (Throwable t) {
             return false;
         }
     }
+
 
     /** Écran allumé (quelqu'un regarde) : pas d'installation de mise à jour à ce moment-là. */
     static boolean screenOn(Context c) {

@@ -104,7 +104,7 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (intent == null || intent.getAction() == null) return;
         String a = intent.getAction();
-        // Réveil de midi / 18 h : reprogrammé après un redémarrage ou une mise à jour du launcher.
+        // Réveil discret (toutes les 3 h) : reprogrammé après un redémarrage ou une mise à jour du launcher.
         try { com.techgenius.tvoslauncher.NightlyWake.schedule(context); } catch (Throwable ignored) { }
         boolean isBootEvent = Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(a)
                 || Intent.ACTION_BOOT_COMPLETED.equals(a)
