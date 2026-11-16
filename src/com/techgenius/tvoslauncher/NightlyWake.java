@@ -40,7 +40,15 @@ public class NightlyWake extends BroadcastReceiver {
             PendingIntent pi = PendingIntent.getBroadcast(c, 7, new Intent(c, NightlyWake.class),
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
             am.cancel(pi);
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
+            // Réveil « alarme » : à l'heure pile et sorti de la veille profonde. Sans le droit aux alarmes
+            // exactes, réveil approximatif (Android peut alors le décaler de plusieurs heures).
+            boolean exact = android.os.Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms();
+            try {
+                if (exact) am.setAlarmClock(new AlarmManager.AlarmClockInfo(next.getTimeInMillis(), null), pi);
+            } catch (SecurityException e) {
+                exact = false;
+            }
+            if (!exact) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
             prefs(c).edit().putLong("prevu", next.getTimeInMillis()).apply();
         } catch (Throwable ignored) { }
     }
