@@ -53,6 +53,34 @@ public class NightlyWake extends BroadcastReceiver {
         } catch (Throwable ignored) { }
     }
 
+    /** Alarmes exactes autorisées (réveil à l'heure pile, même en veille profonde). */
+    static boolean exactAllowed(Context c) {
+        try {
+            return android.os.Build.VERSION.SDK_INT < 31 || c.getSystemService(AlarmManager.class).canScheduleExactAlarms();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Réveil d'essai dans 2 min (en plus de midi / 18 h), pour vérifier qu'une box en veille se réveille. */
+    static long testSoon(Context ctx) {
+        Context c = ctx.getApplicationContext();
+        long at = System.currentTimeMillis() + 2 * 60_000L;
+        try {
+            AlarmManager am = c.getSystemService(AlarmManager.class);
+            PendingIntent pi = PendingIntent.getBroadcast(c, 8, new Intent(c, NightlyWake.class),
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            if (exactAllowed(c)) am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, null), pi);
+            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        } catch (Throwable ignored) { }
+        return at;
+    }
+
+    /** « 16/11 à 12h00 ». */
+    static String when(long t) {
+        return new java.text.SimpleDateFormat("dd/MM 'à' H'h'mm", java.util.Locale.FRANCE).format(new java.util.Date(t));
+    }
+
     static android.content.SharedPreferences prefs(Context c) {
         return c.getSharedPreferences("nightly_wake", Context.MODE_PRIVATE);
     }

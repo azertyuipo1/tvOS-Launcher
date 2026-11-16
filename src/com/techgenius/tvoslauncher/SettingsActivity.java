@@ -1774,6 +1774,19 @@ public class SettingsActivity extends Activity {
             String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
             return t.isEmpty() ? "—" : t;
         });
+        infoRowDynamic("Réveil discret", () -> {
+            long l = NightlyWake.lastWake(this), n = NightlyWake.nextWake(this);
+            return (l == 0 ? "dernier : jamais" : "dernier " + NightlyWake.when(l) + (NightlyWake.lastWakeOnline(this) ? " (Wi‑Fi ✓)" : " (Wi‑Fi ✗)"))
+                    + (n == 0 ? "" : " · prochain " + NightlyWake.when(n))
+                    + (NightlyWake.exactAllowed(this) ? " · alarme exacte ✓" : " · ✗ alarme approximative");
+        }, null);
+        row("Tester le réveil", () -> "›", () -> {
+            long at = NightlyWake.testSoon(this);
+            android.widget.Toast.makeText(this, "Réveil d'essai à " + NightlyWake.when(at).replaceFirst("^.* à ", "")
+                    + ". Mettez la box en veille maintenant (bouton power), puis rallumez-la après "
+                    + "et revenez ici : « dernier » doit indiquer cette heure.", android.widget.Toast.LENGTH_LONG).show();
+            refreshAll();
+        });
         row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
