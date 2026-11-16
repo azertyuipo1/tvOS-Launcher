@@ -38,6 +38,8 @@ public final class AppUpdater {
     static final boolean VILLA_MANUAL_ONLY = true;
     public static final String GITHUB_API_LATEST =
             "https://api.github.com/repos/azertyuipo1/tvOS-Launcher/releases/latest";
+    private static final String GITHUB_API_ALL =
+            "https://api.github.com/repos/azertyuipo1/tvOS-Launcher/releases?per_page=1";
     public static final String GITHUB_FALLBACK_APK =
             "https://github.com/azertyuipo1/tvOS-Launcher/releases/latest/download/tvos-home.apk";
 
@@ -149,7 +151,9 @@ public final class AppUpdater {
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
-                URL url = new URL(GITHUB_API_LATEST);
+                // Canal test (dossier tst) : la plus récente, versions de test comprises ; sinon la dernière stable.
+                boolean test = "test".equalsIgnoreCase(String.valueOf(VillaFolder.get(appCtx, VillaFolder.K_CANAL)).trim());
+                URL url = new URL(test ? GITHUB_API_ALL : GITHUB_API_LATEST);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(10000);
@@ -169,7 +173,8 @@ public final class AppUpdater {
                         sb.append(line).append('\n');
                     }
                 }
-                JSONObject json = new JSONObject(sb.toString());
+                String body = sb.toString().trim();
+                JSONObject json = body.startsWith("[") ? new JSONArray(body).getJSONObject(0) : new JSONObject(body);
                 String tag = json.optString("tag_name", "").trim();
                 if (tag.isEmpty()) {
                     tag = json.optString("name", "").trim();

@@ -49,6 +49,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION_NAME" build/tvos-home.apk \
+          # Version de test : seules les TV du dossier tst (« canal: test ») l'installent. Mise en production
+          # depuis le tableau de bord setup ou par : gh release edit vX --prerelease=false --latest
+          gh release create "v$VERSION_NAME" build/tvos-home.apk --prerelease \
             --title "v$VERSION_NAME (mode location)" \
             --notes "Build automatique du commit ${GITHUB_SHA::7}"

@@ -32,6 +32,7 @@ final class VillaFolder {
     static final String K_WIFI_SSID = "reseau_wifi";   // « Réseau WiFi: … »
     static final String K_WIFI_PASS = "mot_de_passe";  // « Mot de passe: … »
     static final String K_APPS = "applis";             // « applis: ITVSTREAM, Netflix, … » (ordre de l'accueil)
+    static final String K_CANAL = "canal";            // « canal: test » (dossier tst) : versions de test aussi
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
     static final String K_TZ = "fuseau_horaire";
@@ -275,7 +276,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_WIFI_SHOW, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_CANAL, K_WIFI_SHOW, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
