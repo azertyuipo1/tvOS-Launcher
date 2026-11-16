@@ -15,6 +15,7 @@ import java.util.Calendar;
  * (déconnexion des comptes si un départ est passé) et installe une mise à jour éventuelle, pour que rien de
  * tout ça n'arrive pendant que les clients regardent.
  * « Tester le réveil » (À propos) programme un réveil d'essai 2 min plus tard.
+ * Au réveil, la mise à jour se fait même si l'accueil du launcher a été fermé pendant la veille.
  */
 public class NightlyWake extends BroadcastReceiver {
 
