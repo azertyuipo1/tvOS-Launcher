@@ -465,6 +465,9 @@ final class VillaFolder {
                 {"telecommande", RemoteBattery.summary(c)},
                 {"calendrier_ok", String.valueOf(RentalReset.getFetchOkAt(c) / 1000L)},
                 {"maj_essai", String.valueOf(AppUpdater.lastTryAt(c) / 1000L)},
+                {"reveil", String.valueOf(NightlyWake.lastWake(c) / 1000L)},
+                {"reveil_reseau", NightlyWake.lastWakeOnline(c) ? "1" : "0"},
+                {"reveil_prevu", String.valueOf(NightlyWake.nextWake(c) / 1000L)},
                 {"maj_resultat", AppUpdater.lastTryResult(c)},
         };
         long sentAt = System.currentTimeMillis();

@@ -20,7 +20,7 @@ public class NightlyWake extends BroadcastReceiver {
     /** Vrai pendant un réveil de midi / 18 h. */
     static volatile boolean running;
 
-    static void schedule(Context ctx) {
+    public static void schedule(Context ctx) {
         Context c = ctx.getApplicationContext();
         try {
             // Prochain créneau parmi 12 h et 18 h (aujourd'hui ou demain).
@@ -41,13 +41,24 @@ public class NightlyWake extends BroadcastReceiver {
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
             am.cancel(pi);
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
+            prefs(c).edit().putLong("prevu", next.getTimeInMillis()).apply();
         } catch (Throwable ignored) { }
     }
+
+    static android.content.SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences("nightly_wake", Context.MODE_PRIVATE);
+    }
+
+    /** Dernier réveil (ms, 0 = jamais), réseau retrouvé ou non, prochain réveil prévu : envoyés à la page. */
+    static long lastWake(Context c) { return prefs(c).getLong("dernier", 0L); }
+    static boolean lastWakeOnline(Context c) { return prefs(c).getBoolean("reseau", false); }
+    static long nextWake(Context c) { return prefs(c).getLong("prevu", 0L); }
 
     @Override
     public void onReceive(Context ctx, Intent intent) {
         final Context c = ctx.getApplicationContext();
         schedule(c);
+        prefs(c).edit().putLong("dernier", System.currentTimeMillis()).putBoolean("reseau", false).apply();
         PowerManager pm = c.getSystemService(PowerManager.class);
         final PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "villa:nightly");
         wl.acquire(8 * 60_000L); // le temps de rattraper le Wi‑Fi, de télécharger et d'installer une mise à jour
@@ -65,6 +76,7 @@ public class NightlyWake extends BroadcastReceiver {
                 // Le réseau revient quelques secondes (parfois une à deux minutes) après le réveil.
                 running = true;
                 for (int i = 0; i < 90 && !online(c); i++) Thread.sleep(2000L);
+                prefs(c).edit().putBoolean("reseau", online(c)).apply();
                 VillaFolder.refreshBlocking(c, true);   // nouvelles à la page + mise à jour éventuelle (écran éteint)
                 RentalReset.forceCheckSoon(c, null);     // départ passé : déconnexion des comptes
                 Thread.sleep(2 * 60_000L);               // laisse finir le téléchargement / l'installation

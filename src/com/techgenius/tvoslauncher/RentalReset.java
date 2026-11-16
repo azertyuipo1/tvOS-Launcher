@@ -123,7 +123,10 @@ final class RentalReset {
     static boolean isDepartureSimulated(Context c) { return prefs(c).getBoolean(K_TEST_NEXT_WAKE, false); }
 
     /** Appelée au réveil / au démarrage. Sans effet si le mode location n'est pas configuré. */
-    static void check(Context c) { run(c, false, false, null); }
+    static void check(Context c) {
+        NightlyWake.schedule(c); // reprogramme le réveil de midi / 18 h, au cas où il aurait été perdu
+        run(c, false, false, null);
+    }
 
     /** Vérification immédiate (sans délai minimal), sans forcer la déconnexion. */
     static void forceCheckSoon(Context c, Runnable onDone) { run(c, false, true, onDone); }
