@@ -14,6 +14,7 @@ import java.util.Calendar;
  * son processeur — la TV reste éteinte. Il donne de ses nouvelles à la page de la villa, relit le calendrier
  * (déconnexion des comptes si un départ est passé) et installe une mise à jour éventuelle, pour que rien de
  * tout ça n'arrive pendant que les clients regardent.
+ * « Tester le réveil » (À propos) programme un réveil d'essai 2 min plus tard.
  */
 public class NightlyWake extends BroadcastReceiver {
 
