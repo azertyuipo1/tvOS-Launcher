@@ -115,6 +115,23 @@ public class BootReceiver extends BroadcastReceiver {
         if (!isBootEvent && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(a)) {
             return;
         }
+        if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(a)) {
+            // Launcher mis à jour (souvent en veille, au réveil) : nouvelle version annoncée tout de suite à la page.
+            final PendingResult pr = goAsync();
+            final Context app = context.getApplicationContext();
+            final android.os.PowerManager.WakeLock wl = ((android.os.PowerManager) app.getSystemService(Context.POWER_SERVICE))
+                    .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "villa:updated");
+            wl.acquire(60_000L);
+            new Thread(() -> {
+                try {
+                    com.techgenius.tvoslauncher.AppUpdater.reportInstalled(app);
+                } catch (Throwable ignored) {
+                } finally {
+                    try { if (wl.isHeld()) wl.release(); } catch (Throwable ignored) { }
+                    pr.finish();
+                }
+            }, "report-after-update").start();
+        }
         try {
             Presenter.ensureRunning(context);
         } catch (Throwable ignored) {

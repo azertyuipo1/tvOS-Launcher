@@ -730,6 +730,12 @@ public final class AppUpdater {
         prefs(c).edit().putLong("maj_essai", System.currentTimeMillis()).putString("maj_resultat", result).apply();
     }
 
+    /** Après une mise à jour du launcher : « vX installée », annoncé tout de suite à la page de la villa. */
+    public static void reportInstalled(Context c) {
+        noteResult(c, "v" + getCurrentVersion(c) + " installée");
+        VillaFolder.reportOnly(c);
+    }
+
     static long lastTryAt(Context c) { return prefs(c).getLong("maj_essai", 0L); }
 
     static String lastTryResult(Context c) { return prefs(c).getString("maj_resultat", ""); }
