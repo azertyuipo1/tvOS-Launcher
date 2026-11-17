@@ -4132,7 +4132,6 @@ public class MainActivity extends Activity {
             }
         }
         infoCard.setVisibility(show ? View.VISIBLE : View.GONE);
-        positionWifiCard();
     }
 
     /**
@@ -4216,6 +4215,7 @@ public class MainActivity extends Activity {
         }
         FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
         FrameLayout.LayoutParams w = (FrameLayout.LayoutParams) wifiCard.getLayoutParams();
+        if (w.height <= 1) return; // carte pas encore dessinée : rien à aligner
         int gap = dp(16);
         int minTop = clockColView.getBottom() > 0 ? clockColView.getBottom() + gap : w.topMargin;
         int titleH = titleBoxView.getHeight();
