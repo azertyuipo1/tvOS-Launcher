@@ -35,7 +35,7 @@ final class VillaFolder {
     static final String K_CANAL = "canal";            // « canal: test » (dossier tst) : versions de test aussi
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
-    static final String K_INFO = "carte_info";          // « carte_info: oui » : carte d'information sous le Wi-Fi
+    static final String K_INFO = "carte_info";          // « carte_info: 2 | tout | toujours | jamais » (comme le Wi-Fi)
     static final String K_INFO_TEXT = "message_info";   // texte de la carte ; « {bluetooth} » = symbole Bluetooth
     static final String K_TZ = "fuseau_horaire";
     // Anciens réglages d'animation (retirés) : reconnus pour ne jamais être pris pour une appli.

@@ -4104,12 +4104,13 @@ public class MainActivity extends Activity {
         return out;
     }
 
-    private void updateInfoCard(boolean scenes) {
+    private void updateInfoCard(RentalReset.Stay stay, boolean scenes) {
         if (infoCard == null) return;
         boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
         String txt = VillaFolder.get(this, VillaFolder.K_INFO_TEXT).trim();
-        boolean on = VillaFolder.get(this, VillaFolder.K_INFO).toLowerCase(java.util.Locale.ROOT).matches("oui|yes|1|on");
-        boolean show = on && !txt.isEmpty() && !scenes && !admin;
+        String quand = VillaFolder.get(this, VillaFolder.K_INFO);
+        if (quand.trim().toLowerCase(java.util.Locale.ROOT).matches("oui|yes|on")) quand = "toujours"; // ancien réglage
+        boolean show = !txt.isEmpty() && !scenes && !admin && RentalReset.isWifiDay(stay, quand);
         if (show) {
             int largeur = wifiCard != null && wifiCard.getVisibility() == View.VISIBLE ? wifiCardW : 0;
             String key = txt + "\n" + largeur + "\n" + screenW + "\n" + System.identityHashCode(glassSource);
@@ -4392,7 +4393,7 @@ public class MainActivity extends Activity {
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
-            updateInfoCard(scenes);
+            updateInfoCard(stay, scenes);
             updateMessagePill(stay, scenes);
             // Le mode admin vient d'expirer (10 min) : la barre du haut doit disparaître aussi.
             if (lastAdminUi != null && lastAdminUi && !admin) {
