@@ -25,6 +25,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Outline;
+import android.graphics.Path;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RadialGradient;
@@ -964,6 +965,7 @@ public class MainActivity extends Activity {
         bdlp.topMargin = -dp(2);
         clockCol.addView(bigDate, bdlp);
         buildWifiCard(root);
+        buildInfoCard(root);
         buildMessagePill(root);
         clockColView = clockCol;
         // Numéro de version en haut à gauche, visible seulement en mode admin.
@@ -3931,11 +3933,14 @@ public class MainActivity extends Activity {
 
     TextView welcomeLine, eyebrow, bigClock, bigDate;
     android.widget.ImageView wifiCard;
+    android.widget.ImageView infoCard;
     TextView versionTag;
     View adminMark;
     private Boolean lastAdminUi;
     View scrimView;
     String wifiCardKey = "";
+    String infoCardKey = "";
+    int wifiCardW = 0; // largeur de la carte Wi-Fi : la carte d'information prend la même
 
     /** Carte WiFi : calque indépendant en haut à droite, dessinée d'un bloc (taille calculée sur le texte). */
     /**
@@ -4019,6 +4024,116 @@ public class MainActivity extends Activity {
         col.getViewTreeObserver().addOnGlobalLayoutListener(this::positionWifiCard);
     }
 
+    private void buildInfoCard(FrameLayout col) {
+        infoCard = new android.widget.ImageView(this);
+        infoCard.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(1, 1, Gravity.TOP | Gravity.END);
+        clp.rightMargin = (int) (screenW * 0.065f);
+        clp.topMargin = (int) (screenH * 0.2f);
+        infoCard.setVisibility(View.GONE);
+        col.addView(infoCard, clp);
+    }
+
+    /** Rune Bluetooth dessinée au trait, à la hauteur du texte. */
+    private static void drawBluetooth(Canvas cv, float left, float top, float h, int color) {
+        float w = h / 2f;
+        Path pa = new Path();
+        float[][] pts = {{0.3f, 0.25f}, {0.7f, 0.75f}, {0.5f, 1f}, {0.5f, 0f}, {0.7f, 0.25f}, {0.3f, 0.75f}};
+        pa.moveTo(left + pts[0][0] * w * 2 - w * 0.1f, top + pts[0][1] * h);
+        for (int i = 1; i < pts.length; i++) pa.lineTo(left + pts[i][0] * w * 2 - w * 0.1f, top + pts[i][1] * h);
+        Paint bp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        bp.setStyle(Paint.Style.STROKE);
+        bp.setStrokeWidth(h * 0.12f);
+        bp.setStrokeCap(Paint.Cap.ROUND);
+        bp.setStrokeJoin(Paint.Join.ROUND);
+        bp.setColor(color);
+        cv.drawPath(pa, bp);
+    }
+
+    private static final String BT = "{bluetooth}";
+
+    /**
+     * Carte d'information sous le Wi-Fi : un court message, toujours affiché. « {bluetooth} » devient
+     * le symbole Bluetooth. Même largeur que la carte Wi-Fi quand elle est visible.
+     */
+    private Bitmap drawInfoCard(String texte, int largeur) {
+        float u = Ui.unit(this);
+        float pad = 11 * u, radius = 14 * u;
+        Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
+        tp.setTypeface(Ui.font(this, "semibold"));
+        tp.setTextSize(11 * u);
+        tp.setColor(0xF2FFFFFF);
+        Paint.FontMetrics fm = tp.getFontMetrics();
+        float lh = (fm.descent - fm.ascent) * 1.12f;
+        float icon = 11 * u, iconW = icon / 2f + 2 * u;
+        float space = tp.measureText(" ");
+        float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.26f)) - pad * 2);
+        java.util.List<java.util.List<String>> lignes = new java.util.ArrayList<>();
+        java.util.List<String> cur = new java.util.ArrayList<>();
+        float x = 0, plusLarge = 0;
+        for (String mot : texte.trim().split("\\s+")) {
+            if (mot.isEmpty()) continue;
+            float w = BT.equals(mot) ? iconW : tp.measureText(mot);
+            if (!cur.isEmpty() && x + space + w > maxW) {
+                lignes.add(cur); plusLarge = Math.max(plusLarge, x); cur = new java.util.ArrayList<>(); x = 0;
+            }
+            if (!cur.isEmpty()) x += space;
+            cur.add(mot); x += w;
+        }
+        if (!cur.isEmpty()) { lignes.add(cur); plusLarge = Math.max(plusLarge, x); }
+        if (lignes.isEmpty()) return null;
+        int w = largeur > 0 ? largeur : Math.round(plusLarge + pad * 2);
+        int h = Math.round(pad * 2 + lignes.size() * lh);
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas cv = new Canvas(out);
+        float y = pad - fm.ascent + (lh - (fm.descent - fm.ascent)) / 2f;
+        for (java.util.List<String> l : lignes) {
+            float cx = pad;
+            for (String mot : l) {
+                if (BT.equals(mot)) {
+                    drawBluetooth(cv, cx, y + fm.ascent + (fm.descent - fm.ascent - icon) / 2f, icon, 0xF2FFFFFF);
+                    cx += iconW;
+                } else {
+                    cv.drawText(mot, cx, y, tp);
+                    cx += tp.measureText(mot);
+                }
+                cx += space;
+            }
+            y += lh;
+        }
+        return out;
+    }
+
+    private void updateInfoCard(boolean scenes) {
+        if (infoCard == null) return;
+        boolean admin = GuestLock.isEnabled(this) && !GuestLock.isLocked(this);
+        String txt = VillaFolder.get(this, VillaFolder.K_INFO_TEXT).trim();
+        boolean on = VillaFolder.get(this, VillaFolder.K_INFO).toLowerCase(java.util.Locale.ROOT).matches("oui|yes|1|on");
+        boolean show = on && !txt.isEmpty() && !scenes && !admin;
+        if (show) {
+            int largeur = wifiCard != null && wifiCard.getVisibility() == View.VISIBLE ? wifiCardW : 0;
+            String key = txt + "\n" + largeur + "\n" + screenW + "\n" + System.identityHashCode(glassSource);
+            if (!key.equals(infoCardKey)) {
+                Bitmap card = drawInfoCard(txt, largeur);
+                if (card == null) show = false;
+                else {
+                    infoCard.setImageBitmap(card);
+                    LiquidGlass g = new LiquidGlass(15 * Ui.unit(this), VILLA_GLASS_TINT, glassSource, screenW, screenH, unit);
+                    g.lens = 0;
+                    g.rimStrength = 0f;
+                    infoCard.setBackground(g);
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) infoCard.getLayoutParams();
+                    lp.width = card.getWidth();
+                    lp.height = card.getHeight();
+                    infoCard.setLayoutParams(lp);
+                    infoCardKey = key;
+                }
+            }
+        }
+        infoCard.setVisibility(show ? View.VISIBLE : View.GONE);
+        positionWifiCard();
+    }
+
     /**
      * Dessine la carte : QR code à gauche, « WiFi / réseau / Password / mot de passe / Scan… » à droite.
      * Toutes les tailles sont proportionnelles à l'écran ; la largeur est celle du texte le plus long.
@@ -4094,6 +4209,8 @@ public class MainActivity extends Activity {
         int baseTitleTop = (int) (screenH * 0.24f);
         if (wifiCard.getVisibility() != View.VISIBLE) {
             if (t.topMargin != baseTitleTop) { t.topMargin = baseTitleTop; titleBoxView.setLayoutParams(t); }
+            FrameLayout.LayoutParams k0 = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
+            positionInfoCard(clockColView.getBottom() > 0 ? clockColView.getBottom() + dp(16) : (int) (screenH * 0.2f), k0.rightMargin);
             return;
         }
         FrameLayout.LayoutParams k = (FrameLayout.LayoutParams) clockColView.getLayoutParams();
@@ -4128,6 +4245,18 @@ public class MainActivity extends Activity {
             w.rightMargin = k.rightMargin;
             wifiCard.setLayoutParams(w);
         }
+        positionInfoCard(top + w.height + gap, k.rightMargin);
+    }
+
+    /** Carte d'information : juste sous la carte Wi-Fi, même bord droit. */
+    private void positionInfoCard(int top, int right) {
+        if (infoCard == null || infoCard.getVisibility() != View.VISIBLE) return;
+        FrameLayout.LayoutParams i = (FrameLayout.LayoutParams) infoCard.getLayoutParams();
+        if (i.topMargin != top || i.rightMargin != right) {
+            i.topMargin = top;
+            i.rightMargin = right;
+            infoCard.setLayoutParams(i);
+        }
     }
 
     private void updateWifiCard(RentalReset.Stay stay, boolean scenes) {
@@ -4153,6 +4282,7 @@ public class MainActivity extends Activity {
                     lp.width = card.getWidth();
                     lp.height = card.getHeight();
                     wifiCard.setLayoutParams(lp);
+                    wifiCardW = card.getWidth();
                     wifiCardKey = key;
                 }
             }
@@ -4262,6 +4392,7 @@ public class MainActivity extends Activity {
             if (versionTag != null) versionTag.setVisibility(admin ? View.VISIBLE : View.GONE);
             if (adminMark != null) adminMark.setVisibility(admin ? View.VISIBLE : View.GONE);
             updateWifiCard(stay, scenes);
+            updateInfoCard(scenes);
             updateMessagePill(stay, scenes);
             // Le mode admin vient d'expirer (10 min) : la barre du haut doit disparaître aussi.
             if (lastAdminUi != null && lastAdminUi && !admin) {
