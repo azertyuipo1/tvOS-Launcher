@@ -376,17 +376,17 @@ final class VillaFolder {
                         });
                     }
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
-                            .putString(P_STATUS, "✓ lu le " + when + " (" + n + " réglage" + (n > 1 ? "s" : "") + " imposé" + (n > 1 ? "s" : "") + ")")
+                            .putString(P_STATUS, "Paramétrage mis à jour le " + when)
                             .apply();
                     return;
                 }
                 if (code == 404 && (Integer) get(base + "/" + BACKGROUND_FILE)[0] == 200) {
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, "")
-                            .putString(P_STATUS, "config.txt absent — réglages de la TV utilisés (" + when + ")").apply();
+                            .putString(P_STATUS, "Aucun paramétrage sur la page (" + when + ")").apply();
                     return;
                 }
                 if (code != 404) {
-                    prefs(c).edit().putString(P_STATUS, "✗ config.txt : erreur HTTP " + code + " — " + when).apply();
+                    prefs(c).edit().putString(P_STATUS, "✗ page injoignable (erreur " + code + ") — " + when).apply();
                     return;
                 }
             }

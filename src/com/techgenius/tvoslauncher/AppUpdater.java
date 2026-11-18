@@ -272,9 +272,7 @@ public final class AppUpdater {
                 downloadAndInstall(activity, downloadUrl, latestVersion, true, onUiRefresh);
             } else {
                 Toast.makeText(activity,
-                        I18n.s(activity,
-                                "You are up to date (v" + cur + ")",
-                                "Sürümünüz güncel (v" + cur + ")"),
+                        "Déjà à jour (v" + cur + ")",
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -564,7 +562,7 @@ public final class AppUpdater {
         final Context appCtx = activity.getApplicationContext();
 
         Toast.makeText(appCtx,
-                I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
+                "Mise à jour v" + cleanVersion(version) + " : téléchargement…",
                 Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
