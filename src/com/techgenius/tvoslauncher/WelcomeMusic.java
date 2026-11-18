@@ -244,10 +244,10 @@ public final class WelcomeMusic {
         // double — c'est le prix de l'absence de retour d'information.
         int crans = Math.min(25, Math.max(1, pct));
         j.append(" · index figé, réglage à l'aveugle");
-        // Descente rapide : les pressions rapprochées sont prises pour un appui maintenu, la TV
-        // accélère ses pas et atteint son minimum en quelques secondes.
+        // Descente au rythme éprouvé : rien à gagner à bousculer la TV ici, le minimum est
+        // atteint de toute façon et quelques pressions de plus ne coûtent que du temps.
         for (int i = 0; i < 55; i++) {
-            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 60) < 0) {
+            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 150) < 0) {
                 fin(c, am, j, "✗ pression refusée");
                 return;
             }
