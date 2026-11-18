@@ -1780,6 +1780,14 @@ public class SettingsActivity extends Activity {
                     + (n == 0 ? "" : " · prochain " + NightlyWake.when(n))
                     + (NightlyWake.exactAllowed(this) ? " · alarme exacte ✓" : " · ✗ alarme approximative");
         }, null);
+        infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
+        row("Tester l'accueil", () -> "›", () -> {
+            WelcomeMusic.testNow(this);
+            android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()
+                    ? "Musique lancée. Une touche de la télécommande l'arrête."
+                    : "Aucun morceau sur la TV pour l'instant : vérifiez le dossier musique et réessayez dans quelques minutes.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        });
         row("Tester le réveil", () -> "›", () -> {
             long at = NightlyWake.testSoon(this);
             android.widget.Toast.makeText(this, "Réveil d'essai à " + NightlyWake.when(at).replaceFirst("^.* à ", "")

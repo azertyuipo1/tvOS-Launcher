@@ -37,6 +37,7 @@ final class VillaFolder {
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
     static final String K_MUSIC = "musique";            // nom du fichier dans villas-tv/musique/
     static final String K_MUSIC_VOL = "musique_volume"; // 5 à 100
+    static final String K_MUSIC_LIST = "musiques";      // « a.mp3|b.mp3|… » : choix du serveur
     static final String K_INFO = "carte_info";          // « carte_info: 2 | tout | toujours | jamais » (comme le Wi-Fi)
     static final String K_INFO_TEXT = "message_info";   // texte de la carte ; « {bluetooth} » = symbole Bluetooth
     static final String K_TZ = "fuseau_horaire";
@@ -284,7 +285,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_CANAL, K_WIFI_SHOW, K_INFO, K_INFO_TEXT,  K_MUSIC, K_MUSIC_VOL, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_CANAL, K_WIFI_SHOW, K_INFO, K_INFO_TEXT,  K_MUSIC, K_MUSIC_VOL, K_MUSIC_LIST, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");

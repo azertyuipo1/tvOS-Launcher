@@ -39,11 +39,56 @@ final class WelcomeMusic {
         }
     }
 
-    /** Fichier local du morceau choisi. */
-    private static File file(Context c, String nom) {
+    private static final int GARDE = 5;          // nombre de morceaux gardés d'avance sur la TV
+
+    private static File dossier(Context c) {
         File d = new File(c.getFilesDir(), "musique");
         if (!d.exists()) d.mkdirs();
-        return new File(d, nom.replaceAll("[^A-Za-z0-9._-]", "_"));
+        return d;
+    }
+
+    /** Fichier local d'un morceau. */
+    private static File file(Context c, String nom) {
+        return new File(dossier(c), nom.replaceAll("[^A-Za-z0-9._-]", "_"));
+    }
+
+    /** Morceaux proposés par le serveur. */
+    private static java.util.List<String> liste(Context c) {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        for (String n : VillaFolder.get(c, VillaFolder.K_MUSIC_LIST).split("\\|")) {
+            n = n.trim();
+            if (!n.isEmpty()) l.add(n);
+        }
+        return l;
+    }
+
+    private static boolean auHasard(Context c) {
+        return "aleatoire".equalsIgnoreCase(VillaFolder.get(c, VillaFolder.K_MUSIC).trim());
+    }
+
+    /** Morceaux déjà sur la TV, parmi ceux que le serveur propose. */
+    private static java.util.List<String> enCache(Context c) {
+        java.util.List<String> l = new java.util.ArrayList<>();
+        for (String n : liste(c)) if (file(c, n).length() > 0) l.add(n);
+        return l;
+    }
+
+    /** Morceau de ce séjour : tiré au sort une fois, puis conservé. */
+    private static String choix(Context c) {
+        String mode = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
+        if (mode.isEmpty()) return "";
+        if (!auHasard(c)) return mode;
+        String s = sejour(c);
+        SharedPreferences p = prefs(c);
+        String dejà = p.getString("choix_" + s, "");
+        if (!dejà.isEmpty() && file(c, dejà).length() > 0) return dejà;
+        java.util.List<String> dispo = enCache(c);
+        if (dispo.isEmpty()) return "";
+        String pris = p.getString("dernier", "");
+        if (dispo.size() > 1) dispo.remove(pris);            // éviter deux fois le même d'affilée
+        String n = dispo.get(new java.util.Random().nextInt(dispo.size()));
+        if (!s.isEmpty()) p.edit().putString("choix_" + s, n).putString("dernier", n).apply();
+        return n;
     }
 
     /** villas-tv/<villa>/… → villas-tv/musique/<nom> */
@@ -56,17 +101,32 @@ final class WelcomeMusic {
     }
 
     static String status(Context c) {
-        String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-        if (nom.isEmpty()) return "aucune";
-        String s = prefs(c).getString("etat", "pas encore téléchargée");
-        return nom + " · " + s;
+        String mode = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
+        if (mode.isEmpty()) return "aucune";
+        int n = enCache(c).size();
+        String base = auHasard(c) ? "au hasard · " + n + " sur la TV" : mode + " · " + (n > 0 ? "sur la TV" : "pas encore téléchargée");
+        String e = prefs(c).getString("etat", "");
+        return e.startsWith("✗") ? base + " · " + e : base;
     }
 
-    /** Télécharge le morceau s'il manque (en arrière-plan). */
+    /** Télécharge un morceau manquant (un par appel), jusqu'à en garder quelques-uns d'avance. */
     static void ensureFile(Context ctx) {
         final Context c = ctx.getApplicationContext();
-        final String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-        if (nom.isEmpty() || downloading || file(c, nom).length() > 0) return;
+        if (downloading || VillaFolder.get(c, VillaFolder.K_MUSIC).trim().isEmpty()) return;
+        final String nom;
+        if (auHasard(c)) {
+            java.util.List<String> tout = liste(c), manque = new java.util.ArrayList<>();
+            int ok = 0;
+            for (String n : tout) {
+                if (file(c, n).length() > 0) ok++;
+                else manque.add(n);
+            }
+            if (manque.isEmpty() || ok >= Math.min(GARDE, tout.size())) return;
+            nom = manque.get(new java.util.Random().nextInt(manque.size()));
+        } else {
+            nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
+            if (file(c, nom).length() > 0) return;
+        }
         final String target = url(c, nom);
         if (target.isEmpty()) return;
         downloading = true;
@@ -87,7 +147,7 @@ final class WelcomeMusic {
                         while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                     }
                     if (tmp.length() > 10_000 && tmp.renameTo(file(c, nom))) {
-                        prefs(c).edit().putString("etat", "✓ sur la TV (" + tmp.length() / 1024 + " ko)").apply();
+                        prefs(c).edit().putString("etat", "✓ " + nom).apply();
                     } else {
                         tmp.delete();
                         prefs(c).edit().putString("etat", "✗ fichier vide — " + quand).apply();
@@ -112,8 +172,7 @@ final class WelcomeMusic {
 
     /** Jour d'arrivée, après midi, musique pas encore écoutée pour ce séjour. */
     static boolean aJouer(Context c) {
-        String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-        if (nom.isEmpty()) return false;
+        if (VillaFolder.get(c, VillaFolder.K_MUSIC).trim().isEmpty()) return false;
         String s = sejour(c);
         if (s.isEmpty()) return false;
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
@@ -126,12 +185,25 @@ final class WelcomeMusic {
     static synchronized void maybeStart(Context ctx) {
         final Context c = ctx.getApplicationContext();
         if (isPlaying() || !aJouer(c)) return;
-        String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
+        jouer(c);
+    }
+
+    /** Essai depuis le mode admin : la musique démarre tout de suite, quel que soit le calendrier. */
+    static void testNow(Context ctx) {
+        Context c = ctx.getApplicationContext();
+        stop(c, false);
+        jouer(c);
+    }
+
+    private static synchronized void jouer(Context c) {
+        String nom = choix(c);
+        if (nom.isEmpty()) { ensureFile(c); return; }
         File f = file(c, nom);
         if (f.length() <= 0) { ensureFile(c); return; }
-        int vol = 40;
+        int vol = 30;
         try {
             vol = Math.max(5, Math.min(100, Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim())));
+            if (vol == 0) vol = 30;
         } catch (Throwable ignored) { }
         try {
             MediaPlayer p = new MediaPlayer();
