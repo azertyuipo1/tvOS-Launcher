@@ -146,29 +146,32 @@ final class WelcomeMusic {
     private static void monter(Context c, android.media.AudioManager am, int pct) {
         final int S = android.media.AudioManager.STREAM_MUSIC;
         int max = am.getStreamMaxVolume(S), av = am.getStreamVolume(S);
-        String out = sorties(am);
-        StringBuilder j = new StringBuilder(out + " · max " + max + " · niveau " + av);
+        StringBuilder j = new StringBuilder(sorties(am) + " · max " + max + " · niveau " + av);
         pas = 0;
         if (max <= 1 || av < 0 || av > max) { fin(c, am, j, "✗ niveau illisible"); return; }
 
-        if (!out.contains("hdmi") && !out.contains("arc")) {      // l'index est le vrai volume
-            int cible = Math.max(1, Math.round(max * pct / 100f));
-            j.append(" · cible ").append(cible);
-            if (av >= cible) { fin(c, am, j, "déjà au-dessus, rien changé"); return; }
-            try { am.setStreamVolume(S, cible, 0); } catch (Throwable t) {
-                fin(c, am, j, "✗ réglage refusé"); return;
-            }
-            try { Thread.sleep(150); } catch (InterruptedException ignored) { }
-            fin(c, am, j, "réglé à " + am.getStreamVolume(S));
-            return;
-        }
-
-        // HDMI / ARC : on vise l'index et on s'arrête quand on y est. La taille d'un cran
-        // n'est pas constante (la TV accélère si les pressions se suivent), donc on ne la
-        // suppose jamais : on relit le niveau après chaque pression.
         int cible = Math.max(1, Math.round(max * pct / 100f));
         j.append(" · cible ").append(cible);
-        int lu = av, immobile = 0;
+        if (av == cible) { fin(c, am, j, "déjà au niveau visé"); return; }
+
+        // 1. Le réglage absolu : immédiat quand la box pilote vraiment le son.
+        int lu = av;
+        try {
+            am.setStreamVolume(S, cible, 0);
+            try { Thread.sleep(200); } catch (InterruptedException ignored) { }
+            lu = am.getStreamVolume(S);
+            j.append(" · set ").append(lu);
+            if (lu == cible) { fin(c, am, j, "réglé"); return; }
+        } catch (Throwable t) {
+            j.append(" · set refusé");
+        }
+
+        // 2. Sinon, pression par pression. En HDMI / ARC la box ne pilote rien : elle transmet
+        //    des « monter / baisser » à la TV ou à la barre de son, et un réglage absolu ne vaut
+        //    qu'une seule pression. La taille d'un cran n'est pas constante — la TV accélère ses
+        //    pas quand les pressions se suivent — donc on ne la suppose jamais : on relit le
+        //    niveau après chaque pression et on s'arrête dès que la cible est atteinte ou franchie.
+        int immobile = 0;
         while (lu != cible && pas < 40) {
             boolean monte = lu < cible;
             int apres = presse(am, monte ? android.media.AudioManager.ADJUST_RAISE
@@ -183,7 +186,7 @@ final class WelcomeMusic {
             immobile = 0;
             if (monte != (apres < cible) && apres != cible) {    // cible franchie : on s'arrête
                 lu = apres;
-                j.append(" (cible franchie)");
+                j.append(" (franchie)");
                 break;
             }
             lu = apres;
