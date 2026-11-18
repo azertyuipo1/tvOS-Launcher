@@ -1122,6 +1122,31 @@ final class LocalAdb {
         return true;
     }
 
+    /** Active le contrôle du volume HDMI-CEC du boîtier : sans lui, la box règle son propre
+     *  niveau et non celui de la TV, et la musique d'accueil sort au volume laissé par les
+     *  clients. Fait une seule fois par installation, et seulement si l'ADB est associé.
+     *  Les deux commandes couvrent les versions d'Android TV ; un échec est sans conséquence. */
+    static void enableCecVolumeControl(Context c) {
+        if (c == null || getAdbMode(c) == ADB_MODE_SECURE_CLOSE || !isPaired(c)) return;
+        android.content.SharedPreferences p = c.getSharedPreferences("villa", Context.MODE_PRIVATE);
+        if (p.getBoolean("cec_vol_fait", false)) return;
+        new Thread(() -> {
+            String cmd = "settings put global hdmi_cec_volume_control_enabled 1 ; "
+                    + "cmd hdmi_control cec_setting set volume_control_enabled enabled";
+            String[] hosts = {"127.0.0.1", localLanIp()};
+            for (String h : hosts) {
+                if (h == null || h.isEmpty()) continue;
+                if (!isPortOpen(h, 5555, 400)) continue;
+                try {
+                    runShellCommand(c, h, 5555, cmd);
+                    p.edit().putBoolean("cec_vol_fait", true).apply();
+                    return;
+                } catch (Exception ignored) {
+                }
+            }
+        }, "local-adb-cec-vol").start();
+    }
+
     static boolean sendKeyEventViaAdbAsync(Context c, int keyCode) {
         if (c == null || getAdbMode(c) == ADB_MODE_SECURE_CLOSE || keyCode <= 0 || !isPaired(c)) return false;
         new Thread(() -> {

@@ -4331,6 +4331,7 @@ public class MainActivity extends Activity {
         @Override public void run() {
             refreshProfileTitle();
             WelcomeMusic.maybeStart(MainActivity.this); // arrivée du jour : musique d'accueil
+            LocalAdb.enableCecVolumeControl(MainActivity.this); // une seule fois par installation
             if (++villaTicks % 90 == 0) {
                 RentalReset.check(MainActivity.this);
                 refreshRemoteWallpaper();
