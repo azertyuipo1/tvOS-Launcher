@@ -125,9 +125,8 @@ final class WelcomeMusic {
         }
     }
 
-    private static int pas;                     // crans montés pour la musique
-    private static final int BAS = 200;         // ms entre deux pressions « volume − »
-    private static final int HAUT = 400;        // ms entre deux pressions « volume + »
+    private static int pas;                     // pressions envoyées pour régler le volume
+    private static final int HAUT = 400;        // ms entre deux pressions, pour qu'elles comptent
 
     /** Règle le volume pour la musique.
      *
@@ -137,11 +136,10 @@ final class WelcomeMusic {
      *  absolu suffit.
      *
      *  Sortie HDMI / ARC : la box ne pilote rien, elle transmet des « monter / baisser » à la TV
-     *  ou à la barre de son. Son index n'est alors qu'un compteur de pressions — il avance de 1
-     *  pendant que la TV avance de 2 — et aucune information ne remonte sur le niveau réel.
-     *  Impossible de viser un niveau sans point de repère : on descend donc jusqu'au minimum,
-     *  puis on remonte d'un nombre connu de crans. Le résultat est le même à chaque arrivée,
-     *  quel que soit le volume laissé par les clients précédents.
+     *  ou à la barre de son, et un réglage absolu n'envoie qu'une seule pression. On appuie donc
+     *  pression par pression jusqu'à l'index visé. La taille d'un cran n'est pas constante — la TV
+     *  accélère ses pas quand les pressions se suivent — donc on ne la suppose jamais : on relit
+     *  le niveau après chaque pression et on s'arrête dès que la cible est atteinte ou franchie.
      *
      *  Si le niveau ne peut pas être lu, ou si une pression n'a aucun effet, on ne touche à rien.
      *  À appeler hors du fil principal. */
@@ -165,29 +163,32 @@ final class WelcomeMusic {
             return;
         }
 
-        // HDMI / ARC : minimum, puis un nombre connu de crans.
-        int crans = Math.max(1, Math.round(pct / 2.5f));           // 10 % → 4 crans … 40 % → 16
-        j.append(" · ").append(crans).append(" crans visés");
-        int lu = presse(am, android.media.AudioManager.ADJUST_LOWER, BAS);
-        if (lu < 0) { fin(c, am, j, "✗ pression refusée"); return; }
-        if (lu == av && av > 0) { fin(c, am, j, "✗ sans effet, volume laissé tel quel"); return; }
-        for (int i = 0; i < av + 20 && i < 80; i++) {              // jusqu'au minimum, à coup sûr
-            if (presse(am, android.media.AudioManager.ADJUST_LOWER, BAS) < 0) break;
-        }
-        j.append(" · plancher ").append(am.getStreamVolume(S));
-        // Remontée : une pression à la fois, bien espacées, en vérifiant qu'elle a été prise.
-        for (int i = 0; i < crans; i++) {
-            int avant = am.getStreamVolume(S);
-            int apres = presse(am, android.media.AudioManager.ADJUST_RAISE, HAUT);
+        // HDMI / ARC : on vise l'index et on s'arrête quand on y est. La taille d'un cran
+        // n'est pas constante (la TV accélère si les pressions se suivent), donc on ne la
+        // suppose jamais : on relit le niveau après chaque pression.
+        int cible = Math.max(1, Math.round(max * pct / 100f));
+        j.append(" · cible ").append(cible);
+        int lu = av, immobile = 0;
+        while (lu != cible && pas < 40) {
+            boolean monte = lu < cible;
+            int apres = presse(am, monte ? android.media.AudioManager.ADJUST_RAISE
+                                         : android.media.AudioManager.ADJUST_LOWER, HAUT);
             if (apres < 0) { j.append(" ✗ refusé"); break; }
-            if (apres == avant) {                                   // pression perdue : une seule reprise
-                apres = presse(am, android.media.AudioManager.ADJUST_RAISE, HAUT);
-                if (apres == avant) { j.append(" ✗ ne monte plus"); break; }
-            }
             pas++;
-            j.append(pas == 1 ? " · montée " : ",").append(apres);
+            j.append(pas == 1 ? " · " : ",").append(apres);
+            if (apres == lu) {
+                if (++immobile >= 2) { j.append(" ✗ ne bouge plus"); break; }
+                continue;
+            }
+            immobile = 0;
+            if (monte != (apres < cible) && apres != cible) {    // cible franchie : on s'arrête
+                lu = apres;
+                j.append(" (cible franchie)");
+                break;
+            }
+            lu = apres;
         }
-        fin(c, am, j, "+" + pas + " cran" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
+        fin(c, am, j, pas + " pression" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
     }
 
     /** Une pression sur « volume + » ou « volume − », puis <code>attente</code> ms avant de relire.
