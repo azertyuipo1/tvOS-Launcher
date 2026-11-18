@@ -217,6 +217,12 @@ final class VillaFolder {
         return prefs(c).getString(P_STATUS, "pas encore lu");
     }
 
+    /** État tel qu'on l'affiche sur l'accueil : court quand tout va bien, détaillé en cas d'erreur. */
+    static String getStatusCourt(Context c) {
+        String s = getStatus(c);
+        return s.startsWith("✗") ? s : "Paramétrage mis à jour";
+    }
+
     /** Valeur forcée par config.txt (dernière lecture), ou "" si absente ou vide. */
     static String get(Context c, String key) {
         migrate(c);
@@ -376,7 +382,7 @@ final class VillaFolder {
                         });
                     }
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
-                            .putString(P_STATUS, "Paramétrage mis à jour")
+                            .putString(P_STATUS, "Paramétrage mis à jour le " + when)
                             .apply();
                     return;
                 }

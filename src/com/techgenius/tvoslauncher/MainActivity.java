@@ -4379,7 +4379,7 @@ public class MainActivity extends Activity {
             refreshProfileTitle();
             String ws0 = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
             if (RemoteWallpaper.WALL_KEY.equals(ws0) && RemoteWallpaper.file(this).lastModified() != shownRemoteWallAt) setWallpaper(ws0);
-            Toast.makeText(this, VillaFolder.getStatus(this), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, VillaFolder.getStatusCourt(this), Toast.LENGTH_LONG).show();
         });
         RemoteWallpaper.refresh(this, true, () -> {
             if (isFinishing()) return;
