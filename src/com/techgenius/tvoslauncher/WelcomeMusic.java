@@ -108,10 +108,11 @@ public final class WelcomeMusic {
     /** Ce qui a empêché le réglage du volume, s'il y a lieu. Rien à afficher quand tout va bien. */
     private static String soucisVolume(Context c) {
         String j = prefs(c).getString("journal", "");
-        if (j.contains("figé")) return " • volume verrouillé par la TV ou la barre de son";
-        if (j.contains("ne bouge plus") || j.contains("sans effet")) return " • volume non réglable depuis la box";
-        if (j.contains("illisible")) return " • volume de la box illisible";
-        if (j.contains("refusé")) return " • réglage du volume refusé par la box";
+        if (j.contains("aveugle")) return "";                  // cas normal en HDMI-CEC
+        if (j.contains("verrouillé") || j.endsWith("figé")) return " • volume verrouillé";
+        if (j.contains("ne bouge plus")) return " • volume non réglable";
+        if (j.contains("illisible")) return " • volume illisible";
+        if (j.contains("refusé")) return " • réglage refusé";
         return "";
     }
 
@@ -187,39 +188,70 @@ public final class WelcomeMusic {
         // Pression par pression, jamais de réglage absolu : en HDMI / ARC la box ne pilote rien,
         // elle transmet des « monter / baisser » à la TV ou à la barre de son, et un réglage absolu
         // n'envoie qu'une seule pression tout en faisant croire à Android qu'il est à la cible.
-        // La taille d'un cran n'est pas constante non plus — la TV accélère ses pas quand les
-        // pressions se suivent — donc on ne la suppose jamais : on relit le niveau après chaque
-        // pression et on s'arrête dès que la cible est atteinte ou franchie.
-        // Loin de la cible on laisse l'auto-répétition faire le chemin ; dès qu'on approche on
-        // repasse à une pression à la fois pour ne pas dépasser.
-        int lu = av, immobile = 0, cran = 2;
-        boolean precis = false;
+        // Première pression : elle dit aussi si la box suit son propre niveau. Quand le contrôle du
+        // volume HDMI-CEC est actif, son index reste figé — plus rien n'est lisible, et c'est le
+        // réglage à l'aveugle qui prend le relais.
+        int lu = presse(am, av > cible ? android.media.AudioManager.ADJUST_LOWER
+                                       : android.media.AudioManager.ADJUST_RAISE, PRECIS);
+        if (lu < 0) { fin(c, am, j, "✗ pression refusée"); return; }
+        pas = 1;
+        j.append(" · ").append(lu);
+        if (lu == av) { aveugle(c, am, j, pct); return; }
+
+        // La taille d'un cran n'est pas constante — la TV accélère ses pas quand les pressions se
+        // suivent — donc on ne la suppose jamais : on relit le niveau après chaque pression et on
+        // s'arrête dès que la cible est atteinte ou franchie. Loin de la cible on laisse
+        // l'auto-répétition faire le chemin ; dès qu'on approche, une pression à la fois.
+        int immobile = 0, cran = Math.max(1, Math.abs(lu - av));
+        boolean precis = true;
         while (lu != cible && pas < 60) {
-            if (!precis && Math.abs(cible - lu) <= 3 * cran) {
-                precis = true;
-                try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }  // fin de l'appui
-            }
             boolean monte = lu < cible;
             int apres = presse(am, monte ? android.media.AudioManager.ADJUST_RAISE
                                          : android.media.AudioManager.ADJUST_LOWER,
                     precis ? PRECIS : RAPIDE);
             if (apres < 0) { j.append(" ✗ refusé"); break; }
             pas++;
-            j.append(pas == 1 ? " · " : ",").append(apres);
+            j.append(",").append(apres);
             if (apres == lu) {
                 if (++immobile >= 2) { j.append(" ✗ ne bouge plus"); break; }
                 continue;
             }
             immobile = 0;
-            if (Math.abs(apres - lu) > 0) cran = Math.abs(apres - lu);
-            if (monte != (apres < cible) && apres != cible) {    // cible franchie
-                lu = apres;
-                if (precis) { j.append(" (franchie)"); break; }
-                continue;                                       // en rapide, on revient dessus
-            }
+            cran = Math.abs(apres - lu);
             lu = apres;
+            if (monte != (lu < cible) && lu != cible) {          // cible franchie
+                if (precis) { j.append(" (franchie)"); break; }
+                precis = true;                                  // on revient dessus, doucement
+                try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }
+                continue;
+            }
+            boolean loin = Math.abs(cible - lu) > 3 * cran;
+            if (precis == loin) {                               // changement de régime
+                precis = !loin;
+                if (precis) try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }
+            }
         }
         fin(c, am, j, pas + " pression" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
+    }
+
+    /** Réglage à l'aveugle : la box transmet le volume à la TV sans en garder trace (contrôle du
+     *  volume HDMI-CEC activé). Aucun niveau n'est lisible, donc on descend jusqu'au minimum pour
+     *  avoir un point de repère, puis on remonte d'un nombre connu de crans. Le résultat est le
+     *  même à chaque arrivée, quel que soit le volume laissé par les clients. */
+    private static void aveugle(Context c, android.media.AudioManager am, StringBuilder j, int pct) {
+        int crans = Math.max(1, Math.round(pct / 2.5f));       // 10 % → 4 crans … 40 % → 16
+        j.append(" · index figé, réglage à l'aveugle");
+        for (int i = 0; i < 55; i++) {                          // jusqu'au minimum, à coup sûr
+            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 150) < 0) {
+                fin(c, am, j, "✗ pression refusée");
+                return;
+            }
+        }
+        for (int i = 0; i < crans; i++) {
+            if (presse(am, android.media.AudioManager.ADJUST_RAISE, PRECIS) < 0) break;
+            pas++;
+        }
+        fin(c, am, j, "minimum puis +" + crans + " crans");
     }
 
     /** Une pression sur « volume + » ou « volume − », puis <code>attente</code> ms avant de relire.
