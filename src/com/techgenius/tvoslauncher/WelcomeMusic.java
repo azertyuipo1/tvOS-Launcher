@@ -110,25 +110,20 @@ final class WelcomeMusic {
             box = " · box " + am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
                     + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
         } catch (Throwable ignored) { }
-        return surTv + "/" + liste + " · " + prefs(c).getString("vol", volNom(vol(c))) + box
+        return surTv + "/" + liste + " · " + prefs(c).getString("vol", vol(c) + "%") + box
                 + (e.startsWith("✗") ? " · " + e : "");
     }
 
-    /** 20 doux · 35 moyen · 50 fort (part du volume maximum de la box). */
+    /** Volume réglé pour la musique, en part du volume maximum : 20, 30 ou 40 %. */
     private static int vol(Context c) {
         try {
             int v = Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim());
-            return v == 20 || v == 35 || v == 50 ? v : 35;
+            if (v == 35) v = 30; else if (v == 50) v = 40;      // anciens réglages doux/moyen/fort
+            return v == 20 || v == 30 || v == 40 ? v : 30;
         } catch (Throwable t) {
-            return 35;
+            return 30;
         }
     }
-
-    private static String volNom(int v) { return v == 20 ? "doux" : v == 50 ? "fort" : "moyen"; }
-
-    /** Niveau sonore visé, en part du maximum : le résultat est le même quel que soit
-     *  le volume laissé par les clients. 18 % doux · 28 % moyen · 40 % fort. */
-    private static float cible(int v) { return v == 20 ? .18f : v == 50 ? .40f : .28f; }
 
     private static int volumeAvant = -1;        // volume de la box à remettre après la musique
 
@@ -236,26 +231,20 @@ final class WelcomeMusic {
         File f = file(c, nom);
         if (f.length() <= 0) { ensureFile(c); return; }
         int vol = vol(c);
-        float cible = cible(vol), g = 1f;
         String note = "";
-        // Le niveau visé est absolu. Si la box est déjà plus haut, on n'y touche pas et on
-        // atténue le morceau ; si elle est plus bas (ou coupée), on la monte le temps de la
-        // musique et on la remet ensuite.
+        // Le volume est réglé pour la musique, puis remis comme il était quand elle s'arrête.
         try {
             android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
-            int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
-            float part = max > 0 ? am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / (float) max : 0f;
-            if (part >= cible) {
-                g = cible / part;                       // volume confortable : on baisse le morceau
-            } else if (am.isVolumeFixed()) {
-                note = " · volume figé";                // sortie optique/HDMI : rien à faire
+            if (am.isVolumeFixed()) {
+                note = " · volume figé";                // sortie optique/HDMI : rien à régler
             } else {
+                int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
                 volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
                 am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                        Math.max(1, Math.round(max * cible)), 0);
+                        Math.max(1, Math.round(max * vol / 100f)), 0);
             }
         } catch (Throwable ignored) { }
-        prefs(c).edit().putString("vol", volNom(vol) + " " + Math.round(cible * 100) + "%" + note).apply();
+        prefs(c).edit().putString("vol", vol + "%" + note).apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -263,7 +252,6 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            p.setVolume(g, g);
             p.prepare();
             p.start();
             player = p;
