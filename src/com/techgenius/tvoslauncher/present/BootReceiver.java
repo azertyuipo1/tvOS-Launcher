@@ -126,6 +126,14 @@ public class BootReceiver extends BroadcastReceiver {
                 try {
                     com.techgenius.tvoslauncher.AppUpdater.reportInstalled(app);
                 } catch (Throwable ignored) {
+                }
+                try {
+                    // Pendant l'installation, la TV affiche l'application précédente : on remet
+                    // l'accueil devant dès que la nouvelle version est en place.
+                    Thread.sleep(2000L);
+                    app.startActivity(new Intent(app, com.techgenius.tvoslauncher.MainActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
+                } catch (Throwable ignored) {
                 } finally {
                     try { if (wl.isHeld()) wl.release(); } catch (Throwable ignored) { }
                     pr.finish();
