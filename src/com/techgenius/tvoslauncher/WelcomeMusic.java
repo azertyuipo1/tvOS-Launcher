@@ -105,6 +105,16 @@ public final class WelcomeMusic {
         return n;
     }
 
+    /** Ce qui a empêché le réglage du volume, s'il y a lieu. Rien à afficher quand tout va bien. */
+    private static String soucisVolume(Context c) {
+        String j = prefs(c).getString("journal", "");
+        if (j.contains("figé")) return " • volume verrouillé par la TV ou la barre de son";
+        if (j.contains("ne bouge plus") || j.contains("sans effet")) return " • volume non réglable depuis la box";
+        if (j.contains("illisible")) return " • volume de la box illisible";
+        if (j.contains("refusé")) return " • réglage du volume refusé par la box";
+        return "";
+    }
+
     /** L'ordre de lecture, pour le débogage : « 3e sur 10 ». */
     static String ordre(Context c) {
         String[] o = prefs(c).getString("ordre", "").split("\\|");
@@ -127,7 +137,7 @@ public final class WelcomeMusic {
         int liste = liste(c).size(), surTv = enCache(c).size();
         String e = prefs(c).getString("etat", "");
         return "Active ✓ • Volume : " + vol(c) + "% • Musiques téléchargées " + surTv + "/" + liste
-                + (e.startsWith("✗") ? " • " + e : "");
+                + soucisVolume(c) + (e.startsWith("✗") ? " • " + e : "");
     }
 
     /** Volume réglé pour la musique, en part du volume maximum : 10, 20, 30 ou 40 %. */
