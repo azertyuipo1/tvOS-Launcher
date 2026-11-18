@@ -100,11 +100,19 @@ final class WelcomeMusic {
 
     static String status(Context c) {
         String mode = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-        if (mode.isEmpty()) return "aucune";
-        int n = enCache(c).size();
-        String base = auHasard(c) ? "au hasard · " + n + " sur la TV" : mode + " · " + (n > 0 ? "sur la TV" : "pas encore téléchargée");
+        if (mode.isEmpty()) return "désactivée dans les réglages de la villa";
+        int liste = liste(c).size(), surTv = enCache(c).size();
+        String base = liste + " proposés par la page · " + surTv + " sur la TV";
+        if (liste == 0) base += " · dossier musique vide ou page pas à jour";
         String e = prefs(c).getString("etat", "");
-        return e.startsWith("✗") ? base + " · " + e : base;
+        return e.isEmpty() ? base : base + " · " + e;
+    }
+
+    /** Adresse d'où viennent les morceaux : pour vérifier d'un coup d'œil. */
+    static String source(Context c) {
+        java.util.List<String> l = liste(c);
+        String u = url(c, l.isEmpty() ? "…" : l.get(0));
+        return u.isEmpty() ? "dossier de la villa inconnu" : u;
     }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */

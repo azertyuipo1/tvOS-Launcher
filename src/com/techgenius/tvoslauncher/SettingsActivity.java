@@ -1773,6 +1773,7 @@ public class SettingsActivity extends Activity {
                     + (NightlyWake.exactAllowed(this) ? " · alarme exacte ✓" : " · ✗ alarme approximative");
         }, null);
         infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
+        infoBlockDynamic("Morceaux depuis", () -> WelcomeMusic.source(this));
         row("Tester l'accueil", () -> "›", () -> {
             WelcomeMusic.testNow(this);
             android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()

@@ -4090,8 +4090,8 @@ public class MainActivity extends Activity {
         float lh = (fm.descent - fm.ascent) * 1.12f;
         float icon = 11 * u, iconW = icon / 2f + 2 * u;
         float space = tp.measureText(" ");
-        float noteH = 26 * u, noteW = noteH * .62f, noteGap = 11 * u;   // note de musique à gauche
-        float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.40f)) - pad * 2 - noteW - noteGap);
+        float noteH = 21 * u, noteW = noteH * .62f, noteGap = 8 * u;    // note de musique à gauche
+        float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.26f)) - pad * 2 - noteW - noteGap);
         java.util.List<java.util.List<String>> lignes = new java.util.ArrayList<>();
         java.util.List<String> cur = new java.util.ArrayList<>();
         float x = 0, plusLarge = 0;
@@ -4138,7 +4138,7 @@ public class MainActivity extends Activity {
         if (quand.trim().toLowerCase(java.util.Locale.ROOT).matches("oui|yes|on")) quand = "toujours"; // ancien réglage
         boolean show = !txt.isEmpty() && !scenes && !admin && RentalReset.isWifiDay(stay, quand);
         if (show) {
-            int largeur = 0; // la carte prend la largeur de son texte (note de musique comprise)
+            int largeur = wifiCard != null && wifiCard.getVisibility() == View.VISIBLE ? wifiCardW : 0;
             String key = txt + "\n" + largeur + "\n" + screenW + "\n" + System.identityHashCode(glassSource);
             if (!key.equals(infoCardKey)) {
                 Bitmap card = drawInfoCard(txt, largeur);
