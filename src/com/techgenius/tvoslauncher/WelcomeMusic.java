@@ -126,7 +126,8 @@ final class WelcomeMusic {
     }
 
     private static int pas;                     // crans montés pour la musique
-    private static final int PAS_MAX = 8;       // jamais plus de 8 crans d'écart avec les clients
+    private static final int BAS = 120;         // ms entre deux pressions « volume − »
+    private static final int HAUT = 300;        // ms entre deux pressions « volume + »
 
     /** Règle le volume pour la musique.
      *
@@ -167,28 +168,37 @@ final class WelcomeMusic {
         // HDMI / ARC : minimum, puis un nombre connu de crans.
         int crans = Math.max(1, Math.round(pct / 2.5f));           // 10 % → 4 crans … 40 % → 16
         j.append(" · ").append(crans).append(" crans visés");
-        int lu = presse(am, android.media.AudioManager.ADJUST_LOWER);
+        int lu = presse(am, android.media.AudioManager.ADJUST_LOWER, BAS);
         if (lu < 0) { fin(c, am, j, "✗ pression refusée"); return; }
         if (lu == av && av > 0) { fin(c, am, j, "✗ sans effet, volume laissé tel quel"); return; }
         for (int i = 0; i < av + 20 && i < 80; i++) {              // jusqu'au minimum, à coup sûr
-            if (presse(am, android.media.AudioManager.ADJUST_LOWER) < 0) break;
+            if (presse(am, android.media.AudioManager.ADJUST_LOWER, BAS) < 0) break;
         }
         j.append(" · plancher ").append(am.getStreamVolume(S));
+        // Remontée : une pression à la fois, bien espacées, en vérifiant qu'elle a été prise.
         for (int i = 0; i < crans; i++) {
-            if (presse(am, android.media.AudioManager.ADJUST_RAISE) < 0) { j.append(" ✗ refusé"); break; }
+            int avant = am.getStreamVolume(S);
+            int apres = presse(am, android.media.AudioManager.ADJUST_RAISE, HAUT);
+            if (apres < 0) { j.append(" ✗ refusé"); break; }
+            if (apres == avant) {                                   // pression perdue : une seule reprise
+                apres = presse(am, android.media.AudioManager.ADJUST_RAISE, HAUT);
+                if (apres == avant) { j.append(" ✗ ne monte plus"); break; }
+            }
             pas++;
         }
         fin(c, am, j, "+" + pas + " cran" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
     }
 
-    /** Une pression sur « volume + » ou « volume − ». Renvoie le niveau relu, ou -1 si refusé. */
-    private static int presse(android.media.AudioManager am, int sens) {
+    /** Une pression sur « volume + » ou « volume − », puis <code>attente</code> ms avant de relire.
+     *  Des pressions trop rapprochées sont prises pour un appui maintenu : la TV accélère ses pas
+     *  et en avale au passage. 300 ms laissent chaque pression être traitée séparément. */
+    private static int presse(android.media.AudioManager am, int sens, int attente) {
         try {
             am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, sens, 0);
         } catch (Throwable t) {
             return -1;
         }
-        try { Thread.sleep(90); } catch (InterruptedException ignored) { }
+        try { Thread.sleep(attente); } catch (InterruptedException ignored) { }
         return am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
     }
 
