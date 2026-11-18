@@ -39,8 +39,6 @@ final class WelcomeMusic {
         }
     }
 
-    private static final int GARDE = 5;          // nombre de morceaux gardés d'avance sur la TV
-
     private static File dossier(Context c) {
         File d = new File(c.getFilesDir(), "musique");
         if (!d.exists()) d.mkdirs();
@@ -109,24 +107,23 @@ final class WelcomeMusic {
         return e.startsWith("✗") ? base + " · " + e : base;
     }
 
-    /** Télécharge les morceaux manquants, jusqu'à en garder quelques-uns d'avance sur la TV. */
+    /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
     static void ensureFile(Context ctx) {
         final Context c = ctx.getApplicationContext();
         if (downloading || VillaFolder.get(c, VillaFolder.K_MUSIC).trim().isEmpty()) return;
+        final java.util.List<String> tout = auHasard(c) ? liste(c)
+                : java.util.Collections.singletonList(VillaFolder.get(c, VillaFolder.K_MUSIC).trim());
         final java.util.List<String> manque = new java.util.ArrayList<>();
-        if (auHasard(c)) {
-            java.util.List<String> tout = liste(c);
-            int ok = 0;
-            for (String n : tout) {
-                if (file(c, n).length() > 0) ok++;
-                else manque.add(n);
-            }
-            java.util.Collections.shuffle(manque);
-            int reste = Math.min(GARDE, tout.size()) - ok;
-            while (manque.size() > Math.max(0, reste)) manque.remove(manque.size() - 1);
-        } else {
-            String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-            if (file(c, nom).length() <= 0) manque.add(nom);
+        java.util.Set<String> attendus = new java.util.HashSet<>();
+        for (String n : tout) {
+            if (n.isEmpty()) continue;
+            attendus.add(file(c, n).getName());
+            if (file(c, n).length() <= 0) manque.add(n);
+        }
+        // Morceau retiré du dossier du serveur : on ne le garde pas sur la TV.
+        File[] locaux = dossier(c).listFiles();
+        if (locaux != null && !attendus.isEmpty()) {
+            for (File f : locaux) if (!attendus.contains(f.getName())) f.delete();
         }
         if (manque.isEmpty()) return;
         downloading = true;
@@ -163,6 +160,7 @@ final class WelcomeMusic {
                     }
                 }
                 if (pris > 0) prefs(c).edit().putString("etat", "✓ " + pris + " morceau(x) téléchargé(s)").apply();
+                else if (!manque.isEmpty()) prefs(c).edit().putString("etat", "✗ aucun morceau n'a pu être téléchargé").apply();
             } finally {
                 downloading = false;
             }
