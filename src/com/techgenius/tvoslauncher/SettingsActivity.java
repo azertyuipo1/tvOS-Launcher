@@ -1251,8 +1251,16 @@ public class SettingsActivity extends Activity {
         row("Code villa",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configurée") + "  ›",
                 this::promptFolderUrl);
-        row("Recharger la configuration", () -> "›", this::checkFolderNow);
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
+        row("Déconnecter les comptes maintenant", () -> "›", () -> {
+            showStatusMsg("Déconnexion en cours…");
+            RentalReset.forceNow(this, () -> {
+                if (!isFinishing()) {
+                    refreshAll();
+                    showStatusMsg(RentalReset.getLastResult(this));
+                }
+            });
+        });
         {
             String page = VillaFolder.fileUrl(this, "");
             if (page.isEmpty()) {
@@ -1554,16 +1562,6 @@ public class SettingsActivity extends Activity {
     }
 
     void pageAdvanced() {
-        section("COMPTES STREAMING DES CLIENTS");
-        row("Déconnecter les comptes maintenant", () -> "›", () -> {
-            showStatusMsg("Déconnexion en cours…");
-            RentalReset.forceNow(this, () -> {
-                if (!isFinishing()) {
-                    refreshAll();
-                    showStatusMsg(RentalReset.getLastResult(this));
-                }
-            });
-        });
         section("ADB ET AUTORISATIONS");
         twoLineRow(tr("ADB operating mode", "ADB çalışma modu"),
                 () -> LocalAdb.getAdbModeLabel(this),
@@ -1579,18 +1577,6 @@ public class SettingsActivity extends Activity {
                 () -> openSubMenu("check_permissions"));
 
         section("DÉMARRAGE");
-        row(tr("Launch automatically on system boot", "Sistem açılışında otomatik başlat"),
-                () -> com.techgenius.tvoslauncher.present.BootReceiver.isLaunchOnBootEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    boolean next = !com.techgenius.tvoslauncher.present.BootReceiver.isLaunchOnBootEnabled(this);
-                    com.techgenius.tvoslauncher.present.BootReceiver.setLaunchOnBootEnabled(this, next);
-                    refreshAll();
-                    showStatusMsg(next
-                            ? tr("tvOS Launcher will launch immediately on system boot.",
-                                 "tvOS Launcher sistem açılışında anında otomatik başlatılacak.")
-                            : tr("Automatic launch on boot disabled.",
-                                 "Sistem açılışında otomatik başlatma kapatıldı."));
-                });
         row(tr("Keep Alive (Auto-repair Accessibility)", "Keep Alive (Erişilebilirliği otomatik onar)"),
                 () -> LocalAdb.isKeepAliveEnabled(this) ? tr("On (Default)", "Açık (Varsayılan)") : tr("Off", "Kapalı"),
                 this::toggleKeepAliveWithWarning);
@@ -1600,9 +1586,6 @@ public class SettingsActivity extends Activity {
         row(tr("Disable system launchers…", "Sistem başlatıcılarını devre dışı bırak…"),
                 () -> advLaunchersSummary != null ? advLaunchersSummary : "…",
                 () -> openSubMenu("cyt_launchers"));
-        row(tr("Restore debloated apps…", "Debloat edilen uygulamaları geri yükle…"),
-                () -> tr("Restore ›", "Geri Yükle ›"),
-                () -> openSubMenu("cyt_restore"));
 
         // Expensive PackageManager scans (launchers, debloat status) run off the UI thread so the
         // page's first frames aren't blocked; rows show "…" until the values arrive.
