@@ -114,12 +114,12 @@ final class WelcomeMusic {
                 + (e.startsWith("✗") ? " · " + e : "");
     }
 
-    /** Volume réglé pour la musique, en part du volume maximum : 20, 30 ou 40 %. */
+    /** Volume réglé pour la musique, en part du volume maximum : 10, 20, 30 ou 40 %. */
     private static int vol(Context c) {
         try {
             int v = Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim());
             if (v == 35) v = 30; else if (v == 50) v = 40;      // anciens réglages doux/moyen/fort
-            return v == 20 || v == 30 || v == 40 ? v : 30;
+            return v == 10 || v == 20 || v == 30 || v == 40 ? v : 30;
         } catch (Throwable t) {
             return 30;
         }
