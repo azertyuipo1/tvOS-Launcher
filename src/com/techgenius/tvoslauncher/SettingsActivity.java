@@ -1757,6 +1757,7 @@ public class SettingsActivity extends Activity {
         }, null);
         infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
         infoRowDynamic("Réglage du volume", () -> WelcomeMusic.journal(this), null);
+        infoRowDynamic("Réglage précédent", () -> WelcomeMusic.journalAvant(this), null);
         row("Tester la musique", () -> "›", () -> {
             WelcomeMusic.testNow(this);
             android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()

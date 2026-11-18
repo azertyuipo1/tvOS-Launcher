@@ -205,8 +205,12 @@ final class WelcomeMusic {
     }
 
     private static void fin(Context c, android.media.AudioManager am, StringBuilder j, String etat) {
-        prefs(c).edit().putString("journal",
-                j + " · " + etat + (am.isVolumeFixed() ? " · figé" : "")).apply();
+        prefs(c).edit()
+                .putString("journal2", prefs(c).getString("journal", ""))   // le précédent est gardé
+                .putString("journal", j + " · " + etat
+                        + (am.isVolumeFixed() ? " · figé" : "")
+                        + " · mute " + am.isStreamMute(android.media.AudioManager.STREAM_MUSIC))
+                .apply();
     }
 
     /** Sorties audio branchées, pour comprendre qui pilote vraiment le volume. */
@@ -233,6 +237,12 @@ final class WelcomeMusic {
     static String journal(Context c) {
         String j = prefs(c).getString("journal", "");
         return j.isEmpty() ? "pas encore de réglage de volume" : j;
+    }
+
+    /** Le réglage d'avant : pratique pour comparer deux sorties audio (barre de son / TV). */
+    static String journalAvant(Context c) {
+        String j = prefs(c).getString("journal2", "");
+        return j.isEmpty() ? "—" : j;
     }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
