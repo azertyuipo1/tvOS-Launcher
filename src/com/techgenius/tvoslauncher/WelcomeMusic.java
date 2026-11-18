@@ -126,7 +126,11 @@ final class WelcomeMusic {
     }
 
     private static int pas;                     // pressions envoyées pour régler le volume
-    private static final int HAUT = 400;        // ms entre deux pressions, pour qu'elles comptent
+    /** Deux pressions séparées de moins de 550 ms (« Follower Safety Timeout » de la norme CEC)
+     *  sont prises par la TV pour un appui maintenu : elle applique son auto-répétition et avance
+     *  de plusieurs crans d'un coup. Au-delà, chaque pression compte pour un cran. */
+    private static final int PRECIS = 700;      // ms : une pression = un cran, pour viser juste
+    private static final int RAPIDE = 250;      // ms : appui maintenu assumé, pour couvrir du chemin
 
     /** Règle le volume pour la musique.
      *
@@ -160,11 +164,19 @@ final class WelcomeMusic {
         // La taille d'un cran n'est pas constante non plus — la TV accélère ses pas quand les
         // pressions se suivent — donc on ne la suppose jamais : on relit le niveau après chaque
         // pression et on s'arrête dès que la cible est atteinte ou franchie.
-        int lu = av, immobile = 0;
-        while (lu != cible && pas < 40) {
+        // Loin de la cible on laisse l'auto-répétition faire le chemin ; dès qu'on approche on
+        // repasse à une pression à la fois pour ne pas dépasser.
+        int lu = av, immobile = 0, cran = 2;
+        boolean precis = false;
+        while (lu != cible && pas < 60) {
+            if (!precis && Math.abs(cible - lu) <= 3 * cran) {
+                precis = true;
+                try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }  // fin de l'appui
+            }
             boolean monte = lu < cible;
             int apres = presse(am, monte ? android.media.AudioManager.ADJUST_RAISE
-                                         : android.media.AudioManager.ADJUST_LOWER, HAUT);
+                                         : android.media.AudioManager.ADJUST_LOWER,
+                    precis ? PRECIS : RAPIDE);
             if (apres < 0) { j.append(" ✗ refusé"); break; }
             pas++;
             j.append(pas == 1 ? " · " : ",").append(apres);
@@ -173,10 +185,11 @@ final class WelcomeMusic {
                 continue;
             }
             immobile = 0;
-            if (monte != (apres < cible) && apres != cible) {    // cible franchie : on s'arrête
+            if (Math.abs(apres - lu) > 0) cran = Math.abs(apres - lu);
+            if (monte != (apres < cible) && apres != cible) {    // cible franchie
                 lu = apres;
-                j.append(" (franchie)");
-                break;
+                if (precis) { j.append(" (franchie)"); break; }
+                continue;                                       // en rapide, on revient dessus
             }
             lu = apres;
         }
