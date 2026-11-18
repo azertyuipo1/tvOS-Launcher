@@ -19,7 +19,7 @@ import java.util.Locale;
  * qu'à la réservation suivante. Le fichier est téléchargé une fois depuis villas-tv/musique/ puis
  * gardé sur la TV : plus besoin du réseau au moment de l'arrivée.
  */
-final class WelcomeMusic {
+public final class WelcomeMusic {
     static final int HEURE = 12;                 // heure du check-in
     private static final String PREFS = "villa_musique";
     private static MediaPlayer player;
@@ -344,9 +344,15 @@ final class WelcomeMusic {
     }
 
     /** Démarre la musique si c'est le moment ; sans effet sinon. */
-    static synchronized void maybeStart(Context ctx) {
+    public static synchronized void maybeStart(Context ctx) {
         final Context c = ctx.getApplicationContext();
         if (isPlaying() || !aJouer(c)) return;
+        // Une mise à jour en cours va relancer l'application : la musique serait coupée au milieu.
+        // On la laisse s'installer, l'accueil revient de lui-même et la musique part ensuite.
+        if (AppUpdater.isChecking() || AppUpdater.isDownloading()) {
+            prefs(c).edit().putString("etat", "mise à jour en cours, musique en attente").apply();
+            return;
+        }
         jouer(c);
     }
 

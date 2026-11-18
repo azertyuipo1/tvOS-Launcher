@@ -159,6 +159,9 @@ public class NightlyWake extends BroadcastReceiver {
                 try {
                     reveilleEcran(c);
                     for (int i = 0; i < 45 && !online(c); i++) Thread.sleep(2000L);
+                    // Une version en retard s'installe d'abord : l'application redémarre, et la
+                    // musique part ensuite toute seule (l'accueil la relance dès qu'il revient).
+                    if (!essai) VillaFolder.refreshBlocking(c, true);
                     WelcomeMusic.ensureFile(c);
                     // La TV s'allume par HDMI-CEC : elle met plusieurs secondes à sortir de veille,
                     // à choisir la bonne entrée et à établir la liaison audio. Un morceau lancé

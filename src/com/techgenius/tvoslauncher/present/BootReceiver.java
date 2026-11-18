@@ -133,6 +133,9 @@ public class BootReceiver extends BroadcastReceiver {
                     Thread.sleep(2000L);
                     app.startActivity(new Intent(app, com.techgenius.tvoslauncher.MainActivity.class)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
+                    // Mise à jour installée un jour d'arrivée : la musique attendait la fin.
+                    Thread.sleep(20_000L);
+                    com.techgenius.tvoslauncher.WelcomeMusic.maybeStart(app);
                 } catch (Throwable ignored) {
                 } finally {
                     try { if (wl.isHeld()) wl.release(); } catch (Throwable ignored) { }
