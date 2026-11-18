@@ -154,19 +154,19 @@ public class NightlyWake extends BroadcastReceiver {
             final PendingResult pr = goAsync();
             final android.os.PowerManager.WakeLock w = ((android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE))
                     .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "villa:arrivee");
-            w.acquire(3 * 60_000L);
+            w.acquire(5 * 60_000L);
             new Thread(() -> {
                 try {
                     reveilleEcran(c);
                     for (int i = 0; i < 45 && !online(c); i++) Thread.sleep(2000L);
                     WelcomeMusic.ensureFile(c);
-                    if (essai) {
-                        WelcomeMusic.testNow(c);
-                    } else {
-                        for (int i = 0; i < 30 && !WelcomeMusic.isPlaying(); i++) {
-                            WelcomeMusic.maybeStart(c);
-                            Thread.sleep(2000L);
-                        }
+                    // La TV s'allume par HDMI-CEC : elle met plusieurs secondes à sortir de veille,
+                    // à choisir la bonne entrée et à établir la liaison audio. Un morceau lancé
+                    // avant que la sortie son existe ne s'entend pas.
+                    Thread.sleep(30_000L);
+                    for (int i = 0; i < 30 && !WelcomeMusic.isPlaying(); i++) {
+                        if (essai) WelcomeMusic.testNow(c); else WelcomeMusic.maybeStart(c);
+                        Thread.sleep(2000L);
                     }
                 } catch (Throwable ignored) {
                 } finally {
