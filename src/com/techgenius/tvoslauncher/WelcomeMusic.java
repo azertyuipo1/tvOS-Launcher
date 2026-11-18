@@ -367,9 +367,17 @@ final class WelcomeMusic {
 
     private static synchronized void jouer(Context c) {
         String nom = choix(c);
-        if (nom.isEmpty()) { ensureFile(c); return; }
+        if (nom.isEmpty()) {
+            prefs(c).edit().putString("etat", "✗ aucun morceau coché sur la page").apply();
+            ensureFile(c);
+            return;
+        }
         File f = file(c, nom);
-        if (f.length() <= 0) { ensureFile(c); return; }
+        if (f.length() <= 0) {
+            prefs(c).edit().putString("etat", "✗ pas encore téléchargé : " + nom).apply();
+            ensureFile(c);
+            return;
+        }
         final int vol = vol(c);
         prefs(c).edit().putString("vol", vol + "% · réglage…").apply();
         try {
@@ -379,15 +387,16 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            p.setVolume(0f, 0f);        // muette le temps que le volume soit réglé
             p.prepare();
             p.start();
             player = p;
         } catch (Throwable t) {
             player = null;
+            prefs(c).edit().putString("etat",
+                    "✗ lecture impossible (" + t.getClass().getSimpleName() + ") : " + nom).apply();
             return;
         }
-        final MediaPlayer p = player;
+        prefs(c).edit().putString("etat", "✓ " + nom).apply();
         new Thread(() -> {
             try {
                 android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
@@ -396,7 +405,6 @@ final class WelcomeMusic {
                         + (pas > 0 ? " · +" + pas + " cran" + (pas > 1 ? "s" : "") : " · inchangé")
                         + (am.isVolumeFixed() ? " · figé" : "")).apply();
             } catch (Throwable ignored) { }
-            try { if (p == player) p.setVolume(1f, 1f); } catch (Throwable ignored) { }
         }).start();
     }
 
