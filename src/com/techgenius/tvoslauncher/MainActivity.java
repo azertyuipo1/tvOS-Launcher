@@ -4326,12 +4326,30 @@ public class MainActivity extends Activity {
 
     private int villaTicks = 0;
 
+    /** Le boîtier doit être transparent : son propre volume au maximum, et c'est la TV qui règle
+     *  le son. Sans ça, deux volumes se multiplient et le résultat est imprévisible — une TV à 40
+     *  derrière un boîtier à 10 donne un son très faible. Fait une seule fois par installation. */
+    private void normaliseVolumeBoitier() {
+        android.content.SharedPreferences p = getSharedPreferences("villa", MODE_PRIVATE);
+        if (p.getBoolean("vol_box_max", false)) return;
+        try {
+            android.media.AudioManager am = getSystemService(android.media.AudioManager.class);
+            int flux = android.media.AudioManager.STREAM_MUSIC;
+            int max = am.getStreamMaxVolume(flux);
+            if (!am.isVolumeFixed() && max > 1 && am.getStreamVolume(flux) < max) {
+                am.setStreamVolume(flux, max, 0);
+            }
+            p.edit().putBoolean("vol_box_max", true).apply();
+        } catch (Throwable ignored) { }
+    }
+
     /** Toutes les 20 s : horloge, date, salutation ; toutes les 30 min : vérification des départs. */
     final Runnable villaTick = new Runnable() {
         @Override public void run() {
             refreshProfileTitle();
             WelcomeMusic.maybeStart(MainActivity.this); // arrivée du jour : musique d'accueil
             LocalAdb.enableCecVolumeControl(MainActivity.this); // une seule fois par installation
+            normaliseVolumeBoitier();                            // idem
             if (++villaTicks % 90 == 0) {
                 RentalReset.check(MainActivity.this);
                 refreshRemoteWallpaper();
