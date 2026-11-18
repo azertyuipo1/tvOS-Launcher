@@ -23,7 +23,6 @@ final class WelcomeMusic {
     static final int HEURE = 12;                 // heure du check-in
     private static final String PREFS = "villa_musique";
     private static MediaPlayer player;
-    private static int volumeAvant = -1;        // volume de la box avant la musique
     private static volatile boolean downloading;
 
     private WelcomeMusic() { }
@@ -109,8 +108,7 @@ final class WelcomeMusic {
         try {
             android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
             box = " · box " + am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-                    + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
-                    + (am.isVolumeFixed() ? " (figé)" : "");
+                    + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
         } catch (Throwable ignored) { }
         return surTv + "/" + liste + " · " + prefs(c).getString("vol", volNom(vol(c))) + box
                 + (e.startsWith("✗") ? " · " + e : "");
@@ -127,6 +125,9 @@ final class WelcomeMusic {
     }
 
     private static String volNom(int v) { return v == 20 ? "doux" : v == 50 ? "fort" : "moyen"; }
+
+    /** Atténuation appliquée au morceau : fond sonore, jamais le niveau d'un film. */
+    private static float gain(int v) { return v == 20 ? .06f : v == 50 ? .30f : .14f; }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
     static void ensureFile(Context ctx) {
@@ -232,18 +233,8 @@ final class WelcomeMusic {
         File f = file(c, nom);
         if (f.length() <= 0) { ensureFile(c); return; }
         int vol = vol(c);
-        // Volume de la box quand c'est possible ; sinon on baisse le lecteur lui-même.
-        boolean parLaBox = false;
-        try {
-            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
-            if (!am.isVolumeFixed()) {
-                int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
-                if (volumeAvant < 0) volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
-                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * vol / 100f)), 0);
-                parLaBox = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) <= Math.max(1, Math.round(max * vol / 100f));
-            }
-        } catch (Throwable ignored) { }
-        prefs(c).edit().putString("vol", volNom(vol) + (parLaBox ? "" : " (lecteur)")).apply();
+        // On ne touche jamais au volume de la box ni de la TV : seule la musique est atténuée.
+        prefs(c).edit().putString("vol", volNom(vol)).apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -251,7 +242,7 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            float g = parLaBox ? 1f : (vol / 100f) * (vol / 100f);   // courbe douce quand la box ne suit pas
+            float g = gain(vol);
             p.setVolume(g, g);
             p.prepare();
             p.start();
@@ -269,13 +260,6 @@ final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
-            try {   // la box retrouve son volume d'avant
-                if (volumeAvant >= 0) {
-                    c.getSystemService(android.media.AudioManager.class)
-                            .setStreamVolume(android.media.AudioManager.STREAM_MUSIC, volumeAvant, 0);
-                }
-            } catch (Throwable ignored) { }
-            volumeAvant = -1;
         }
         if (fini) {
             String s = sejour(c);

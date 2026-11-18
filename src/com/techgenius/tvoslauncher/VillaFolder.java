@@ -376,7 +376,7 @@ final class VillaFolder {
                         });
                     }
                     prefs(c).edit().putString(P_RESOLVED, base).putString(P_CONFIG, txt)
-                            .putString(P_STATUS, "Paramétrage mis à jour le " + when)
+                            .putString(P_STATUS, "Paramétrage mis à jour")
                             .apply();
                     return;
                 }
