@@ -146,6 +146,8 @@ final class GuestLock {
 
     /** Boîtier branché sur une TV (Mecool, Chromecast…) : pas d'entrée HDMI, donc pas de vraie touche « Source ». */
     private static Boolean box;
+    static boolean estBoitier(Context c) { return isBox(c); }
+
     private static boolean isBox(Context c) {
         if (box == null) {
             boolean hdmi = false;

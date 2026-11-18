@@ -755,7 +755,7 @@ public class MainActivity extends Activity {
         // Pastilles du mode admin : mise à jour du launcher, réglages de la TV, Play Store.
         adminPills.clear();
         adminPills.add(makeAdminPill("apps", "Play Store", btn, this::openPlayStore));
-        adminPills.add(makeAdminPill("gear", "Réglages TV", btn,
+        adminPills.add(makeAdminPill("gear", GuestLock.estBoitier(this) ? "Réglages boîtier" : "Réglages TV", btn,
                 () -> startSafe(new Intent(Settings.ACTION_SETTINGS))));
         adminPills.add(makeAdminPill("sliders", "Réglages Launcher", btn,
                 () -> startActivity(new Intent(this, SettingsActivity.class))));
