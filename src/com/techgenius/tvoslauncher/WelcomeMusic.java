@@ -126,8 +126,11 @@ final class WelcomeMusic {
 
     private static String volNom(int v) { return v == 20 ? "doux" : v == 50 ? "fort" : "moyen"; }
 
-    /** Atténuation appliquée au morceau : fond sonore, jamais le niveau d'un film. */
-    private static float gain(int v) { return v == 20 ? .06f : v == 50 ? .30f : .14f; }
+    /** Niveau sonore visé, en part du maximum : le résultat est le même quel que soit
+     *  le volume laissé par les clients. 18 % doux · 28 % moyen · 40 % fort. */
+    private static float cible(int v) { return v == 20 ? .18f : v == 50 ? .40f : .28f; }
+
+    private static int volumeAvant = -1;        // volume de la box à remettre après la musique
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
     static void ensureFile(Context ctx) {
@@ -233,8 +236,26 @@ final class WelcomeMusic {
         File f = file(c, nom);
         if (f.length() <= 0) { ensureFile(c); return; }
         int vol = vol(c);
-        // On ne touche jamais au volume de la box ni de la TV : seule la musique est atténuée.
-        prefs(c).edit().putString("vol", volNom(vol)).apply();
+        float cible = cible(vol), g = 1f;
+        String note = "";
+        // Le niveau visé est absolu. Si la box est déjà plus haut, on n'y touche pas et on
+        // atténue le morceau ; si elle est plus bas (ou coupée), on la monte le temps de la
+        // musique et on la remet ensuite.
+        try {
+            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
+            int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+            float part = max > 0 ? am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) / (float) max : 0f;
+            if (part >= cible) {
+                g = cible / part;                       // volume confortable : on baisse le morceau
+            } else if (am.isVolumeFixed()) {
+                note = " · volume figé";                // sortie optique/HDMI : rien à faire
+            } else {
+                volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                        Math.max(1, Math.round(max * cible)), 0);
+            }
+        } catch (Throwable ignored) { }
+        prefs(c).edit().putString("vol", volNom(vol) + " " + Math.round(cible * 100) + "%" + note).apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -242,7 +263,6 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            float g = gain(vol);
             p.setVolume(g, g);
             p.prepare();
             p.start();
@@ -260,6 +280,13 @@ final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
+            try {   // la box retrouve le volume laissé par les clients
+                if (volumeAvant >= 0) {
+                    c.getSystemService(android.media.AudioManager.class)
+                            .setStreamVolume(android.media.AudioManager.STREAM_MUSIC, volumeAvant, 0);
+                }
+            } catch (Throwable ignored) { }
+            volumeAvant = -1;
         }
         if (fini) {
             String s = sejour(c);
