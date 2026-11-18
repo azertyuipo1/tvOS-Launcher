@@ -126,8 +126,8 @@ final class WelcomeMusic {
     }
 
     private static int pas;                     // crans montés pour la musique
-    private static final int BAS = 120;         // ms entre deux pressions « volume − »
-    private static final int HAUT = 300;        // ms entre deux pressions « volume + »
+    private static final int BAS = 200;         // ms entre deux pressions « volume − »
+    private static final int HAUT = 400;        // ms entre deux pressions « volume + »
 
     /** Règle le volume pour la musique.
      *
@@ -185,6 +185,7 @@ final class WelcomeMusic {
                 if (apres == avant) { j.append(" ✗ ne monte plus"); break; }
             }
             pas++;
+            j.append(pas == 1 ? " · montée " : ",").append(apres);
         }
         fin(c, am, j, "+" + pas + " cran" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
     }
