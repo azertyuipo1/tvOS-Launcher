@@ -239,14 +239,20 @@ public final class WelcomeMusic {
      *  avoir un point de repère, puis on remonte d'un nombre connu de crans. Le résultat est le
      *  même à chaque arrivée, quel que soit le volume laissé par les clients. */
     private static void aveugle(Context c, android.media.AudioManager am, StringBuilder j, int pct) {
-        int crans = Math.max(1, Math.round(pct / 2.5f));       // 10 % → 4 crans … 40 % → 16
+        // Une pression vaut le plus souvent un point sur l'échelle de la TV : on en compte donc
+        // autant que le pourcentage visé. Sur une TV dont le pas vaut 2, le niveau obtenu est le
+        // double — c'est le prix de l'absence de retour d'information.
+        int crans = Math.min(25, Math.max(1, pct));
         j.append(" · index figé, réglage à l'aveugle");
-        for (int i = 0; i < 55; i++) {                          // jusqu'au minimum, à coup sûr
-            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 150) < 0) {
+        // Descente rapide : les pressions rapprochées sont prises pour un appui maintenu, la TV
+        // accélère ses pas et atteint son minimum en quelques secondes.
+        for (int i = 0; i < 55; i++) {
+            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 60) < 0) {
                 fin(c, am, j, "✗ pression refusée");
                 return;
             }
         }
+        // Remontée espacée : chaque pression doit compter pour un cran et un seul.
         for (int i = 0; i < crans; i++) {
             if (presse(am, android.media.AudioManager.ADJUST_RAISE, PRECIS) < 0) break;
             pas++;
