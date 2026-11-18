@@ -23,6 +23,7 @@ final class WelcomeMusic {
     static final int HEURE = 12;                 // heure du check-in
     private static final String PREFS = "villa_musique";
     private static MediaPlayer player;
+    private static int volumeAvant = -1;        // volume de la box avant la musique
     private static volatile boolean downloading;
 
     private WelcomeMusic() { }
@@ -223,6 +224,14 @@ final class WelcomeMusic {
             vol = Math.max(5, Math.min(100, Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim())));
             if (vol == 0) vol = 30;
         } catch (Throwable ignored) { }
+        // Le volume demandé est aussi appliqué à la box : une TV laissée à fond ne surprend personne.
+        try {
+            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
+            int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+            if (volumeAvant < 0) volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                    Math.max(1, Math.round(max * vol / 100f)), 0);
+        } catch (Throwable ignored) { }
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -230,8 +239,7 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            float v = vol / 100f;
-            p.setVolume(v, v);
+            p.setVolume(1f, 1f);
             p.prepare();
             p.start();
             player = p;
@@ -248,6 +256,13 @@ final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
+            try {   // la box retrouve son volume d'avant
+                if (volumeAvant >= 0) {
+                    c.getSystemService(android.media.AudioManager.class)
+                            .setStreamVolume(android.media.AudioManager.STREAM_MUSIC, volumeAvant, 0);
+                }
+            } catch (Throwable ignored) { }
+            volumeAvant = -1;
         }
         if (fini) {
             String s = sejour(c);

@@ -4055,24 +4055,27 @@ public class MainActivity extends Activity {
 
     private static final String BT = "{bluetooth}";
 
-    /** Note de musique (croche) dessinée, à gauche de la carte d'information. */
+    /** Deux croches liées, dessinées à gauche de la carte d'information (repère 24 × 30). */
     private static void drawNote(Canvas cv, float left, float top, float h, int color) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(color);
-        float w = h * .62f, head = h * .30f, stem = Math.max(2f, h * .075f);
-        float cx = left + head * .55f, cy = top + h - head * .5f;
-        cv.save();
-        cv.rotate(-20f, cx, cy);
-        cv.drawOval(cx - head * .62f, cy - head * .45f, cx + head * .62f, cy + head * .45f, p);
-        cv.restore();
-        float sx = left + head * 1.12f;
-        cv.drawRect(sx, top + h * .04f, sx + stem, cy, p);
-        Path f = new Path();
-        f.moveTo(sx + stem, top + h * .06f);
-        f.quadTo(left + w * 1.08f, top + h * .20f, sx + stem * 1.2f, top + h * .42f);
-        f.quadTo(left + w * .88f, top + h * .22f, sx + stem, top + h * .20f);
-        f.close();
-        cv.drawPath(f, p);
+        float u = h / 30f, stem = 1.6f * u, rx = 3.2f * u, ry = 2.5f * u;
+        Path beam = new Path();                       // barre qui relie les deux hampes
+        beam.moveTo(left + 9 * u, top + 7.6f * u);
+        beam.lineTo(left + 20 * u, top + 2.2f * u);
+        beam.lineTo(left + 20 * u, top + 6.6f * u);
+        beam.lineTo(left + 9 * u, top + 12.0f * u);
+        beam.close();
+        cv.drawPath(beam, p);
+        cv.drawRect(left + 20 * u - stem, top + 2.2f * u, left + 20 * u, top + 19.8f * u, p);
+        cv.drawRect(left + 9 * u - stem, top + 7.6f * u, left + 9 * u, top + 24.2f * u, p);
+        for (float[] n : new float[][]{{16.9f, 19.8f}, {5.9f, 24.2f}}) {   // les deux têtes
+            float cx = left + n[0] * u, cy = top + n[1] * u;
+            cv.save();
+            cv.rotate(-20f, cx, cy);
+            cv.drawOval(cx - rx, cy - ry, cx + rx, cy + ry, p);
+            cv.restore();
+        }
     }
 
     /**
@@ -4090,7 +4093,7 @@ public class MainActivity extends Activity {
         float lh = (fm.descent - fm.ascent) * 1.12f;
         float icon = 11 * u, iconW = icon / 2f + 2 * u;
         float space = tp.measureText(" ");
-        float noteH = 21 * u, noteW = noteH * .62f, noteGap = 8 * u;    // note de musique à gauche
+        float noteH = 21 * u, noteW = noteH * .72f, noteGap = 8 * u;    // note de musique à gauche
         float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.26f)) - pad * 2 - noteW - noteGap);
         java.util.List<java.util.List<String>> lignes = new java.util.ArrayList<>();
         java.util.List<String> cur = new java.util.ArrayList<>();

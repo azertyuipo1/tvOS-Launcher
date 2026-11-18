@@ -158,6 +158,23 @@ final class Glyphs {
                 c.drawRoundRect(r, s * 0.04f, s * 0.04f, p);
                 c.drawLine(m, s * 0.84f, m, s * 0.64f, p);
                 break;
+            case "bug": {   // Débogage : un insecte vu de dessus
+                float bw = s * 0.30f, bh = s * 0.26f;
+                c.drawLine(s * 0.5f, s * 0.20f, s * 0.5f, s * 0.14f, p);          // antennes
+                c.drawLine(s * 0.5f, s * 0.14f, s * 0.38f, s * 0.08f, p);
+                c.drawLine(s * 0.5f, s * 0.14f, s * 0.62f, s * 0.08f, p);
+                r.set(s * 0.5f - bw / 2, s * 0.18f, s * 0.5f + bw / 2, s * 0.18f + bh);  // tête
+                c.drawArc(r, 180, 180, false, p);
+                r.set(s * 0.5f - s * 0.21f, s * 0.30f, s * 0.5f + s * 0.21f, s * 0.90f); // corps
+                c.drawOval(r, p);
+                c.drawLine(s * 0.5f, s * 0.36f, s * 0.5f, s * 0.84f, p);
+                for (int i = 0; i < 3; i++) {                                      // pattes
+                    float y = s * (0.42f + i * 0.18f);
+                    c.drawLine(s * 0.31f, y, s * 0.14f, y - s * 0.06f, p);
+                    c.drawLine(s * 0.69f, y, s * 0.86f, y - s * 0.06f, p);
+                }
+                break;
+            }
             case "shield":  // Permissions
                 path.moveTo(m, s * 0.12f);
                 path.lineTo(s * 0.8f, s * 0.26f);

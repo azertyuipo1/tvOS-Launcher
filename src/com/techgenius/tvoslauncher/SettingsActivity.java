@@ -76,7 +76,7 @@ public class SettingsActivity extends Activity {
         {PROFILES, "house"},
         {ADVANCED, "shield"},
         {ABOUT, "info"},
-        {DEBUG, "wrench"}
+        {DEBUG, "bug"}
     };
 
     private TextView sideTitleView;
