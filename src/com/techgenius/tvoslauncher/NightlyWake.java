@@ -55,6 +55,7 @@ public class NightlyWake extends BroadcastReceiver {
             }
             if (!exact) am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.getTimeInMillis(), pi);
             prefs(c).edit().putLong("prevu", next.getTimeInMillis()).apply();
+            scheduleArrival(c);
         } catch (Throwable ignored) { }
     }
 
@@ -95,9 +96,62 @@ public class NightlyWake extends BroadcastReceiver {
     static boolean lastWakeOnline(Context c) { return prefs(c).getBoolean("reseau", false); }
     static long nextWake(Context c) { return prefs(c).getLong("prevu", 0L); }
 
+    /** Réveil de midi : jour d'arrivée, on allume l'écran et la musique d'accueil démarre. */
+    static void scheduleArrival(Context ctx) {
+        Context c = ctx.getApplicationContext();
+        try {
+            AlarmManager am = c.getSystemService(AlarmManager.class);
+            PendingIntent pi = PendingIntent.getBroadcast(c, 9,
+                    new Intent(c, NightlyWake.class).setAction("arrivee"),
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            Calendar k = Calendar.getInstance();
+            k.set(Calendar.HOUR_OF_DAY, WelcomeMusic.HEURE);
+            k.set(Calendar.MINUTE, 0);
+            k.set(Calendar.SECOND, 5);
+            k.set(Calendar.MILLISECOND, 0);
+            if (k.getTimeInMillis() <= System.currentTimeMillis()) k.add(Calendar.DAY_OF_MONTH, 1);
+            am.cancel(pi);
+            if (exactAllowed(c)) am.setAlarmClock(new AlarmManager.AlarmClockInfo(k.getTimeInMillis(), null), pi);
+            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, k.getTimeInMillis(), pi);
+        } catch (Throwable ignored) { }
+    }
+
+    /** Allume l'écran (et la TV par HDMI-CEC) en ramenant l'accueil au premier plan. */
+    private static void reveilleEcran(Context c) {
+        try {
+            c.startActivity(new Intent(c, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("turn_screen_on", true));
+        } catch (Throwable ignored) { }
+    }
+
     @Override
     public void onReceive(Context ctx, Intent intent) {
         final Context c = ctx.getApplicationContext();
+        if (intent != null && "arrivee".equals(intent.getAction())) {
+            scheduleArrival(c);
+            if (!WelcomeMusic.aJouer(c)) return;
+            final PendingResult pr = goAsync();
+            final android.os.PowerManager.WakeLock w = ((android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE))
+                    .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "villa:arrivee");
+            w.acquire(3 * 60_000L);
+            new Thread(() -> {
+                try {
+                    reveilleEcran(c);
+                    for (int i = 0; i < 45 && !online(c); i++) Thread.sleep(2000L);
+                    WelcomeMusic.ensureFile(c);
+                    for (int i = 0; i < 30 && !WelcomeMusic.isPlaying(); i++) {
+                        WelcomeMusic.maybeStart(c);
+                        Thread.sleep(2000L);
+                    }
+                } catch (Throwable ignored) {
+                } finally {
+                    try { if (w.isHeld()) w.release(); } catch (Throwable ignored) { }
+                    pr.finish();
+                }
+            }, "arrivee").start();
+            return;
+        }
         schedule(c);
         prefs(c).edit().putLong("dernier", System.currentTimeMillis()).putBoolean("reseau", false).apply();
         PowerManager pm = c.getSystemService(PowerManager.class);

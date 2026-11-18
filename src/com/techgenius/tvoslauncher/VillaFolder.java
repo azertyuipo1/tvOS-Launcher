@@ -35,6 +35,8 @@ final class VillaFolder {
     static final String K_CANAL = "canal";            // « canal: test » (dossier tst) : versions de test aussi
     static final String K_UPDATE = "mise_a_jour";      // « mise_a_jour: oui » : mise à jour seule des TV
     static final String K_WIFI_SHOW = "affichage_wifi"; // « affichage_wifi: 2 | tout | toujours »
+    static final String K_MUSIC = "musique";            // nom du fichier dans villas-tv/musique/
+    static final String K_MUSIC_VOL = "musique_volume"; // 5 à 100
     static final String K_INFO = "carte_info";          // « carte_info: 2 | tout | toujours | jamais » (comme le Wi-Fi)
     static final String K_INFO_TEXT = "message_info";   // texte de la carte ; « {bluetooth} » = symbole Bluetooth
     static final String K_TZ = "fuseau_horaire";
@@ -266,6 +268,8 @@ final class VillaFolder {
             case "fuseau": case "timezone": return K_TZ;
             case "heure": case "affichage_date": case "heure_et_date": case "horloge": return K_CLOCK;
             case "wifi_affichage": case "qr_wifi": case "affichage_qr": case "qr_code_wifi": return K_WIFI_SHOW;
+            case "musique_accueil": case "morceau": return K_MUSIC;
+            case "volume": case "volume_musique": return K_MUSIC_VOL;
             case "info": case "carte_information": case "affichage_info": return K_INFO;
             case "info_message": case "texte_info": case "message_carte": return K_INFO_TEXT;
             default: return s;
@@ -280,7 +284,7 @@ final class VillaFolder {
         java.util.List<String> out = new java.util.ArrayList<>();
         if (txt == null) return out;
         java.util.Set<String> settings = new java.util.HashSet<>(java.util.Arrays.asList(
-                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_CANAL, K_WIFI_SHOW, K_INFO, K_INFO_TEXT, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
+                K_NAME, K_CHECKOUT, K_CALENDAR, K_WIFI_SSID, K_WIFI_PASS, K_APPS, K_UPDATE, K_CANAL, K_WIFI_SHOW, K_INFO, K_INFO_TEXT,  K_MUSIC, K_MUSIC_VOL, K_TZ, K_CLOCK, K_INTRO, K_INTRO_HOME, VillaMessage.K_MESSAGES));
         for (String line : txt.split("\\r?\\n")) {
             // Commentaires (#) ignorés ; tiret ou puce en début de ligne accepté (« - Netflix: oui »).
             String l = line.replace("\uFEFF", "").trim().replaceFirst("^[-\u2013\u2014\u2022*]+\\s*", "");
@@ -361,6 +365,7 @@ final class VillaFolder {
                     if (name != null && !name.isEmpty()) syncProfileName(c, name);
                     String newApps = (cfg.get(K_APPS) == null ? "" : cfg.get(K_APPS)) + appLines(txt);
                     String upd = cfg.get(K_UPDATE) == null ? "" : cfg.get(K_UPDATE).toLowerCase(Locale.ROOT);
+                    WelcomeMusic.ensureFile(c);                  // morceau d'accueil gardé sur la TV
                     if (!upd.matches("non|no|false|0|off")) AppUpdater.autoFromConfig(c); // par défaut : mise à jour automatique
                     if (!oldApps.equals(newApps)) {
                         // Liste ou ordre des applis changé : l'accueil se reconstruit.

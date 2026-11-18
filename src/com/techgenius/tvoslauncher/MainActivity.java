@@ -247,6 +247,7 @@ public class MainActivity extends Activity {
         VillaFolder.applyProcessTimeZone(this);
         super.onCreate(b);
         activeInstance = this;
+        if (getIntent() != null && getIntent().getBooleanExtra("turn_screen_on", false)) allumeEcran();
         // The wallpaper/artwork always covers the screen: skip the window's own full-screen fill
         // (this Mali-450 GPU is fill-rate bound, so every hidden full-screen layer costs frames).
         getWindow().setBackgroundDrawable(null);
@@ -339,6 +340,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (intent.getBooleanExtra("turn_screen_on", false)) allumeEcran();
         if (intent.hasExtra("dock_scale")) {
             Scenes.setDockScalePercent(this, intent.getIntExtra("dock_scale", 100));
         }
@@ -558,6 +560,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         resumed = false;
+        WelcomeMusic.stop(this, false); // on quitte l'accueil : la musique s'arrête (elle reprendra au retour)
         handler.removeCallbacks(hideBounce); // l'appli a repris la main : l'écran noir reste derrière elle
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
@@ -4299,6 +4302,7 @@ public class MainActivity extends Activity {
     final Runnable villaTick = new Runnable() {
         @Override public void run() {
             refreshProfileTitle();
+            WelcomeMusic.maybeStart(MainActivity.this); // arrivée du jour : musique d'accueil
             if (++villaTicks % 90 == 0) {
                 RentalReset.check(MainActivity.this);
                 refreshRemoteWallpaper();
@@ -4354,6 +4358,21 @@ public class MainActivity extends Activity {
             String ws = prefs.getString("wallpaper", RemoteWallpaper.WALL_KEY);
             if (RemoteWallpaper.WALL_KEY.equals(ws)) setWallpaper(ws);
         });
+    }
+
+    /** Réveil du jour d'arrivée : on rallume l'écran, ce qui allume aussi la TV par HDMI-CEC. */
+    void allumeEcran() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 27) {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            }
+            getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    | android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    | android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+            handler.postDelayed(() -> getWindow().clearFlags(
+                    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON), 10 * 60_000L);
+        } catch (Throwable ignored) { }
     }
 
     void refreshProfileTitle() {

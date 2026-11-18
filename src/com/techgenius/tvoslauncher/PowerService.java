@@ -836,6 +836,7 @@ public class PowerService extends AccessibilityService {
     protected boolean onKeyEvent(KeyEvent event) {
         if (event == null) return false;
         lastKeyWallMs = System.currentTimeMillis();
+        WelcomeMusic.onKey(this);
         int code = event.getKeyCode();
         if (KeyTestActivity.capture(event)) return true; // écran de test des touches
         if (GuestLock.onAnyKey(this, event)) return true;
