@@ -125,57 +125,60 @@ final class WelcomeMusic {
         }
     }
 
-    private static int pas;                     // crans montés pour la musique, à redescendre ensuite
+    private static int pas;                     // crans montés pour la musique
     private static final int PAS_MAX = 8;       // jamais plus de 8 crans d'écart avec les clients
 
-    /** Monte le volume pour la musique. En HDMI-ARC / CEC, la box ne pilote pas le son :
-     *  elle transmet des « monter / baisser » à la TV ou à la barre de son, et un réglage absolu
-     *  n'envoie qu'un seul cran. On appuie donc cran par cran, comme avec la télécommande.
-     *  Un cran ne vaut pas forcément 1 point d'index : 1, 2, 5… selon le boîtier et la TV.
-     *  On le mesure donc sur la première pression, et si l'une des trois informations
-     *  nécessaires manque (maximum, niveau actuel, valeur du cran), on ne touche à rien :
-     *  mieux vaut la musique au volume des clients qu'un volume réglé au hasard.
+    /** Règle le volume pour la musique.
+     *
+     *  Deux cas, selon qui pilote réellement le son.
+     *
+     *  Sortie interne (haut-parleur, Bluetooth) : l'index de la box EST le volume, un réglage
+     *  absolu suffit.
+     *
+     *  Sortie HDMI / ARC : la box ne pilote rien, elle transmet des « monter / baisser » à la TV
+     *  ou à la barre de son. Son index n'est alors qu'un compteur de pressions — il avance de 1
+     *  pendant que la TV avance de 2 — et aucune information ne remonte sur le niveau réel.
+     *  Impossible de viser un niveau sans point de repère : on descend donc jusqu'au minimum,
+     *  puis on remonte d'un nombre connu de crans. Le résultat est le même à chaque arrivée,
+     *  quel que soit le volume laissé par les clients précédents.
+     *
+     *  Si le niveau ne peut pas être lu, ou si une pression n'a aucun effet, on ne touche à rien.
      *  À appeler hors du fil principal. */
     private static void monter(Context c, android.media.AudioManager am, int pct) {
         final int S = android.media.AudioManager.STREAM_MUSIC;
-        final int RAISE = android.media.AudioManager.ADJUST_RAISE;
         int max = am.getStreamMaxVolume(S), av = am.getStreamVolume(S);
-        StringBuilder j = new StringBuilder("max " + max + " · niveau " + av);
+        String out = sorties(am);
+        StringBuilder j = new StringBuilder(out + " · max " + max + " · niveau " + av);
         pas = 0;
         if (max <= 1 || av < 0 || av > max) { fin(c, am, j, "✗ niveau illisible"); return; }
 
-        int cible = Math.max(1, Math.round(max * pct / 100f));
-        j.append(" · cible ").append(cible);
-        if (av >= cible) { fin(c, am, j, "déjà au-dessus, rien changé"); return; }
+        if (!out.contains("hdmi") && !out.contains("arc")) {      // l'index est le vrai volume
+            int cible = Math.max(1, Math.round(max * pct / 100f));
+            j.append(" · cible ").append(cible);
+            if (av >= cible) { fin(c, am, j, "déjà au-dessus, rien changé"); return; }
+            try { am.setStreamVolume(S, cible, 0); } catch (Throwable t) {
+                fin(c, am, j, "✗ réglage refusé"); return;
+            }
+            try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+            fin(c, am, j, "réglé à " + am.getStreamVolume(S));
+            return;
+        }
 
-        // Première pression : elle sert à mesurer ce que vaut un cran sur cette installation.
-        int lu = presse(am, RAISE);
+        // HDMI / ARC : minimum, puis un nombre connu de crans.
+        int crans = Math.max(1, Math.round(pct / 2.5f));           // 10 % → 4 crans … 40 % → 16
+        j.append(" · ").append(crans).append(" crans visés");
+        int lu = presse(am, android.media.AudioManager.ADJUST_LOWER);
         if (lu < 0) { fin(c, am, j, "✗ pression refusée"); return; }
-        int cran = lu - av;
-        if (cran <= 0) {                        // la box n'a pas suivi : on en reste là
-            fin(c, am, j, "✗ cran illisible (" + lu + "), volume laissé tel quel");
-            return;
+        if (lu == av && av > 0) { fin(c, am, j, "✗ sans effet, volume laissé tel quel"); return; }
+        for (int i = 0; i < av + 20 && i < 80; i++) {              // jusqu'au minimum, à coup sûr
+            if (presse(am, android.media.AudioManager.ADJUST_LOWER) < 0) break;
         }
-        pas = 1;
-        j.append(" · cran ").append(cran).append(" · ").append(lu);
-        if (cran > max / 4) {                   // un cran énorme : on annule et on s'arrête
-            presse(am, android.media.AudioManager.ADJUST_LOWER);
-            pas = 0;
-            fin(c, am, j, "✗ cran trop gros, volume remis");
-            return;
-        }
-
-        // Puis on avance jusqu'à la cible, sans jamais la dépasser de plus d'un demi-cran.
-        while (lu + cran / 2f <= cible && pas < PAS_MAX) {
-            int apres = presse(am, RAISE);
-            if (apres < 0) { j.append(" ✗ refusé"); break; }
+        j.append(" · plancher ").append(am.getStreamVolume(S));
+        for (int i = 0; i < crans; i++) {
+            if (presse(am, android.media.AudioManager.ADJUST_RAISE) < 0) { j.append(" ✗ refusé"); break; }
             pas++;
-            j.append(",").append(apres);
-            if (apres == lu) { j.append(" ✗ ne bouge plus"); break; }
-            lu = apres;
         }
-        fin(c, am, j, pas + " cran" + (pas > 1 ? "s" : "")
-                + (lu < cible && pas >= PAS_MAX ? " (plafond)" : ""));
+        fin(c, am, j, "+" + pas + " cran" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
     }
 
     /** Une pression sur « volume + » ou « volume − ». Renvoie le niveau relu, ou -1 si refusé. */
@@ -185,26 +188,13 @@ final class WelcomeMusic {
         } catch (Throwable t) {
             return -1;
         }
-        try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+        try { Thread.sleep(90); } catch (InterruptedException ignored) { }
         return am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
     }
 
     private static void fin(Context c, android.media.AudioManager am, StringBuilder j, String etat) {
         prefs(c).edit().putString("journal",
-                j + " · " + etat + (am.isVolumeFixed() ? " · figé" : "") + " · " + sorties(am)).apply();
-    }
-
-    /** Redescend les crans montés pour la musique. À appeler hors du fil principal. */
-    private static void redescendre(Context c, android.media.AudioManager am, int n) {
-        for (int i = 0; i < n; i++) {
-            try {
-                am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                        android.media.AudioManager.ADJUST_LOWER, 0);
-            } catch (Throwable t) {
-                break;
-            }
-            try { Thread.sleep(150); } catch (InterruptedException e) { break; }
-        }
+                j + " · " + etat + (am.isVolumeFixed() ? " · figé" : "")).apply();
     }
 
     /** Sorties audio branchées, pour comprendre qui pilote vraiment le volume. */
@@ -339,7 +329,22 @@ final class WelcomeMusic {
         if (f.length() <= 0) { ensureFile(c); return; }
         final int vol = vol(c);
         prefs(c).edit().putString("vol", vol + "% · réglage…").apply();
-        // Le volume est monté pour la musique, puis redescendu quand elle s'arrête.
+        try {
+            MediaPlayer p = new MediaPlayer();
+            p.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
+            p.setDataSource(f.getPath());
+            p.setLooping(true);
+            p.setVolume(0f, 0f);        // muette le temps que le volume soit réglé
+            p.prepare();
+            p.start();
+            player = p;
+        } catch (Throwable t) {
+            player = null;
+            return;
+        }
+        final MediaPlayer p = player;
         new Thread(() -> {
             try {
                 android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
@@ -348,23 +353,11 @@ final class WelcomeMusic {
                         + (pas > 0 ? " · +" + pas + " cran" + (pas > 1 ? "s" : "") : " · inchangé")
                         + (am.isVolumeFixed() ? " · figé" : "")).apply();
             } catch (Throwable ignored) { }
+            try { if (p == player) p.setVolume(1f, 1f); } catch (Throwable ignored) { }
         }).start();
-        try {
-            MediaPlayer p = new MediaPlayer();
-            p.setAudioAttributes(new android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            p.setDataSource(f.getPath());
-            p.setLooping(true);
-            p.prepare();
-            p.start();
-            player = p;
-        } catch (Throwable t) {
-            player = null;
-        }
     }
 
-    private static boolean test;        // lancée par « Tester la musique » : on garde le volume réglé
+    private static boolean test;        // lancée par « Tester la musique »
 
     /** Arrête la musique. fini = ne plus la rejouer pour ce séjour (touche pressée). */
     static synchronized void stop(Context ctx, boolean fini) {
@@ -374,13 +367,10 @@ final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
-            final int n = test ? 0 : pas;      // le test garde le niveau pour qu'on puisse le lire
+            // Le volume réglé reste en place : c'est un niveau raisonnable, que les clients
+            // trouvent en arrivant et ajustent à leur goût.
             pas = 0;
             test = false;
-            if (n > 0) new Thread(() -> {          // la box retrouve le volume laissé par les clients
-                try { redescendre(c, c.getSystemService(android.media.AudioManager.class), n); }
-                catch (Throwable ignored) { }
-            }).start();
         }
         if (fini) {
             String s = sejour(c);
