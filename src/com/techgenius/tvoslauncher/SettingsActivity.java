@@ -4946,7 +4946,8 @@ public class SettingsActivity extends Activity {
             Ui.textSize(s, 10.5f);
             texts.addView(s);
         }
-        r.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        final LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        r.addView(texts, tlp);
 
         TextView v = new TextView(this);
         v.setTextColor(0x9EFFFFFF);
@@ -4974,6 +4975,11 @@ public class SettingsActivity extends Activity {
             r.setGravity(longue ? Gravity.START : Gravity.CENTER_VERTICAL);
             v.setGravity(longue ? Gravity.START : Gravity.END);
             v.setMaxWidth(longue ? Integer.MAX_VALUE : etroit);
+            // en colonne, le libellé prend toute la largeur ; en ligne, il partage avec la valeur
+            tlp.width = longue ? ViewGroup.LayoutParams.MATCH_PARENT : 0;
+            tlp.weight = longue ? 0f : 1f;
+            texts.setLayoutParams(tlp);
+            vlp.width = longue ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT;
             vlp.leftMargin = longue ? 0 : u(12);
             vlp.topMargin = longue ? u(2) : 0;
             v.setLayoutParams(vlp);

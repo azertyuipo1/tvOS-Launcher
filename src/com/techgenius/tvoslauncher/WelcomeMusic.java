@@ -105,7 +105,14 @@ final class WelcomeMusic {
         int liste = liste(c).size(), surTv = enCache(c).size();
         if (liste == 0) return "aucun morceau proposé";
         String e = prefs(c).getString("etat", "");
-        return surTv + "/" + liste + " · " + prefs(c).getString("vol", volNom(vol(c)))
+        String box = "";
+        try {
+            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
+            box = " · box " + am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                    + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                    + (am.isVolumeFixed() ? " (figé)" : "");
+        } catch (Throwable ignored) { }
+        return surTv + "/" + liste + " · " + prefs(c).getString("vol", volNom(vol(c))) + box
                 + (e.startsWith("✗") ? " · " + e : "");
     }
 
