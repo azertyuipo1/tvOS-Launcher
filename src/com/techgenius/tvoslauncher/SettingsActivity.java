@@ -1248,11 +1248,21 @@ public class SettingsActivity extends Activity {
     /** Page « Maison » : nom de la villa (profil), arrière-plan et mode location. */
     void pageHouse() {
         section("CONFIGURATION EN LIGNE");
-        row("Code villa",
+        row("Code de la villa",
                 () -> (VillaFolder.isConfigured(this) ? VillaFolder.getBase(this) : "Non configurée") + "  ›",
                 this::promptFolderUrl);
+        {
+            String page = VillaFolder.fileUrl(this, "");
+            if (page.isEmpty()) {
+                infoNote("Indiquez le code de la villa ci-dessus, puis rechargez la configuration.");
+            } else {
+                infoNote("Scanner le QR Code pour accéder à la page de configuration");
+                infoQr(page);
+                infoNote(page);
+            }
+        }
         infoRowDynamic("Dernière mise à jour", () -> VillaFolder.getStatus(this), null);
-        row("Déconnecter les comptes maintenant", () -> "›", () -> {
+        row("Déconnecter les comptes streaming maintenant", () -> "›", () -> {
             showStatusMsg("Déconnexion en cours…");
             RentalReset.forceNow(this, () -> {
                 if (!isFinishing()) {
@@ -1261,16 +1271,6 @@ public class SettingsActivity extends Activity {
                 }
             });
         });
-        {
-            String page = VillaFolder.fileUrl(this, "");
-            if (page.isEmpty()) {
-                infoNote("Indiquez le code villa ci-dessus, puis rechargez la configuration.");
-            } else {
-                infoNote("Scanner le QR Code pour accéder à la page de configuration");
-                infoQr(page);
-                infoNote(page);
-            }
-        }
 
         section("APPLIS DE L'ACCUEIL");
         {
@@ -1291,7 +1291,6 @@ public class SettingsActivity extends Activity {
                     }
                 });
             }
-            infoNote("Liste et ordre définis dans config.txt.");
         }
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
@@ -1563,27 +1562,23 @@ public class SettingsActivity extends Activity {
 
     void pageAdvanced() {
         section("ADB ET AUTORISATIONS");
-        twoLineRow(tr("ADB operating mode", "ADB çalışma modu"),
+        twoLineRow("Mode de fonctionnement ADB",
                 () -> LocalAdb.getAdbModeLabel(this),
                 this::showAdbModeSelectorDialog);
-        row(tr("ADB connection status", "ADB bağlantı durumu"),
-                () -> LocalAdb.getStatusLabel(this),
+        row("Connexion ADB",
+                () -> LocalAdb.isPaired(this) ? "Réparer ›" : "Associer ›",
                 this::pairOrRepairAdb);
-        row(tr("Pair / Repair ADB connection", "ADB bağlantısını eşleştir / onar"),
-                () -> LocalAdb.isPaired(this) ? tr("Repair", "Onar") : tr("Pair now", "Şimdi eşleştir"),
-                this::pairOrRepairAdb);
-        row(tr("Check permissions", "İzinleri kontrol et"),
+        row("Autorisations",
                 this::permissionsSummaryCount,
                 () -> openSubMenu("check_permissions"));
 
         section("DÉMARRAGE");
-        row(tr("Keep Alive (Auto-repair Accessibility)", "Keep Alive (Erişilebilirliği otomatik onar)"),
-                () -> LocalAdb.isKeepAliveEnabled(this) ? tr("On (Default)", "Açık (Varsayılan)") : tr("Off", "Kapalı"),
+        row("Réparer seul le service d'accessibilité",
+                () -> LocalAdb.isKeepAliveEnabled(this) ? "Activé" : "Désactivé",
                 this::toggleKeepAliveWithWarning);
 
-
         section("ACCUEIL D'ORIGINE DE LA TV");
-        row(tr("Disable system launchers…", "Sistem başlatıcılarını devre dışı bırak…"),
+        row("Désactiver les accueils du système…",
                 () -> advLaunchersSummary != null ? advLaunchersSummary : "…",
                 () -> openSubMenu("cyt_launchers"));
 
@@ -1735,6 +1730,25 @@ public class SettingsActivity extends Activity {
 
     /** Outils de diagnostic, à part pour garder « À propos » lisible. */
     void pageDebug() {
+        infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
+        row("Tester la musique d'accueil tout de suite", () -> "›", () -> {
+            WelcomeMusic.testNow(this);
+            android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()
+                    ? "Musique lancée. Une touche de la télécommande l'arrête."
+                    : WelcomeMusic.enCours() ? "Téléchargement des morceaux en cours, réessayez dans un instant."
+                    : "Aucun morceau : vérifiez le dossier villas-tv/musique/ et le réglage de la villa.",
+                    android.widget.Toast.LENGTH_LONG).show();
+            refreshAll();
+        });
+        row("Tester la musique d'accueil dans 2 mn", () -> "›", () -> {
+            long at = NightlyWake.testArrivee(this);
+            android.widget.Toast.makeText(this, "Essai programmé à "
+                    + NightlyWake.when(at).replaceFirst("^.* à ", "")
+                    + ". Éteignez la TV maintenant si elle ne s'éteint pas d'elle-même.",
+                    android.widget.Toast.LENGTH_LONG).show();
+            refreshAll();
+        });
+        infoNote("La TV s'éteint et se rallume dans 2 mn en lançant la musique au bon volume.");
         infoBlockDynamic("Derniers écrans", () -> {
             String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
             StringBuilder sb = new StringBuilder();
@@ -1745,28 +1759,11 @@ public class SettingsActivity extends Activity {
             }
             return sb.length() == 0 ? "—" : sb.toString();
         });
-        infoBlockDynamic("Dernières touches", () -> {
+        infoBlockDynamic("Dernières touches utilisées", () -> {
             String t = getSharedPreferences("villa", MODE_PRIVATE).getString("keys_blocked", "");
             return t.isEmpty() ? "—" : t;
         });
-        infoRowDynamic("Réveil discret", () -> {
-            long l = NightlyWake.lastWake(this), n = NightlyWake.nextWake(this);
-            return (l == 0 ? "dernier : jamais" : "dernier " + NightlyWake.when(l) + (NightlyWake.lastWakeOnline(this) ? " (Wi‑Fi ✓)" : " (Wi‑Fi ✗)"))
-                    + (n == 0 ? "" : " · prochain " + NightlyWake.when(n))
-                    + (NightlyWake.exactAllowed(this) ? " · alarme exacte ✓" : " · ✗ alarme approximative");
-        }, null);
-        infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
-        infoRowDynamic("Réglage du volume", () -> WelcomeMusic.journal(this), null);
-        infoRowDynamic("Réglage précédent", () -> WelcomeMusic.journalAvant(this), null);
-        row("Tester la musique", () -> "›", () -> {
-            WelcomeMusic.testNow(this);
-            android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()
-                    ? "Musique lancée. Une touche de la télécommande l'arrête."
-                    : WelcomeMusic.enCours() ? "Téléchargement des morceaux en cours, réessayez dans un instant."
-                    : "Aucun morceau : vérifiez le dossier villas-tv/musique/ et le réglage de la villa.",
-                    android.widget.Toast.LENGTH_LONG).show();
-            refreshAll();
-        });
+        row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
         row("Tester le réveil", () -> "›", () -> {
             long at = NightlyWake.testSoon(this);
             android.widget.Toast.makeText(this, "Réveil d'essai à " + NightlyWake.when(at).replaceFirst("^.* à ", "")
@@ -1774,16 +1771,14 @@ public class SettingsActivity extends Activity {
                     + "et revenez ici : « dernier » doit indiquer cette heure.", android.widget.Toast.LENGTH_LONG).show();
             refreshAll();
         });
-        row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
+        infoNote("Vérifie qu'une box en veille se réveille seule pour installer les mises à jour.");
     }
 
     void pageAbout() {
         infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
         infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
         infoRowDynamic("Réseau", this::networkSummary, null);
-        infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
-                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
-        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Planning des réservations", () -> RentalReset.getFetchStatus(this), null);
         infoRowDynamic("Prochain départ", () -> {
             List<String> d = RentalReset.upcomingDepartures(this, 1);
             return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
@@ -4956,14 +4951,14 @@ public class SettingsActivity extends Activity {
         v.setTypeface(Ui.font(this, "medium"));
         Ui.textSize(v, 12.5f);
         // La valeur reste dans sa colonne (retour à la ligne si besoin) : le libellé n'est jamais écrasé.
-        v.setMaxWidth((int) (getResources().getDisplayMetrics().widthPixels * 0.40f));
+        v.setMaxWidth((int) (getResources().getDisplayMetrics().widthPixels * 0.55f));
         v.setGravity(Gravity.END);
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         vlp.leftMargin = u(12);
         r.addView(v, vlp);
 
-        final int etroit = (int) (getResources().getDisplayMetrics().widthPixels * 0.40f);
+        final int etroit = (int) (getResources().getDisplayMetrics().widthPixels * 0.55f);
         Runnable refresh = () -> {
             String t;
             try {
@@ -4972,7 +4967,9 @@ public class SettingsActivity extends Activity {
                 t = "";
             }
             v.setText(t);
-            boolean longue = t != null && t.length() > 38;   // sinon la valeur se tasse en colonne
+            // La valeur reste à droite et passe à la ligne dans sa colonne ; elle ne prend toute
+            // la largeur que si elle est vraiment trop longue pour y tenir.
+            boolean longue = t != null && t.length() > 90;
             r.setOrientation(longue ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
             r.setGravity(longue ? Gravity.START : Gravity.CENTER_VERTICAL);
             v.setGravity(longue ? Gravity.START : Gravity.END);

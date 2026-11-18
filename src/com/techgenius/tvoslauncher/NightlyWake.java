@@ -97,6 +97,24 @@ public class NightlyWake extends BroadcastReceiver {
     static long nextWake(Context c) { return prefs(c).getLong("prevu", 0L); }
 
     /** Réveil de midi : jour d'arrivée, on allume l'écran et la musique d'accueil démarre. */
+    /** Essai de la musique d'accueil dans 2 min : la box est mise en veille si c'est possible,
+     *  puis elle doit se réveiller, rallumer la TV et lancer la musique. */
+    static long testArrivee(Context ctx) {
+        Context c = ctx.getApplicationContext();
+        long at = System.currentTimeMillis() + 2 * 60_000L;
+        try {
+            AlarmManager am = c.getSystemService(AlarmManager.class);
+            PendingIntent pi = PendingIntent.getBroadcast(c, 10,
+                    new Intent(c, NightlyWake.class).setAction("arrivee_test"),
+                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+            if (exactAllowed(c)) am.setAlarmClock(new AlarmManager.AlarmClockInfo(at, null), pi);
+            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);
+        } catch (Throwable ignored) { }
+        try { LocalAdb.sendKeyEventViaAdbAsync(c, android.view.KeyEvent.KEYCODE_SLEEP); }
+        catch (Throwable ignored) { }
+        return at;
+    }
+
     static void scheduleArrival(Context ctx) {
         Context c = ctx.getApplicationContext();
         try {
@@ -128,9 +146,11 @@ public class NightlyWake extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         final Context c = ctx.getApplicationContext();
-        if (intent != null && "arrivee".equals(intent.getAction())) {
-            scheduleArrival(c);
-            if (!WelcomeMusic.aJouer(c)) return;
+        String act = intent == null ? "" : String.valueOf(intent.getAction());
+        if (act.startsWith("arrivee")) {
+            final boolean essai = act.equals("arrivee_test");
+            if (!essai) scheduleArrival(c);
+            if (!essai && !WelcomeMusic.aJouer(c)) return;
             final PendingResult pr = goAsync();
             final android.os.PowerManager.WakeLock w = ((android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE))
                     .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "villa:arrivee");
@@ -140,9 +160,13 @@ public class NightlyWake extends BroadcastReceiver {
                     reveilleEcran(c);
                     for (int i = 0; i < 45 && !online(c); i++) Thread.sleep(2000L);
                     WelcomeMusic.ensureFile(c);
-                    for (int i = 0; i < 30 && !WelcomeMusic.isPlaying(); i++) {
-                        WelcomeMusic.maybeStart(c);
-                        Thread.sleep(2000L);
+                    if (essai) {
+                        WelcomeMusic.testNow(c);
+                    } else {
+                        for (int i = 0; i < 30 && !WelcomeMusic.isPlaying(); i++) {
+                            WelcomeMusic.maybeStart(c);
+                            Thread.sleep(2000L);
+                        }
                     }
                 } catch (Throwable ignored) {
                 } finally {

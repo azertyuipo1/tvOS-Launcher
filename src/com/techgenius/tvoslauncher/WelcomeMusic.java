@@ -80,13 +80,36 @@ final class WelcomeMusic {
         SharedPreferences p = prefs(c);
         String dejà = s.isEmpty() ? "" : p.getString("choix_" + s, "");
         if (!dejà.isEmpty() && file(c, dejà).length() > 0) return dejà;
+        String n = suivant(c);
+        if (!n.isEmpty() && !s.isEmpty()) p.edit().putString("choix_" + s, n).apply();
+        return n;
+    }
+
+    /** Le morceau suivant dans l'ordre de lecture : tous les morceaux passent une fois avant
+     *  qu'un seul revienne. L'ordre est tiré au sort une fois, puis répété à l'identique ;
+     *  il est retiré au sort si le dossier de la villa change. */
+    private static synchronized String suivant(Context c) {
         java.util.List<String> dispo = enCache(c);
         if (dispo.isEmpty()) return "";
-        String pris = p.getString("dernier", "");
-        if (dispo.size() > 1) dispo.remove(pris);            // éviter deux fois le même d'affilée
-        String n = dispo.get(new java.util.Random().nextInt(dispo.size()));
-        if (!s.isEmpty()) p.edit().putString("choix_" + s, n).putString("dernier", n).apply();
+        SharedPreferences p = prefs(c);
+        java.util.List<String> ordre = new java.util.ArrayList<>();
+        for (String n : p.getString("ordre", "").split("\\|")) if (dispo.contains(n)) ordre.add(n);
+        if (ordre.size() != dispo.size()) {                  // premier démarrage ou dossier modifié
+            ordre = new java.util.ArrayList<>(dispo);
+            java.util.Collections.shuffle(ordre);
+            p.edit().putString("ordre", String.join("|", ordre)).putInt("pos", 0).apply();
+        }
+        int pos = Math.max(0, p.getInt("pos", 0)) % ordre.size();
+        String n = ordre.get(pos);
+        p.edit().putInt("pos", (pos + 1) % ordre.size()).apply();
         return n;
+    }
+
+    /** L'ordre de lecture, pour le débogage : « 3e sur 10 ». */
+    static String ordre(Context c) {
+        String[] o = prefs(c).getString("ordre", "").split("\\|");
+        if (o.length <= 1 && o[0].isEmpty()) return "";
+        return " · " + ((prefs(c).getInt("pos", 0) + o.length - 1) % o.length + 1) + "e sur " + o.length;
     }
 
     /** villas-tv/<villa>/… → villas-tv/musique/<nom> */
@@ -100,18 +123,11 @@ final class WelcomeMusic {
 
     static String status(Context c) {
         String mode = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-        if (mode.isEmpty()) return "désactivée dans les réglages de la villa";
+        if (mode.isEmpty()) return "Inactive";
         int liste = liste(c).size(), surTv = enCache(c).size();
-        if (liste == 0) return "aucun morceau proposé";
         String e = prefs(c).getString("etat", "");
-        String box = "";
-        try {
-            android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
-            box = " · box " + am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
-                    + "/" + am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
-        } catch (Throwable ignored) { }
-        return surTv + "/" + liste + " · " + prefs(c).getString("vol", vol(c) + "%") + box
-                + (e.startsWith("✗") ? " · " + e : "");
+        return "Active ✓ • Volume : " + vol(c) + "% • Musiques téléchargées " + surTv + "/" + liste
+                + (e.startsWith("✗") ? " • " + e : "");
     }
 
     /** Volume réglé pour la musique, en part du volume maximum : 10, 20, 30 ou 40 %. */
