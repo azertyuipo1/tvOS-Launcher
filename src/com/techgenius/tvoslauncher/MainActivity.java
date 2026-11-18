@@ -3915,6 +3915,8 @@ public class MainActivity extends Activity {
 
     /** Mode admin activé : propose la mise à jour si elle existe, sinon les applis manquantes. */
     static void onAdminUnlocked() {
+        MainActivity m0 = activeInstance;
+        if (m0 != null && m0.infoCard != null) m0.infoCard.setVisibility(View.GONE); // carte musique masquée en admin
         MainActivity m = activeInstance;
         if (m == null) return;
         m.runOnUiThread(() -> {

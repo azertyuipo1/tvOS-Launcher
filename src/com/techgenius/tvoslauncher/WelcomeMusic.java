@@ -105,17 +105,21 @@ final class WelcomeMusic {
         int liste = liste(c).size(), surTv = enCache(c).size();
         if (liste == 0) return "aucun morceau proposé";
         String e = prefs(c).getString("etat", "");
-        return surTv + "/" + liste + " · " + prefs(c).getString("vol", vol(c) + " %")
+        return surTv + "/" + liste + " · " + prefs(c).getString("vol", volNom(vol(c)))
                 + (e.startsWith("✗") ? " · " + e : "");
     }
 
+    /** 20 doux · 35 moyen · 50 fort (part du volume maximum de la box). */
     private static int vol(Context c) {
         try {
-            return Math.max(5, Math.min(100, Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim())));
+            int v = Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim());
+            return v == 20 || v == 35 || v == 50 ? v : 35;
         } catch (Throwable t) {
-            return 30;
+            return 35;
         }
     }
+
+    private static String volNom(int v) { return v == 20 ? "doux" : v == 50 ? "fort" : "moyen"; }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
     static void ensureFile(Context ctx) {
@@ -232,7 +236,7 @@ final class WelcomeMusic {
                 parLaBox = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) <= Math.max(1, Math.round(max * vol / 100f));
             }
         } catch (Throwable ignored) { }
-        prefs(c).edit().putString("vol", vol + " % " + (parLaBox ? "(box)" : "(lecteur)")).apply();
+        prefs(c).edit().putString("vol", volNom(vol) + (parLaBox ? "" : " (lecteur)")).apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
