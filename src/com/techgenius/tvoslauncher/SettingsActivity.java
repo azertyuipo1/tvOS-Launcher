@@ -1773,8 +1773,7 @@ public class SettingsActivity extends Activity {
                     + (NightlyWake.exactAllowed(this) ? " · alarme exacte ✓" : " · ✗ alarme approximative");
         }, null);
         infoRowDynamic("Musique d'accueil", () -> WelcomeMusic.status(this), null);
-        infoBlockDynamic("Morceaux depuis", () -> WelcomeMusic.source(this));
-        row("Tester l'accueil", () -> "›", () -> {
+        row("Tester la musique", () -> "›", () -> {
             WelcomeMusic.testNow(this);
             android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()
                     ? "Musique lancée. Une touche de la télécommande l'arrête."
@@ -4978,12 +4977,23 @@ public class SettingsActivity extends Activity {
         vlp.leftMargin = u(12);
         r.addView(v, vlp);
 
+        final int etroit = (int) (getResources().getDisplayMetrics().widthPixels * 0.40f);
         Runnable refresh = () -> {
+            String t;
             try {
-                v.setText(val.get());
+                t = val.get();
             } catch (Throwable ignored) {
-                v.setText("");
+                t = "";
             }
+            v.setText(t);
+            boolean longue = t != null && t.length() > 38;   // sinon la valeur se tasse en colonne
+            r.setOrientation(longue ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+            r.setGravity(longue ? Gravity.START : Gravity.CENTER_VERTICAL);
+            v.setGravity(longue ? Gravity.START : Gravity.END);
+            v.setMaxWidth(longue ? Integer.MAX_VALUE : etroit);
+            vlp.leftMargin = longue ? 0 : u(12);
+            vlp.topMargin = longue ? u(2) : 0;
+            v.setLayoutParams(vlp);
         };
         refresh.run();
         refreshers.add(refresh);

@@ -103,17 +103,18 @@ final class WelcomeMusic {
         String mode = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
         if (mode.isEmpty()) return "désactivée dans les réglages de la villa";
         int liste = liste(c).size(), surTv = enCache(c).size();
-        String base = liste + " proposés par la page · " + surTv + " sur la TV";
-        if (liste == 0) base += " · dossier musique vide ou page pas à jour";
+        if (liste == 0) return "aucun morceau proposé";
         String e = prefs(c).getString("etat", "");
-        return e.isEmpty() ? base : base + " · " + e;
+        return surTv + "/" + liste + " · " + prefs(c).getString("vol", vol(c) + " %")
+                + (e.startsWith("✗") ? " · " + e : "");
     }
 
-    /** Adresse d'où viennent les morceaux : pour vérifier d'un coup d'œil. */
-    static String source(Context c) {
-        java.util.List<String> l = liste(c);
-        String u = url(c, l.isEmpty() ? "…" : l.get(0));
-        return u.isEmpty() ? "dossier de la villa inconnu" : u;
+    private static int vol(Context c) {
+        try {
+            return Math.max(5, Math.min(100, Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim())));
+        } catch (Throwable t) {
+            return 30;
+        }
     }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
@@ -219,19 +220,19 @@ final class WelcomeMusic {
         if (nom.isEmpty()) { ensureFile(c); return; }
         File f = file(c, nom);
         if (f.length() <= 0) { ensureFile(c); return; }
-        int vol = 30;
-        try {
-            vol = Math.max(5, Math.min(100, Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim())));
-            if (vol == 0) vol = 30;
-        } catch (Throwable ignored) { }
-        // Le volume demandé est aussi appliqué à la box : une TV laissée à fond ne surprend personne.
+        int vol = vol(c);
+        // Volume de la box quand c'est possible ; sinon on baisse le lecteur lui-même.
+        boolean parLaBox = false;
         try {
             android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
-            int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
-            if (volumeAvant < 0) volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
-            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                    Math.max(1, Math.round(max * vol / 100f)), 0);
+            if (!am.isVolumeFixed()) {
+                int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+                if (volumeAvant < 0) volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * vol / 100f)), 0);
+                parLaBox = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) <= Math.max(1, Math.round(max * vol / 100f));
+            }
         } catch (Throwable ignored) { }
+        prefs(c).edit().putString("vol", vol + " % " + (parLaBox ? "(box)" : "(lecteur)")).apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -239,7 +240,8 @@ final class WelcomeMusic {
                     .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build());
             p.setDataSource(f.getPath());
             p.setLooping(true);
-            p.setVolume(1f, 1f);
+            float g = parLaBox ? 1f : (vol / 100f) * (vol / 100f);   // courbe douce quand la box ne suit pas
+            p.setVolume(g, g);
             p.prepare();
             p.start();
             player = p;
