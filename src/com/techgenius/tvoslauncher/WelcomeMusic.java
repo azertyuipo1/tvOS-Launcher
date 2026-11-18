@@ -131,23 +131,71 @@ final class WelcomeMusic {
      *  barre de son) ignorent un réglage absolu et ne comprennent que « monter / baisser » :
      *  on avance donc pas à pas, comme avec la télécommande, et on s'arrête dès que ça ne
      *  bouge plus. À appeler hors du fil principal. Renvoie le niveau atteint. */
-    private static int regler(android.media.AudioManager am, int cible) {
+    private static int regler(Context c, android.media.AudioManager am, int cible) {
+        int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
         int lu = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
-        am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, cible, 0);   // d'abord le plus simple
+        StringBuilder j = new StringBuilder("max " + max + " · cible " + cible + " · " + lu);
+        String fin = "atteint";
+        try {   // d'abord le plus simple : le réglage absolu
+            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, cible, 0);
+            try { Thread.sleep(150); } catch (InterruptedException ignored) { }
+            lu = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            j.append("→set ").append(lu);
+        } catch (Throwable t) {
+            j.append("→set refusé(").append(t.getClass().getSimpleName()).append(")");
+        }
         int sens = 0;
         for (int i = 0; i < 80; i++) {
             lu = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
             if (lu == cible) break;
             int s2 = lu < cible ? 1 : -1;
-            if (sens != 0 && s2 != sens) break;         // le pas est trop gros : on a dépassé la cible
+            if (sens != 0 && s2 != sens) { fin = "pas trop gros"; break; }
             sens = s2;
-            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                    s2 > 0 ? android.media.AudioManager.ADJUST_RAISE
-                           : android.media.AudioManager.ADJUST_LOWER, 0);
-            try { Thread.sleep(70); } catch (InterruptedException e) { break; }
-            if (am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) == lu) break;  // bloqué
+            try {
+                am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                        s2 > 0 ? android.media.AudioManager.ADJUST_RAISE
+                               : android.media.AudioManager.ADJUST_LOWER, 0);
+            } catch (Throwable t) {
+                fin = "pas refusé(" + t.getClass().getSimpleName() + ")";
+                j.append("→").append(lu);
+                break;
+            }
+            try { Thread.sleep(120); } catch (InterruptedException e) { break; }
+            int apres = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            j.append("→").append(apres);
+            if (apres == lu) { fin = "ne bouge plus"; lu = apres; break; }
+            lu = apres;
         }
+        if (lu != cible && fin.equals("atteint")) fin = "arrêt à " + lu;
+        prefs(c).edit().putString("journal",
+                j + " · " + fin + (am.isVolumeFixed() ? " · figé" : "") + " · " + sorties(am)).apply();
         return lu;
+    }
+
+    /** Sorties audio branchées, pour comprendre qui pilote vraiment le volume. */
+    private static String sorties(android.media.AudioManager am) {
+        StringBuilder b = new StringBuilder();
+        try {
+            for (android.media.AudioDeviceInfo d
+                    : am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)) {
+                String n;
+                switch (d.getType()) {
+                    case android.media.AudioDeviceInfo.TYPE_HDMI: n = "hdmi"; break;
+                    case android.media.AudioDeviceInfo.TYPE_HDMI_ARC: n = "arc"; break;
+                    case android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: n = "hp"; break;
+                    case android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP: n = "bt"; break;
+                    case android.media.AudioDeviceInfo.TYPE_AUX_LINE: n = "jack"; break;
+                    default: n = String.valueOf(d.getType());
+                }
+                if (b.indexOf(n) < 0) b.append(b.length() > 0 ? "+" : "").append(n);
+            }
+        } catch (Throwable ignored) { }
+        return b.length() > 0 ? b.toString() : "?";
+    }
+
+    static String journal(Context c) {
+        String j = prefs(c).getString("journal", "");
+        return j.isEmpty() ? "pas encore de réglage de volume" : j;
     }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
@@ -243,6 +291,7 @@ final class WelcomeMusic {
             try { Thread.sleep(500L); } catch (InterruptedException e) { break; }
         }
         jouer(c);
+        test = true;      // le volume réglé reste en place pour qu'on puisse le vérifier
     }
 
     /** Vrai pendant un téléchargement. */
@@ -266,7 +315,7 @@ final class WelcomeMusic {
                     int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
                     int cible = Math.max(1, Math.round(max * vol / 100f));
                     volumeAvant = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
-                    int atteint = regler(am, cible);
+                    int atteint = regler(c, am, cible);
                     if (atteint != cible) note = " · box bloquée à " + atteint + "/" + max;
                 }
             } catch (Throwable ignored) { }
@@ -287,6 +336,8 @@ final class WelcomeMusic {
         }
     }
 
+    private static boolean test;        // lancée par « Tester la musique » : on garde le volume réglé
+
     /** Arrête la musique. fini = ne plus la rejouer pour ce séjour (touche pressée). */
     static synchronized void stop(Context ctx, boolean fini) {
         Context c = ctx.getApplicationContext();
@@ -295,10 +346,11 @@ final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
-            final int avant = volumeAvant;
+            final int avant = test ? -1 : volumeAvant;
             volumeAvant = -1;
+            test = false;
             if (avant >= 0) new Thread(() -> {     // la box retrouve le volume laissé par les clients
-                try { regler(c.getSystemService(android.media.AudioManager.class), avant); }
+                try { regler(c, c.getSystemService(android.media.AudioManager.class), avant); }
                 catch (Throwable ignored) { }
             }).start();
         }
