@@ -105,17 +105,6 @@ public final class WelcomeMusic {
         return n;
     }
 
-    /** Ce qui a empêché le réglage du volume, s'il y a lieu. Rien à afficher quand tout va bien. */
-    private static String soucisVolume(Context c) {
-        String j = prefs(c).getString("journal", "");
-        if (j.contains("aveugle")) return "";                  // cas normal en HDMI-CEC
-        if (j.contains("verrouillé") || j.endsWith("figé")) return " • volume verrouillé";
-        if (j.contains("ne bouge plus")) return " • volume non réglable";
-        if (j.contains("illisible")) return " • volume illisible";
-        if (j.contains("refusé")) return " • réglage refusé";
-        return "";
-    }
-
     /** L'ordre de lecture, pour le débogage : « 3e sur 10 ». */
     static String ordre(Context c) {
         String[] o = prefs(c).getString("ordre", "").split("\\|");
@@ -137,181 +126,8 @@ public final class WelcomeMusic {
         if (mode.isEmpty()) return "Inactive";
         int liste = liste(c).size(), surTv = enCache(c).size();
         String e = prefs(c).getString("etat", "");
-        return "Active ✓ • Volume : " + vol(c) + "% • Musiques téléchargées " + surTv + "/" + liste
-                + soucisVolume(c) + (e.startsWith("✗") ? " • " + e : "");
-    }
-
-    /** Volume réglé pour la musique, en part du volume maximum : 10, 20, 30 ou 40 %. */
-    private static int vol(Context c) {
-        try {
-            int v = Integer.parseInt(VillaFolder.get(c, VillaFolder.K_MUSIC_VOL).trim());
-            if (v == 35) v = 30; else if (v == 50) v = 40;      // anciens réglages doux/moyen/fort
-            return v == 10 || v == 20 || v == 30 || v == 40 ? v : 30;
-        } catch (Throwable t) {
-            return 30;
-        }
-    }
-
-    private static int pas;                     // pressions envoyées pour régler le volume
-    /** Deux pressions séparées de moins de 550 ms (« Follower Safety Timeout » de la norme CEC)
-     *  sont prises par la TV pour un appui maintenu : elle applique son auto-répétition et avance
-     *  de plusieurs crans d'un coup. Au-delà, chaque pression compte pour un cran. */
-    private static final int PRECIS = 700;      // ms : une pression = un cran, pour viser juste
-    private static final int RAPIDE = 250;      // ms : appui maintenu assumé, pour couvrir du chemin
-
-    /** Règle le volume pour la musique.
-     *
-     *  Deux cas, selon qui pilote réellement le son.
-     *
-     *  Sortie interne (haut-parleur, Bluetooth) : l'index de la box EST le volume, un réglage
-     *  absolu suffit.
-     *
-     *  Sortie HDMI / ARC : la box ne pilote rien, elle transmet des « monter / baisser » à la TV
-     *  ou à la barre de son, et un réglage absolu n'envoie qu'une seule pression. On appuie donc
-     *  pression par pression jusqu'à l'index visé. La taille d'un cran n'est pas constante — la TV
-     *  accélère ses pas quand les pressions se suivent — donc on ne la suppose jamais : on relit
-     *  le niveau après chaque pression et on s'arrête dès que la cible est atteinte ou franchie.
-     *
-     *  Si le niveau ne peut pas être lu, ou si une pression n'a aucun effet, on ne touche à rien.
-     *  À appeler hors du fil principal. */
-    private static void monter(Context c, android.media.AudioManager am, int pct) {
-        final int S = android.media.AudioManager.STREAM_MUSIC;
-        int max = am.getStreamMaxVolume(S), av = am.getStreamVolume(S);
-        StringBuilder j = new StringBuilder(sorties(am) + " · max " + max + " · niveau " + av);
-        pas = 0;
-        if (max <= 1 || av < 0 || av > max) { fin(c, am, j, "✗ niveau illisible"); return; }
-
-        int cible = Math.max(1, Math.round(max * pct / 100f));
-        j.append(" · cible ").append(cible);
-        if (av == cible) { fin(c, am, j, "déjà au niveau visé"); return; }
-
-        // Pression par pression, jamais de réglage absolu : en HDMI / ARC la box ne pilote rien,
-        // elle transmet des « monter / baisser » à la TV ou à la barre de son, et un réglage absolu
-        // n'envoie qu'une seule pression tout en faisant croire à Android qu'il est à la cible.
-        // Première pression : elle dit aussi si la box suit son propre niveau. Quand le contrôle du
-        // volume HDMI-CEC est actif, son index reste figé — plus rien n'est lisible, et c'est le
-        // réglage à l'aveugle qui prend le relais.
-        int lu = presse(am, av > cible ? android.media.AudioManager.ADJUST_LOWER
-                                       : android.media.AudioManager.ADJUST_RAISE, PRECIS);
-        if (lu < 0) { fin(c, am, j, "✗ pression refusée"); return; }
-        pas = 1;
-        j.append(" · ").append(lu);
-        if (lu == av) { aveugle(c, am, j, pct); return; }
-
-        // La taille d'un cran n'est pas constante — la TV accélère ses pas quand les pressions se
-        // suivent — donc on ne la suppose jamais : on relit le niveau après chaque pression et on
-        // s'arrête dès que la cible est atteinte ou franchie. Loin de la cible on laisse
-        // l'auto-répétition faire le chemin ; dès qu'on approche, une pression à la fois.
-        int immobile = 0, cran = Math.max(1, Math.abs(lu - av));
-        boolean precis = true;
-        while (lu != cible && pas < 60) {
-            boolean monte = lu < cible;
-            int apres = presse(am, monte ? android.media.AudioManager.ADJUST_RAISE
-                                         : android.media.AudioManager.ADJUST_LOWER,
-                    precis ? PRECIS : RAPIDE);
-            if (apres < 0) { j.append(" ✗ refusé"); break; }
-            pas++;
-            j.append(",").append(apres);
-            if (apres == lu) {
-                if (++immobile >= 2) { j.append(" ✗ ne bouge plus"); break; }
-                continue;
-            }
-            immobile = 0;
-            cran = Math.abs(apres - lu);
-            lu = apres;
-            if (monte != (lu < cible) && lu != cible) {          // cible franchie
-                if (precis) { j.append(" (franchie)"); break; }
-                precis = true;                                  // on revient dessus, doucement
-                try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }
-                continue;
-            }
-            boolean loin = Math.abs(cible - lu) > 3 * cran;
-            if (precis == loin) {                               // changement de régime
-                precis = !loin;
-                if (precis) try { Thread.sleep(PRECIS); } catch (InterruptedException ignored) { }
-            }
-        }
-        fin(c, am, j, pas + " pression" + (pas > 1 ? "s" : "") + " · index " + am.getStreamVolume(S));
-    }
-
-    /** Réglage à l'aveugle : la box transmet le volume à la TV sans en garder trace (contrôle du
-     *  volume HDMI-CEC activé). Aucun niveau n'est lisible, donc on descend jusqu'au minimum pour
-     *  avoir un point de repère, puis on remonte d'un nombre connu de crans. Le résultat est le
-     *  même à chaque arrivée, quel que soit le volume laissé par les clients. */
-    private static void aveugle(Context c, android.media.AudioManager am, StringBuilder j, int pct) {
-        // Une pression vaut le plus souvent un point sur l'échelle de la TV : on en compte donc
-        // autant que le pourcentage visé. Sur une TV dont le pas vaut 2, le niveau obtenu est le
-        // double — c'est le prix de l'absence de retour d'information.
-        int crans = Math.min(25, Math.max(1, pct));
-        j.append(" · index figé, réglage à l'aveugle");
-        // Descente au rythme éprouvé : rien à gagner à bousculer la TV ici, le minimum est
-        // atteint de toute façon et quelques pressions de plus ne coûtent que du temps.
-        for (int i = 0; i < 55; i++) {
-            if (presse(am, android.media.AudioManager.ADJUST_LOWER, 150) < 0) {
-                fin(c, am, j, "✗ pression refusée");
-                return;
-            }
-        }
-        // Remontée espacée : chaque pression doit compter pour un cran et un seul.
-        for (int i = 0; i < crans; i++) {
-            if (presse(am, android.media.AudioManager.ADJUST_RAISE, PRECIS) < 0) break;
-            pas++;
-        }
-        fin(c, am, j, "minimum puis +" + crans + " crans");
-    }
-
-    /** Une pression sur « volume + » ou « volume − », puis <code>attente</code> ms avant de relire.
-     *  Des pressions trop rapprochées sont prises pour un appui maintenu : la TV accélère ses pas
-     *  et en avale au passage. 300 ms laissent chaque pression être traitée séparément. */
-    private static int presse(android.media.AudioManager am, int sens, int attente) {
-        try {
-            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, sens, 0);
-        } catch (Throwable t) {
-            return -1;
-        }
-        try { Thread.sleep(attente); } catch (InterruptedException ignored) { }
-        return am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
-    }
-
-    private static void fin(Context c, android.media.AudioManager am, StringBuilder j, String etat) {
-        prefs(c).edit()
-                .putString("journal2", prefs(c).getString("journal", ""))   // le précédent est gardé
-                .putString("journal", j + " · " + etat
-                        + (am.isVolumeFixed() ? " · figé" : "")
-                        + " · mute " + am.isStreamMute(android.media.AudioManager.STREAM_MUSIC))
-                .apply();
-    }
-
-    /** Sorties audio branchées, pour comprendre qui pilote vraiment le volume. */
-    private static String sorties(android.media.AudioManager am) {
-        StringBuilder b = new StringBuilder();
-        try {
-            for (android.media.AudioDeviceInfo d
-                    : am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)) {
-                String n;
-                switch (d.getType()) {
-                    case android.media.AudioDeviceInfo.TYPE_HDMI: n = "hdmi"; break;
-                    case android.media.AudioDeviceInfo.TYPE_HDMI_ARC: n = "arc"; break;
-                    case android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER: n = "hp"; break;
-                    case android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP: n = "bt"; break;
-                    case android.media.AudioDeviceInfo.TYPE_AUX_LINE: n = "jack"; break;
-                    default: n = String.valueOf(d.getType());
-                }
-                if (b.indexOf(n) < 0) b.append(b.length() > 0 ? "+" : "").append(n);
-            }
-        } catch (Throwable ignored) { }
-        return b.length() > 0 ? b.toString() : "?";
-    }
-
-    static String journal(Context c) {
-        String j = prefs(c).getString("journal", "");
-        return j.isEmpty() ? "pas encore de réglage de volume" : j;
-    }
-
-    /** Le réglage d'avant : pratique pour comparer deux sorties audio (barre de son / TV). */
-    static String journalAvant(Context c) {
-        String j = prefs(c).getString("journal2", "");
-        return j.isEmpty() ? "—" : j;
+        return "Active ✓ • Musiques téléchargées " + surTv + "/" + liste
+                + (e.startsWith("✗") ? " • " + e : "");
     }
 
     /** Met la TV à jour : télécharge tous les morceaux du dossier et retire ceux qui n'y sont plus. */
@@ -432,8 +248,6 @@ public final class WelcomeMusic {
             ensureFile(c);
             return;
         }
-        final int vol = vol(c);
-        prefs(c).edit().putString("vol", vol + "% · réglage…").apply();
         try {
             MediaPlayer p = new MediaPlayer();
             p.setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -450,16 +264,9 @@ public final class WelcomeMusic {
                     "✗ lecture impossible (" + t.getClass().getSimpleName() + ") : " + nom).apply();
             return;
         }
+        // Le volume n'est jamais touché : chaque TV réagit différemment aux commandes HDMI-CEC,
+        // et la musique sort au niveau que les clients ont laissé.
         prefs(c).edit().putString("etat", "✓ " + nom).apply();
-        new Thread(() -> {
-            try {
-                android.media.AudioManager am = c.getSystemService(android.media.AudioManager.class);
-                monter(c, am, vol);
-                prefs(c).edit().putString("vol", vol + "%"
-                        + (pas > 0 ? " · +" + pas + " cran" + (pas > 1 ? "s" : "") : " · inchangé")
-                        + (am.isVolumeFixed() ? " · figé" : "")).apply();
-            } catch (Throwable ignored) { }
-        }).start();
     }
 
     private static boolean test;        // lancée par « Tester la musique »
@@ -472,9 +279,6 @@ public final class WelcomeMusic {
         if (p != null) {
             try { p.stop(); } catch (Throwable ignored) { }
             try { p.release(); } catch (Throwable ignored) { }
-            // Le volume réglé reste en place : c'est un niveau raisonnable, que les clients
-            // trouvent en arrivant et ajustent à leur goût.
-            pas = 0;
             test = false;
         }
         if (fini) {
