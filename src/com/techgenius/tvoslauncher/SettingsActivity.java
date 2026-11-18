@@ -1785,8 +1785,10 @@ public class SettingsActivity extends Activity {
             WelcomeMusic.testNow(this);
             android.widget.Toast.makeText(this, WelcomeMusic.isPlaying()
                     ? "Musique lancée. Une touche de la télécommande l'arrête."
-                    : "Aucun morceau sur la TV pour l'instant : vérifiez le dossier musique et réessayez dans quelques minutes.",
+                    : WelcomeMusic.enCours() ? "Téléchargement des morceaux en cours, réessayez dans un instant."
+                    : "Aucun morceau : vérifiez le dossier villas-tv/musique/ et le réglage de la villa.",
                     android.widget.Toast.LENGTH_LONG).show();
+            refreshAll();
         });
         row("Tester le réveil", () -> "›", () -> {
             long at = NightlyWake.testSoon(this);

@@ -80,7 +80,7 @@ final class WelcomeMusic {
         if (!auHasard(c)) return mode;
         String s = sejour(c);
         SharedPreferences p = prefs(c);
-        String dejà = p.getString("choix_" + s, "");
+        String dejà = s.isEmpty() ? "" : p.getString("choix_" + s, "");
         if (!dejà.isEmpty() && file(c, dejà).length() > 0) return dejà;
         java.util.List<String> dispo = enCache(c);
         if (dispo.isEmpty()) return "";
@@ -109,56 +109,61 @@ final class WelcomeMusic {
         return e.startsWith("✗") ? base + " · " + e : base;
     }
 
-    /** Télécharge un morceau manquant (un par appel), jusqu'à en garder quelques-uns d'avance. */
+    /** Télécharge les morceaux manquants, jusqu'à en garder quelques-uns d'avance sur la TV. */
     static void ensureFile(Context ctx) {
         final Context c = ctx.getApplicationContext();
         if (downloading || VillaFolder.get(c, VillaFolder.K_MUSIC).trim().isEmpty()) return;
-        final String nom;
+        final java.util.List<String> manque = new java.util.ArrayList<>();
         if (auHasard(c)) {
-            java.util.List<String> tout = liste(c), manque = new java.util.ArrayList<>();
+            java.util.List<String> tout = liste(c);
             int ok = 0;
             for (String n : tout) {
                 if (file(c, n).length() > 0) ok++;
                 else manque.add(n);
             }
-            if (manque.isEmpty() || ok >= Math.min(GARDE, tout.size())) return;
-            nom = manque.get(new java.util.Random().nextInt(manque.size()));
+            java.util.Collections.shuffle(manque);
+            int reste = Math.min(GARDE, tout.size()) - ok;
+            while (manque.size() > Math.max(0, reste)) manque.remove(manque.size() - 1);
         } else {
-            nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
-            if (file(c, nom).length() > 0) return;
+            String nom = VillaFolder.get(c, VillaFolder.K_MUSIC).trim();
+            if (file(c, nom).length() <= 0) manque.add(nom);
         }
-        final String target = url(c, nom);
-        if (target.isEmpty()) return;
+        if (manque.isEmpty()) return;
         downloading = true;
         VillaFolder.initUserAgent(c);
         new Thread(() -> {
             String quand = new SimpleDateFormat("dd/MM HH:mm", Locale.FRANCE).format(new Date());
-            HttpURLConnection conn = null;
             try {
-                conn = (HttpURLConnection) new URL(target).openConnection();
-                conn.setConnectTimeout(10_000);
-                conn.setReadTimeout(60_000);
-                conn.setRequestProperty("User-Agent", VillaFolder.userAgent);
-                if (conn.getResponseCode() == 200) {
-                    File tmp = new File(c.getFilesDir(), "musique.tmp");
-                    try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(tmp)) {
-                        byte[] buf = new byte[32768];
-                        int n;
-                        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                int pris = 0;
+                for (String nom : manque) {
+                    String target = url(c, nom);
+                    if (target.isEmpty()) break;
+                    HttpURLConnection conn = null;
+                    try {
+                        conn = (HttpURLConnection) new URL(target).openConnection();
+                        conn.setConnectTimeout(10_000);
+                        conn.setReadTimeout(60_000);
+                        conn.setRequestProperty("User-Agent", VillaFolder.userAgent);
+                        if (conn.getResponseCode() != 200) {
+                            prefs(c).edit().putString("etat", "✗ introuvable : " + nom + " — " + quand).apply();
+                            continue;
+                        }
+                        File tmp = new File(c.getFilesDir(), "musique.tmp");
+                        try (InputStream in = conn.getInputStream(); FileOutputStream out = new FileOutputStream(tmp)) {
+                            byte[] buf = new byte[32768];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                        if (tmp.length() > 10_000 && tmp.renameTo(file(c, nom))) pris++;
+                        else { tmp.delete(); prefs(c).edit().putString("etat", "✗ fichier vide : " + nom).apply(); }
+                    } catch (Throwable t) {
+                        prefs(c).edit().putString("etat", "✗ téléchargement impossible — " + quand).apply();
+                    } finally {
+                        if (conn != null) conn.disconnect();
                     }
-                    if (tmp.length() > 10_000 && tmp.renameTo(file(c, nom))) {
-                        prefs(c).edit().putString("etat", "✓ " + nom).apply();
-                    } else {
-                        tmp.delete();
-                        prefs(c).edit().putString("etat", "✗ fichier vide — " + quand).apply();
-                    }
-                } else {
-                    prefs(c).edit().putString("etat", "✗ introuvable sur le serveur — " + quand).apply();
                 }
-            } catch (Throwable t) {
-                prefs(c).edit().putString("etat", "✗ téléchargement impossible — " + quand).apply();
+                if (pris > 0) prefs(c).edit().putString("etat", "✓ " + pris + " morceau(x) téléchargé(s)").apply();
             } finally {
-                if (conn != null) conn.disconnect();
                 downloading = false;
             }
         }, "musique-dl").start();
@@ -192,8 +197,15 @@ final class WelcomeMusic {
     static void testNow(Context ctx) {
         Context c = ctx.getApplicationContext();
         stop(c, false);
+        ensureFile(c);
+        for (int i = 0; i < 40 && enCache(c).isEmpty() && downloading; i++) {
+            try { Thread.sleep(500L); } catch (InterruptedException e) { break; }
+        }
         jouer(c);
     }
+
+    /** Vrai pendant un téléchargement. */
+    static boolean enCours() { return downloading; }
 
     private static synchronized void jouer(Context c) {
         String nom = choix(c);
