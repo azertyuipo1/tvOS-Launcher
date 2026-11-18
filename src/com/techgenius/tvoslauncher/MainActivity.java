@@ -4055,6 +4055,26 @@ public class MainActivity extends Activity {
 
     private static final String BT = "{bluetooth}";
 
+    /** Note de musique (croche) dessinée, à gauche de la carte d'information. */
+    private static void drawNote(Canvas cv, float left, float top, float h, int color) {
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(color);
+        float w = h * .62f, head = h * .30f, stem = Math.max(2f, h * .075f);
+        float cx = left + head * .55f, cy = top + h - head * .5f;
+        cv.save();
+        cv.rotate(-20f, cx, cy);
+        cv.drawOval(cx - head * .62f, cy - head * .45f, cx + head * .62f, cy + head * .45f, p);
+        cv.restore();
+        float sx = left + head * 1.12f;
+        cv.drawRect(sx, top + h * .04f, sx + stem, cy, p);
+        Path f = new Path();
+        f.moveTo(sx + stem, top + h * .06f);
+        f.quadTo(left + w * 1.08f, top + h * .20f, sx + stem * 1.2f, top + h * .42f);
+        f.quadTo(left + w * .88f, top + h * .22f, sx + stem, top + h * .20f);
+        f.close();
+        cv.drawPath(f, p);
+    }
+
     /**
      * Carte d'information sous le Wi-Fi : un court message, toujours affiché. « {bluetooth} » devient
      * le symbole Bluetooth. Même largeur que la carte Wi-Fi quand elle est visible.
@@ -4070,7 +4090,8 @@ public class MainActivity extends Activity {
         float lh = (fm.descent - fm.ascent) * 1.12f;
         float icon = 11 * u, iconW = icon / 2f + 2 * u;
         float space = tp.measureText(" ");
-        float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.26f)) - pad * 2);
+        float noteH = 26 * u, noteW = noteH * .62f, noteGap = 11 * u;   // note de musique à gauche
+        float maxW = Math.max(60 * u, (largeur > 0 ? largeur : Math.round(screenW * 0.40f)) - pad * 2 - noteW - noteGap);
         java.util.List<java.util.List<String>> lignes = new java.util.ArrayList<>();
         java.util.List<String> cur = new java.util.ArrayList<>();
         float x = 0, plusLarge = 0;
@@ -4085,13 +4106,15 @@ public class MainActivity extends Activity {
         }
         if (!cur.isEmpty()) { lignes.add(cur); plusLarge = Math.max(plusLarge, x); }
         if (lignes.isEmpty()) return null;
-        int w = largeur > 0 ? largeur : Math.round(plusLarge + pad * 2);
-        int h = Math.round(pad * 2 + lignes.size() * lh);
+        int w = largeur > 0 ? largeur : Math.round(plusLarge + pad * 2 + noteW + noteGap);
+        int h = Math.round(Math.max(noteH + pad * 2, pad * 2 + lignes.size() * lh));
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(out);
-        float y = pad - fm.ascent + (lh - (fm.descent - fm.ascent)) / 2f;
+        drawNote(cv, pad, (h - noteH) / 2f, noteH, 0xF2FFFFFF);
+        float texte0 = pad + noteW + noteGap;
+        float y = (h - lignes.size() * lh) / 2f - fm.ascent + (lh - (fm.descent - fm.ascent)) / 2f;
         for (java.util.List<String> l : lignes) {
-            float cx = pad;
+            float cx = texte0;
             for (String mot : l) {
                 if (BT.equals(mot)) {
                     drawBluetooth(cv, cx, y + fm.ascent + (fm.descent - fm.ascent - icon) / 2f, icon, 0xF2FFFFFF);
@@ -4115,7 +4138,7 @@ public class MainActivity extends Activity {
         if (quand.trim().toLowerCase(java.util.Locale.ROOT).matches("oui|yes|on")) quand = "toujours"; // ancien réglage
         boolean show = !txt.isEmpty() && !scenes && !admin && RentalReset.isWifiDay(stay, quand);
         if (show) {
-            int largeur = wifiCard != null && wifiCard.getVisibility() == View.VISIBLE ? wifiCardW : 0;
+            int largeur = 0; // la carte prend la largeur de son texte (note de musique comprise)
             String key = txt + "\n" + largeur + "\n" + screenW + "\n" + System.identityHashCode(glassSource);
             if (!key.equals(infoCardKey)) {
                 Bitmap card = drawInfoCard(txt, largeur);

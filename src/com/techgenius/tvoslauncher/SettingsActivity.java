@@ -64,6 +64,7 @@ public class SettingsActivity extends Activity {
             ADVANCED = "Advanced",
             UPDATES = "Updates",
             ABOUT = "About",
+            DEBUG = "Debug",
             SHELF = "Top Shelf",
             PRESENT = "Presentation",
             INPUTS = "Inputs",
@@ -74,7 +75,8 @@ public class SettingsActivity extends Activity {
     private static final String[][] SIDEBAR_SECTIONS = {
         {PROFILES, "house"},
         {ADVANCED, "shield"},
-        {ABOUT, "info"}
+        {ABOUT, "info"},
+        {DEBUG, "wrench"}
     };
 
     private TextView sideTitleView;
@@ -156,6 +158,8 @@ public class SettingsActivity extends Activity {
             return UPDATES;
         } else if ("about".equalsIgnoreCase(pg)) {
             return ABOUT;
+        } else if ("debug".equalsIgnoreCase(pg)) {
+            return DEBUG;
         } else if ("apps".equalsIgnoreCase(pg)) {
             return APPS;
         } else if ("profiles".equalsIgnoreCase(pg) || "people".equalsIgnoreCase(pg)) {
@@ -244,6 +248,7 @@ public class SettingsActivity extends Activity {
             case ADVANCED: return "Avancés";
             case UPDATES: return tr("Updates", "Güncellemeler");
             case ABOUT: return "À propos";
+            case DEBUG: return "Débogage";
             default: return sec;
         }
     }
@@ -823,6 +828,9 @@ public class SettingsActivity extends Activity {
                     case UPDATES:
                         pageUpdates();
                         break;
+                    case DEBUG:
+                        pageDebug();
+                        break;
                     case ABOUT:
                     default:
                         pageAbout();
@@ -963,6 +971,7 @@ public class SettingsActivity extends Activity {
         RemoteWallpaper.refresh(this, true, () -> { if (!isFinishing()) refreshAll(); });
         RentalReset.refreshCalendar(this, true, () -> { if (!isFinishing()) refreshAll(); });
         refreshAll();
+        list.postDelayed(() -> { if (!isFinishing()) showStatusMsg(""); }, 4000L); // le message ne reste pas
     }
 
     void pageApps() {
@@ -1741,25 +1750,8 @@ public class SettingsActivity extends Activity {
         }
     }
 
-    void pageAbout() {
-        infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
-        infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
-        infoRowDynamic("Réseau", this::networkSummary, null);
-        infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
-                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
-        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
-        infoRowDynamic("Prochain départ", () -> {
-            List<String> d = RentalReset.upcomingDepartures(this, 1);
-            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
-        }, null);
-        infoRowDynamic("Dernier départ traité",
-                () -> {
-                    String e = RentalReset.getLastEnd(this);
-                    return e.length() < 10 ? "—" : e.substring(8, 10) + "/" + e.substring(5, 7) + "/" + e.substring(0, 4)
-                            + " à " + RentalReset.getCheckoutHour(this) + "h";
-                }, null);
-        infoRowDynamic("Dernière déconnexion",
-                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
+    /** Outils de diagnostic, à part pour garder « À propos » lisible. */
+    void pageDebug() {
         infoBlockDynamic("Derniers écrans", () -> {
             String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
             StringBuilder sb = new StringBuilder();
@@ -1798,6 +1790,27 @@ public class SettingsActivity extends Activity {
             refreshAll();
         });
         row("Tester les touches", () -> "›", () -> startActivity(new android.content.Intent(this, KeyTestActivity.class)));
+    }
+
+    void pageAbout() {
+        infoRowDynamic("Version", () -> "v" + AppUpdater.getCurrentVersion(this), null);
+        infoRowDynamic("Installation", () -> InstallCheck.summary(this), null);
+        infoRowDynamic("Réseau", this::networkSummary, null);
+        infoRowDynamic("Configuration", () -> VillaFolder.isConfigured(this)
+                ? VillaFolder.getBase(this) + " — " + VillaFolder.getStatus(this) : "✗ non configurée", null);
+        infoRowDynamic("Calendrier", () -> RentalReset.getFetchStatus(this), null);
+        infoRowDynamic("Prochain départ", () -> {
+            List<String> d = RentalReset.upcomingDepartures(this, 1);
+            return d.isEmpty() ? "—" : d.get(0) + " à " + RentalReset.getCheckoutHour(this) + "h";
+        }, null);
+        infoRowDynamic("Dernier départ traité",
+                () -> {
+                    String e = RentalReset.getLastEnd(this);
+                    return e.length() < 10 ? "—" : e.substring(8, 10) + "/" + e.substring(5, 7) + "/" + e.substring(0, 4)
+                            + " à " + RentalReset.getCheckoutHour(this) + "h";
+                }, null);
+        infoRowDynamic("Dernière déconnexion",
+                () -> RentalReset.getLastResult(this).isEmpty() ? "—" : RentalReset.getLastResult(this), null);
         if (!rentalCalendarRefreshed) {
             rentalCalendarRefreshed = true;
             RentalReset.refreshCalendar(this, false, () -> { if (!isFinishing()) refreshAll(); });
