@@ -249,6 +249,21 @@ public class MediaWatchService extends NotificationListenerService {
         return b.length() == 0 ? "rien de détecté pour l'instant" : b.toString();
     }
 
+    /** Les dernières lectures, envoyées à la page de la villa pour être consultées à distance. */
+    static String rapport(Context c) {
+        JSONArray out = new JSONArray();
+        try {
+            JSONArray a = Store.read(c);
+            for (int i = 0; i < a.length() && out.length() < 10; i++) {
+                JSONObject o = a.optJSONObject(i);
+                if (o == null) continue;
+                out.put(new JSONObject().put("t", o.optString("title", "")).put("s", o.optString("sub", ""))
+                        .put("p", o.optString("pkg", "")).put("ts", o.optLong("ts", 0) / 1000L));
+            }
+        } catch (Exception ignored) { }
+        return out.toString();
+    }
+
     static boolean granted(Context c) {
         if (instance != null) return true;
         if (c == null) return false;

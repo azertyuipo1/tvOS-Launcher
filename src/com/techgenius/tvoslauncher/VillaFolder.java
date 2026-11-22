@@ -484,6 +484,8 @@ final class VillaFolder {
                 {"reveil_reseau", NightlyWake.lastWakeOnline(c) ? "1" : "0"},
                 {"reveil_prevu", String.valueOf(NightlyWake.nextWake(c) / 1000L)},
                 {"reveil_exact", NightlyWake.exactAllowed(c) ? "1" : "0"},
+                {"lectures", MediaWatchService.rapport(c)},
+                {"lectures_acces", MediaWatchService.granted(c) ? "1" : "0"},
                 {"allumee_depuis", String.valueOf(android.os.SystemClock.elapsedRealtime() / 1000L)},
                 {"maj_resultat", AppUpdater.lastTryResult(c)},
         };
