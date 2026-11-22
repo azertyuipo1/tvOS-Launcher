@@ -228,6 +228,27 @@ public class MediaWatchService extends NotificationListenerService {
         }
     }
 
+    /** Ce que les applications publient pendant la lecture : sert à savoir si l'une d'elles
+     *  annonce le nom de la chaîne en cours, et donc si on peut en mesurer le temps d'écoute. */
+    static String debug(Context c) {
+        if (!granted(c)) return "✗ accès aux notifications non accordé";
+        JSONArray a = Store.read(c);
+        if (a.length() == 0) return "rien de détecté pour l'instant";
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < a.length() && i < 4; i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            String pkg = o.optString("pkg", "");
+            int p = pkg.lastIndexOf('.');
+            if (b.length() > 0) b.append("\n");
+            b.append(o.optString("title", "?"));
+            String sub = o.optString("sub", "");
+            if (!sub.isEmpty()) b.append(" — ").append(sub);
+            b.append("  [").append(p >= 0 ? pkg.substring(p + 1) : pkg).append("]");
+        }
+        return b.length() == 0 ? "rien de détecté pour l'instant" : b.toString();
+    }
+
     static boolean granted(Context c) {
         if (instance != null) return true;
         if (c == null) return false;

@@ -1749,6 +1749,7 @@ public class SettingsActivity extends Activity {
             refreshAll();
         });
         infoNote("La TV s'éteint et se rallume dans 2 mn en lançant la musique au bon volume.");
+        infoBlockDynamic("Lectures détectées", () -> MediaWatchService.debug(this));
         infoBlockDynamic("Derniers écrans", () -> {
             String[] l = getSharedPreferences("villa", MODE_PRIVATE).getString("last_screens", "").split("\n");
             StringBuilder sb = new StringBuilder();
